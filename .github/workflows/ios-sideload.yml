@@ -26,12 +26,24 @@ concurrency:
 jobs:
   unsigned-ipa:
     name: Unsigned IPA (for Sideloadly)
-    runs-on: macos-14
+    # macos-14 image is retired; the label reroutes to a newer image whose
+    # default Xcode SDK breaks camera_avfoundation 0.9.x
+    # (AVCaptureSession.wasInterruptedNotification is not exposed there).
+    # flutter/packages CI builds the same code on Mac 15.x + Xcode 26.x, so
+    # pin macos-15 + latest-stable Xcode to match the known-good combo.
+    runs-on: macos-15
     defaults:
       run:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: xcodebuild -version && sw_vers
 
       - uses: subosito/flutter-action@v2
         with:
