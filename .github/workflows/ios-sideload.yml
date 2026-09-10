@@ -16,7 +16,7 @@ name: iOS sideload IPA
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, master]
     paths: ["app/**"]
 
 concurrency:
