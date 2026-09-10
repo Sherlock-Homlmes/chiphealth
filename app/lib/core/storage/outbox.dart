@@ -19,20 +19,20 @@ class OutboxEntry {
   final int queuedAt;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'method': method,
-        'path': path,
-        'body': body,
-        'queuedAt': queuedAt
-      };
+    'id': id,
+    'method': method,
+    'path': path,
+    'body': body,
+    'queuedAt': queuedAt,
+  };
 
   factory OutboxEntry.fromJson(Map<String, dynamic> json) => OutboxEntry(
-        id: json['id'] as String,
-        method: json['method'] as String,
-        path: json['path'] as String,
-        body: (json['body'] as Map).cast<String, dynamic>(),
-        queuedAt: (json['queuedAt'] as num).toInt(),
-      );
+    id: json['id'] as String,
+    method: json['method'] as String,
+    path: json['path'] as String,
+    body: (json['body'] as Map).cast<String, dynamic>(),
+    queuedAt: (json['queuedAt'] as num).toInt(),
+  );
 }
 
 /// Offline-first writes: workouts, meals and sleep sessions carry a client-minted
@@ -88,6 +88,8 @@ class Outbox {
 
   Future<void> _persist() async {
     await _prefs.setString(
-        _key, jsonEncode(_entries.map((e) => e.toJson()).toList()));
+      _key,
+      jsonEncode(_entries.map((e) => e.toJson()).toList()),
+    );
   }
 }

@@ -17,8 +17,10 @@ void floatEmoji(BuildContext origin, String emoji) {
   final box = origin.findRenderObject();
   if (overlay == null || box is! RenderBox || !box.hasSize) return;
 
-  final start = box.localToGlobal(box.size.center(Offset.zero),
-      ancestor: overlay.context.findRenderObject());
+  final start = box.localToGlobal(
+    box.size.center(Offset.zero),
+    ancestor: overlay.context.findRenderObject(),
+  );
 
   late final OverlayEntry entry;
   entry = OverlayEntry(
@@ -84,20 +86,19 @@ class _FloatingEmojiState extends State<_FloatingEmoji>
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (_, __) => Stack(
-            children: [
-              for (final drift in _drifts) _copy(drift),
-            ],
-          ),
-        ),
-      );
+    child: AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) =>
+          Stack(children: [for (final drift in _drifts) _copy(drift)]),
+    ),
+  );
 
   Widget _copy(_Drift drift) {
     // Each copy runs its own clock inside the shared one.
-    final t = ((_controller.value - drift.delay) / (1 - drift.delay))
-        .clamp(0.0, 1.0);
+    final t = ((_controller.value - drift.delay) / (1 - drift.delay)).clamp(
+      0.0,
+      1.0,
+    );
     if (t == 0) return const SizedBox.shrink();
 
     // Out fast, in slow: the fade happens over the last third, so the rise is

@@ -1,4 +1,6 @@
-import 'save_image_io.dart' if (dart.library.html) 'save_image_web.dart' as impl;
+import 'save_image_io.dart'
+    if (dart.library.html) 'save_image_web.dart'
+    as impl;
 
 /// Hands the viewer a copy of a photo to keep.
 ///

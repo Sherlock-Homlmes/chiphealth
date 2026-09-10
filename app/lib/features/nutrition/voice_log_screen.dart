@@ -81,8 +81,11 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
       final repo = ref.read(nutritionRepositoryProvider);
       final meal = await repo.createMeal(mealType: _guessMealType());
       if (audioPath != null) {
-        await repo.logSpoken(meal.id,
-            audio: await readClip(audioPath), mimeType: 'audio/mp4');
+        await repo.logSpoken(
+          meal.id,
+          audio: await readClip(audioPath),
+          mimeType: 'audio/mp4',
+        );
       } else {
         await repo.logSpoken(meal.id, transcript: transcript);
       }
@@ -99,9 +102,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RetroTokens.paper,
-      appBar: AppBar(
-        title: Text(widget.typedOnly ? 'Nhập tay' : 'Nói'),
-      ),
+      appBar: AppBar(title: Text(widget.typedOnly ? 'Nhập tay' : 'Nói')),
       body: PhoneFrame(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -122,8 +123,11 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
                               : RetroTokens.action,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(_recording ? Icons.stop : Icons.mic,
-                            size: 46, color: Colors.white),
+                        child: Icon(
+                          _recording ? Icons.stop : Icons.mic,
+                          size: 46,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -134,18 +138,24 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
                       style: const TextStyle(color: RetroTokens.inkSoft),
                     ),
                     const SizedBox(height: 6),
-                    const Text('Ví dụ: "trưa nay ăn hai bát cơm với thịt kho"',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                            color: RetroTokens.inkFaint, fontSize: 12)),
+                    const Text(
+                      'Ví dụ: "trưa nay ăn hai bát cơm với thịt kho"',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: RetroTokens.inkFaint,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 28),
               const Divider(),
               const SizedBox(height: 12),
-              const Text('Hoặc gõ ra',
-                  style: TextStyle(color: RetroTokens.inkSoft)),
+              const Text(
+                'Hoặc gõ ra',
+                style: TextStyle(color: RetroTokens.inkSoft),
+              ),
               const SizedBox(height: 8),
             ],
             TextField(
@@ -160,20 +170,26 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
             FilledButton(
               onPressed: _busy ? null : () => _submit(),
               style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(50)),
+                minimumSize: const Size.fromHeight(50),
+              ),
               child: _busy
                   ? const SizedBox(
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : const Text('Phân tích'),
             ),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
-                child: Text(_error!,
-                    style: const TextStyle(color: RetroTokens.accent)),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: RetroTokens.accent),
+                ),
               ),
           ],
         ),

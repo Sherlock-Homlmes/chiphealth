@@ -42,17 +42,17 @@ class AppUser {
   final String timezone;
 
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
-        id: json['id'] as String,
-        email: json['email'] as String,
-        displayName: json['displayName'] as String?,
-        avatarUrl: json['avatarRemoteUrl'] as String?,
-        role: json['role'] as String? ?? 'user',
-        locale: json['locale'] as String? ?? 'vi',
-        unitSystem: json['unitSystem'] == 'imperial'
-            ? UnitSystem.imperial
-            : UnitSystem.metric,
-        timezone: json['timezone'] as String? ?? 'Asia/Ho_Chi_Minh',
-      );
+    id: json['id'] as String,
+    email: json['email'] as String,
+    displayName: json['displayName'] as String?,
+    avatarUrl: json['avatarRemoteUrl'] as String?,
+    role: json['role'] as String? ?? 'user',
+    locale: json['locale'] as String? ?? 'vi',
+    unitSystem: json['unitSystem'] == 'imperial'
+        ? UnitSystem.imperial
+        : UnitSystem.metric,
+    timezone: json['timezone'] as String? ?? 'Asia/Ho_Chi_Minh',
+  );
 }
 
 class UserProfile {
@@ -77,26 +77,26 @@ class UserProfile {
   final String? waketimeTarget;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
-        dateOfBirth: json['dateOfBirth'] as String?,
-        biologicalSex: json['biologicalSex'] as String?,
-        activityLevel: json['activityLevel'] as String? ?? 'moderate',
-        maxHeartRateOverride: _intOrNull(json['maxHeartRateOverride']),
-        restingHeartRate: _intOrNull(json['restingHeartRate']),
-        targetSleepMinutes: _int(json['targetSleepMinutes'], 480),
-        bedtimeTarget: json['bedtimeTarget'] as String?,
-        waketimeTarget: json['waketimeTarget'] as String?,
-      );
+    dateOfBirth: json['dateOfBirth'] as String?,
+    biologicalSex: json['biologicalSex'] as String?,
+    activityLevel: json['activityLevel'] as String? ?? 'moderate',
+    maxHeartRateOverride: _intOrNull(json['maxHeartRateOverride']),
+    restingHeartRate: _intOrNull(json['restingHeartRate']),
+    targetSleepMinutes: _int(json['targetSleepMinutes'], 480),
+    bedtimeTarget: json['bedtimeTarget'] as String?,
+    waketimeTarget: json['waketimeTarget'] as String?,
+  );
 
   Map<String, dynamic> toJson() => {
-        'dateOfBirth': dateOfBirth,
-        'biologicalSex': biologicalSex,
-        'activityLevel': activityLevel,
-        'maxHeartRateOverride': maxHeartRateOverride,
-        'restingHeartRate': restingHeartRate,
-        'targetSleepMinutes': targetSleepMinutes,
-        'bedtimeTarget': bedtimeTarget,
-        'waketimeTarget': waketimeTarget,
-      };
+    'dateOfBirth': dateOfBirth,
+    'biologicalSex': biologicalSex,
+    'activityLevel': activityLevel,
+    'maxHeartRateOverride': maxHeartRateOverride,
+    'restingHeartRate': restingHeartRate,
+    'targetSleepMinutes': targetSleepMinutes,
+    'bedtimeTarget': bedtimeTarget,
+    'waketimeTarget': waketimeTarget,
+  };
 }
 
 class BodyMetric {
@@ -117,13 +117,13 @@ class BodyMetric {
   final double? muscleMassKg;
 
   factory BodyMetric.fromJson(Map<String, dynamic> json) => BodyMetric(
-        recordedAt: _int(json['recordedAt']),
-        localDate: json['localDate'] as String? ?? '',
-        weightKg: _dbl(json['weightKg']),
-        heightCm: _dbl(json['heightCm']),
-        bodyFatPercent: _dbl(json['bodyFatPercent']),
-        muscleMassKg: _dbl(json['muscleMassKg']),
-      );
+    recordedAt: _int(json['recordedAt']),
+    localDate: json['localDate'] as String? ?? '',
+    weightKg: _dbl(json['weightKg']),
+    heightCm: _dbl(json['heightCm']),
+    bodyFatPercent: _dbl(json['bodyFatPercent']),
+    muscleMassKg: _dbl(json['muscleMassKg']),
+  );
 }
 
 class Goal {
@@ -156,20 +156,23 @@ class Goal {
   }
 
   factory Goal.fromJson(Map<String, dynamic> json) => Goal(
-        id: json['id'] as String,
-        goalType: json['goalType'] as String,
-        startValue: _dblOr(json['startValue']),
-        status: json['status'] as String? ?? 'active',
-        targetValue: _dbl(json['targetValue']),
-        targetUnit: json['targetUnit'] as String?,
-        deadline: json['deadline'] as String?,
-        priority: _int(json['priority']),
-      );
+    id: json['id'] as String,
+    goalType: json['goalType'] as String,
+    startValue: _dblOr(json['startValue']),
+    status: json['status'] as String? ?? 'active',
+    targetValue: _dbl(json['targetValue']),
+    targetUnit: json['targetUnit'] as String?,
+    deadline: json['deadline'] as String?,
+    priority: _int(json['priority']),
+  );
 }
 
 class ChronicCondition {
-  const ChronicCondition(
-      {required this.id, required this.description, this.isActive = true});
+  const ChronicCondition({
+    required this.id,
+    required this.description,
+    this.isActive = true,
+  });
 
   final String id;
   final String description;
@@ -201,13 +204,13 @@ class ActivityType {
   final bool supportsSets;
 
   factory ActivityType.fromJson(Map<String, dynamic> json) => ActivityType(
-        id: _int(json['id']),
-        code: json['code'] as String,
-        name: json['name'] as String? ?? json['code'] as String,
-        category: json['category'] as String? ?? 'other',
-        supportsGps: _bool(json['supportsGps']),
-        supportsSets: _bool(json['supportsSets']),
-      );
+    id: _int(json['id']),
+    code: json['code'] as String,
+    name: json['name'] as String? ?? json['code'] as String,
+    category: json['category'] as String? ?? 'other',
+    supportsGps: _bool(json['supportsGps']),
+    supportsSets: _bool(json['supportsSets']),
+  );
 }
 
 /* ---------------------------------------------------------------- nutrition */
@@ -246,34 +249,34 @@ class MealItem {
   final bool isUserCorrected;
 
   factory MealItem.fromJson(Map<String, dynamic> json) => MealItem(
-        id: _int(json['id']),
-        ingredientName: json['ingredientName'] as String,
-        quantityG: _dblOr(json['quantityG']),
-        caloriesKcal: _dblOr(json['caloriesKcal']),
-        quantityLabel: json['quantityLabel'] as String?,
-        proteinG: _dbl(json['proteinG']),
-        carbsG: _dbl(json['carbsG']),
-        fatG: _dbl(json['fatG']),
-        fiberG: _dbl(json['fiberG']),
-        sugarG: _dbl(json['sugarG']),
-        sodiumMg: _dbl(json['sodiumMg']),
-        source: json['source'] as String? ?? 'ai_estimated',
-        confidence: _dbl(json['confidence']),
-        isUserCorrected: _bool(json['isUserCorrected']),
-      );
+    id: _int(json['id']),
+    ingredientName: json['ingredientName'] as String,
+    quantityG: _dblOr(json['quantityG']),
+    caloriesKcal: _dblOr(json['caloriesKcal']),
+    quantityLabel: json['quantityLabel'] as String?,
+    proteinG: _dbl(json['proteinG']),
+    carbsG: _dbl(json['carbsG']),
+    fatG: _dbl(json['fatG']),
+    fiberG: _dbl(json['fiberG']),
+    sugarG: _dbl(json['sugarG']),
+    sodiumMg: _dbl(json['sodiumMg']),
+    source: json['source'] as String? ?? 'ai_estimated',
+    confidence: _dbl(json['confidence']),
+    isUserCorrected: _bool(json['isUserCorrected']),
+  );
 
   Map<String, dynamic> toJson() => {
-        'ingredientName': ingredientName,
-        'quantityG': quantityG,
-        'quantityLabel': quantityLabel,
-        'caloriesKcal': caloriesKcal,
-        'proteinG': proteinG,
-        'carbsG': carbsG,
-        'fatG': fatG,
-        'fiberG': fiberG,
-        'sugarG': sugarG,
-        'sodiumMg': sodiumMg,
-      };
+    'ingredientName': ingredientName,
+    'quantityG': quantityG,
+    'quantityLabel': quantityLabel,
+    'caloriesKcal': caloriesKcal,
+    'proteinG': proteinG,
+    'carbsG': carbsG,
+    'fatG': fatG,
+    'fiberG': fiberG,
+    'sugarG': sugarG,
+    'sodiumMg': sodiumMg,
+  };
 }
 
 /// One page of the meal timeline. The cursor is opaque to the client: the
@@ -422,7 +425,8 @@ class MealLog {
       totalProteinG: _dblOr(json['totalProteinG']),
       totalCarbsG: _dblOr(json['totalCarbsG']),
       totalFatG: _dblOr(json['totalFatG']),
-      items: (json['items'] as List?)
+      items:
+          (json['items'] as List?)
               ?.whereType<Map>()
               .map((e) => MealItem.fromJson(e.cast<String, dynamic>()))
               .toList() ??
@@ -488,7 +492,8 @@ class DailyNutrition {
       sugarG: _dblOr(summary?['sugarG']),
       sodiumMg: _dblOr(summary?['sodiumMg']),
       burnedKcal: _dblOr(summary?['caloriesBurnedWorkoutKcal']),
-      meals: (json['meals'] as List?)
+      meals:
+          (json['meals'] as List?)
               ?.whereType<Map>()
               .map((e) => MealLog.fromJson(e.cast<String, dynamic>()))
               .toList() ??
@@ -519,15 +524,15 @@ class MealPlan {
   final double? targetCaloriesKcal;
 
   factory MealPlan.fromJson(Map<String, dynamic> json) => MealPlan(
-        id: json['id'] as String,
-        planDate: json['planDate'] as String,
-        mealType: json['mealType'] as String,
-        title: json['title'] as String,
-        status: json['status'] as String? ?? 'suggested',
-        description: json['description'] as String?,
-        rationale: json['rationale'] as String?,
-        targetCaloriesKcal: _dbl(json['targetCaloriesKcal']),
-      );
+    id: json['id'] as String,
+    planDate: json['planDate'] as String,
+    mealType: json['mealType'] as String,
+    title: json['title'] as String,
+    status: json['status'] as String? ?? 'suggested',
+    description: json['description'] as String?,
+    rationale: json['rationale'] as String?,
+    targetCaloriesKcal: _dbl(json['targetCaloriesKcal']),
+  );
 }
 
 class FoodHit {
@@ -553,19 +558,20 @@ class FoodHit {
   final double? carbsG;
   final double? fatG;
 
-  factory FoodHit.fromJson(Map<String, dynamic> json,
-          {bool personal = false}) =>
-      FoodHit(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        servingSizeG: _dblOr(json['servingSizeG'], 100),
-        caloriesKcal: _dblOr(json['caloriesKcal']),
-        brand: json['brand'] as String?,
-        isPersonal: personal,
-        proteinG: _dbl(json['proteinG']),
-        carbsG: _dbl(json['carbsG']),
-        fatG: _dbl(json['fatG']),
-      );
+  factory FoodHit.fromJson(
+    Map<String, dynamic> json, {
+    bool personal = false,
+  }) => FoodHit(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    servingSizeG: _dblOr(json['servingSizeG'], 100),
+    caloriesKcal: _dblOr(json['caloriesKcal']),
+    brand: json['brand'] as String?,
+    isPersonal: personal,
+    proteinG: _dbl(json['proteinG']),
+    carbsG: _dbl(json['carbsG']),
+    fatG: _dbl(json['fatG']),
+  );
 }
 
 /* ----------------------------------------------------------------- training */
@@ -606,21 +612,21 @@ class WorkoutSession {
   double get distanceKm => (distanceM ?? 0) / 1000;
 
   factory WorkoutSession.fromJson(Map<String, dynamic> json) => WorkoutSession(
-        id: json['id'] as String,
-        activityTypeId: _int(json['activityTypeId']),
-        startedAt: _int(json['startedAt']),
-        localDate: json['localDate'] as String? ?? '',
-        title: json['title'] as String?,
-        endedAt: _intOrNull(json['endedAt']),
-        durationSeconds: _intOrNull(json['durationSeconds']),
-        distanceM: _dbl(json['distanceM']),
-        avgHeartRate: _intOrNull(json['avgHeartRate']),
-        maxHeartRate: _intOrNull(json['maxHeartRate']),
-        avgPaceSecPerKm: _dbl(json['avgPaceSecPerKm']),
-        elevationGainM: _dbl(json['elevationGainM']),
-        caloriesBurnedKcal: _dbl(json['caloriesBurnedKcal']),
-        source: json['source'] as String? ?? 'in_app',
-      );
+    id: json['id'] as String,
+    activityTypeId: _int(json['activityTypeId']),
+    startedAt: _int(json['startedAt']),
+    localDate: json['localDate'] as String? ?? '',
+    title: json['title'] as String?,
+    endedAt: _intOrNull(json['endedAt']),
+    durationSeconds: _intOrNull(json['durationSeconds']),
+    distanceM: _dbl(json['distanceM']),
+    avgHeartRate: _intOrNull(json['avgHeartRate']),
+    maxHeartRate: _intOrNull(json['maxHeartRate']),
+    avgPaceSecPerKm: _dbl(json['avgPaceSecPerKm']),
+    elevationGainM: _dbl(json['elevationGainM']),
+    caloriesBurnedKcal: _dbl(json['caloriesBurnedKcal']),
+    source: json['source'] as String? ?? 'in_app',
+  );
 }
 
 class WorkoutSplit {
@@ -639,29 +645,30 @@ class WorkoutSplit {
   final double? elevationGainM;
 
   factory WorkoutSplit.fromJson(Map<String, dynamic> json) => WorkoutSplit(
-        splitIndex: _int(json['splitIndex']),
-        elapsedSeconds: _int(json['elapsedSeconds']),
-        avgPaceSecPerKm: _dbl(json['avgPaceSecPerKm']),
-        avgHeartRate: _intOrNull(json['avgHeartRate']),
-        elevationGainM: _dbl(json['elevationGainM']),
-      );
+    splitIndex: _int(json['splitIndex']),
+    elapsedSeconds: _int(json['elapsedSeconds']),
+    avgPaceSecPerKm: _dbl(json['avgPaceSecPerKm']),
+    avgHeartRate: _intOrNull(json['avgHeartRate']),
+    elevationGainM: _dbl(json['elevationGainM']),
+  );
 }
 
 class ZoneSummary {
-  const ZoneSummary(
-      {required this.zoneNumber,
-      required this.secondsInZone,
-      this.percentOfSession});
+  const ZoneSummary({
+    required this.zoneNumber,
+    required this.secondsInZone,
+    this.percentOfSession,
+  });
 
   final int zoneNumber;
   final int secondsInZone;
   final double? percentOfSession;
 
   factory ZoneSummary.fromJson(Map<String, dynamic> json) => ZoneSummary(
-        zoneNumber: _int(json['zoneNumber']),
-        secondsInZone: _int(json['secondsInZone']),
-        percentOfSession: _dbl(json['percentOfSession']),
-      );
+    zoneNumber: _int(json['zoneNumber']),
+    secondsInZone: _int(json['secondsInZone']),
+    percentOfSession: _dbl(json['percentOfSession']),
+  );
 }
 
 class PersonalRecord {
@@ -688,36 +695,42 @@ class PersonalRecord {
       previousValue == null ? null : (value - previousValue!).abs();
 
   factory PersonalRecord.fromJson(Map<String, dynamic> json) => PersonalRecord(
-        id: json['id'] as String,
-        metric: json['metric'] as String,
-        value: _dblOr(json['value']),
-        unit: json['unit'] as String? ?? '',
-        achievedAt: _int(json['achievedAt']),
-        distanceM: _dbl(json['distanceM']),
-        previousValue: _dbl(json['previousValue']),
-      );
+    id: json['id'] as String,
+    metric: json['metric'] as String,
+    value: _dblOr(json['value']),
+    unit: json['unit'] as String? ?? '',
+    achievedAt: _int(json['achievedAt']),
+    distanceM: _dbl(json['distanceM']),
+    previousValue: _dbl(json['previousValue']),
+  );
 }
 
 class HrZone {
-  const HrZone(
-      {required this.zoneNumber, required this.minBpm, required this.maxBpm});
+  const HrZone({
+    required this.zoneNumber,
+    required this.minBpm,
+    required this.maxBpm,
+  });
 
   final int zoneNumber;
   final int minBpm;
   final int maxBpm;
 
   factory HrZone.fromJson(Map<String, dynamic> json) => HrZone(
-        zoneNumber: _int(json['zoneNumber']),
-        minBpm: _int(json['minBpm']),
-        maxBpm: _int(json['maxBpm']),
-      );
+    zoneNumber: _int(json['zoneNumber']),
+    minBpm: _int(json['minBpm']),
+    maxBpm: _int(json['maxBpm']),
+  );
 }
 
 /* -------------------------------------------------------------------- sleep */
 
 class SleepStageSegment {
-  const SleepStageSegment(
-      {required this.stage, required this.startedAt, required this.endedAt});
+  const SleepStageSegment({
+    required this.stage,
+    required this.startedAt,
+    required this.endedAt,
+  });
 
   final String stage;
   final int startedAt;
@@ -725,8 +738,11 @@ class SleepStageSegment {
 
   int get seconds => ((endedAt - startedAt) / 1000).round();
 
-  Map<String, dynamic> toJson() =>
-      {'stage': stage, 'startedAt': startedAt, 'endedAt': endedAt};
+  Map<String, dynamic> toJson() => {
+    'stage': stage,
+    'startedAt': startedAt,
+    'endedAt': endedAt,
+  };
 
   factory SleepStageSegment.fromJson(Map<String, dynamic> json) =>
       SleepStageSegment(
@@ -806,31 +822,32 @@ class SleepSession {
   final List<SleepAudioEvent> events;
 
   factory SleepSession.fromJson(Map<String, dynamic> json) => SleepSession(
-        id: json['id'] as String,
-        source: json['source'] as String? ?? 'phone_mic',
-        startedAt: _int(json['startedAt']),
-        localDate: json['localDate'] as String? ?? '',
-        endedAt: _intOrNull(json['endedAt']),
-        totalSleepSeconds: _intOrNull(json['totalSleepSeconds']),
-        awakeSeconds: _int(json['awakeSeconds']),
-        lightSeconds: _int(json['lightSeconds']),
-        deepSeconds: _int(json['deepSeconds']),
-        remSeconds: _int(json['remSeconds']),
-        sleepScore: _intOrNull(json['sleepScore']),
-        sleepEfficiency: _dbl(json['sleepEfficiency']),
-        stagesAreEstimated: _bool(json['stagesAreEstimated']),
-        stages: (json['stages'] as List?)
-                ?.whereType<Map>()
-                .map((e) =>
-                    SleepStageSegment.fromJson(e.cast<String, dynamic>()))
-                .toList() ??
-            const [],
-        events: (json['events'] as List?)
-                ?.whereType<Map>()
-                .map((e) => SleepAudioEvent.fromJson(e.cast<String, dynamic>()))
-                .toList() ??
-            const [],
-      );
+    id: json['id'] as String,
+    source: json['source'] as String? ?? 'phone_mic',
+    startedAt: _int(json['startedAt']),
+    localDate: json['localDate'] as String? ?? '',
+    endedAt: _intOrNull(json['endedAt']),
+    totalSleepSeconds: _intOrNull(json['totalSleepSeconds']),
+    awakeSeconds: _int(json['awakeSeconds']),
+    lightSeconds: _int(json['lightSeconds']),
+    deepSeconds: _int(json['deepSeconds']),
+    remSeconds: _int(json['remSeconds']),
+    sleepScore: _intOrNull(json['sleepScore']),
+    sleepEfficiency: _dbl(json['sleepEfficiency']),
+    stagesAreEstimated: _bool(json['stagesAreEstimated']),
+    stages:
+        (json['stages'] as List?)
+            ?.whereType<Map>()
+            .map((e) => SleepStageSegment.fromJson(e.cast<String, dynamic>()))
+            .toList() ??
+        const [],
+    events:
+        (json['events'] as List?)
+            ?.whereType<Map>()
+            .map((e) => SleepAudioEvent.fromJson(e.cast<String, dynamic>()))
+            .toList() ??
+        const [],
+  );
 }
 
 class SleepDebtDay {
@@ -849,12 +866,12 @@ class SleepDebtDay {
   final bool hasData;
 
   factory SleepDebtDay.fromJson(Map<String, dynamic> json) => SleepDebtDay(
-        localDate: json['localDate'] as String,
-        targetSleepSeconds: _int(json['targetSleepSeconds']),
-        actualSleepSeconds: _int(json['actualSleepSeconds']),
-        dailyDiffSeconds: _int(json['dailyDiffSeconds']),
-        hasData: _bool(json['hasData'], true),
-      );
+    localDate: json['localDate'] as String,
+    targetSleepSeconds: _int(json['targetSleepSeconds']),
+    actualSleepSeconds: _int(json['actualSleepSeconds']),
+    dailyDiffSeconds: _int(json['dailyDiffSeconds']),
+    hasData: _bool(json['hasData'], true),
+  );
 }
 
 class SleepDebt {
@@ -875,23 +892,27 @@ class SleepDebt {
   double get debtHours => rollingDebtSeconds / 3600;
 
   factory SleepDebt.fromJson(Map<String, dynamic> json) => SleepDebt(
-        targetSeconds: _int(json['targetSeconds'], 28800),
-        windowDays: _int(json['windowDays'], 14),
-        rollingDebtSeconds: _int(json['rollingDebtSeconds']),
-        daysRecorded: _int(json['daysRecorded']),
-        byDay: (json['byDay'] as List?)
-                ?.whereType<Map>()
-                .map((e) => SleepDebtDay.fromJson(e.cast<String, dynamic>()))
-                .toList() ??
-            const [],
-      );
+    targetSeconds: _int(json['targetSeconds'], 28800),
+    windowDays: _int(json['windowDays'], 14),
+    rollingDebtSeconds: _int(json['rollingDebtSeconds']),
+    daysRecorded: _int(json['daysRecorded']),
+    byDay:
+        (json['byDay'] as List?)
+            ?.whereType<Map>()
+            .map((e) => SleepDebtDay.fromJson(e.cast<String, dynamic>()))
+            .toList() ??
+        const [],
+  );
 }
 
 /* -------------------------------------------------------------------- coach */
 
 class CoachMessage {
-  const CoachMessage(
-      {required this.role, required this.content, this.createdAt});
+  const CoachMessage({
+    required this.role,
+    required this.content,
+    this.createdAt,
+  });
 
   final String role;
   final String content;
@@ -900,10 +921,10 @@ class CoachMessage {
   bool get isUser => role == 'user';
 
   factory CoachMessage.fromJson(Map<String, dynamic> json) => CoachMessage(
-        role: json['role'] as String,
-        content: json['content'] as String,
-        createdAt: _intOrNull(json['createdAt']),
-      );
+    role: json['role'] as String,
+    content: json['content'] as String,
+    createdAt: _intOrNull(json['createdAt']),
+  );
 }
 
 class CoachInsight {
@@ -926,21 +947,25 @@ class CoachInsight {
   final bool isRead;
 
   factory CoachInsight.fromJson(Map<String, dynamic> json) => CoachInsight(
-        id: json['id'] as String,
-        domain: json['domain'] as String,
-        title: json['title'] as String,
-        body: json['body'] as String,
-        localDate: json['localDate'] as String? ?? '',
-        severity: json['severity'] as String?,
-        isRead: _bool(json['isRead']),
-      );
+    id: json['id'] as String,
+    domain: json['domain'] as String,
+    title: json['title'] as String,
+    body: json['body'] as String,
+    localDate: json['localDate'] as String? ?? '',
+    severity: json['severity'] as String?,
+    isRead: _bool(json['isRead']),
+  );
 }
 
 /* ------------------------------------------------------------------ moments */
 
 class Friend {
-  const Friend(
-      {required this.id, this.displayName, this.email, this.avatarUrl});
+  const Friend({
+    required this.id,
+    this.displayName,
+    this.email,
+    this.avatarUrl,
+  });
 
   final String id;
   final String? displayName;
@@ -950,11 +975,11 @@ class Friend {
   String get label => displayName ?? email ?? id;
 
   factory Friend.fromJson(Map<String, dynamic> json) => Friend(
-        id: json['id'] as String,
-        displayName: json['displayName'] as String?,
-        email: json['email'] as String?,
-        avatarUrl: json['avatarRemoteUrl'] as String?,
-      );
+    id: json['id'] as String,
+    displayName: json['displayName'] as String?,
+    email: json['email'] as String?,
+    avatarUrl: json['avatarRemoteUrl'] as String?,
+  );
 }
 
 /// One direct message between two friends. Answering a photo is an ordinary
@@ -998,36 +1023,36 @@ class DirectMessage {
   bool get isReaction => kind == 'reaction';
 
   factory DirectMessage.fromJson(Map<String, dynamic> json) => DirectMessage(
-        id: json['id'] as String,
-        senderId: json['senderId'] as String,
-        recipientId: json['recipientId'] as String,
-        body: json['body'] as String? ?? '',
-        createdAt: _int(json['createdAt']),
-        kind: json['kind'] as String? ?? 'text',
-        momentPostId: json['momentPostId'] as String?,
-        readAt: _intOrNull(json['readAt']),
-        senderName: json['senderName'] as String?,
-        senderAvatarUrl: json['senderAvatarUrl'] as String?,
-        photoAssetId: json['photoAssetId'] as String?,
-        momentCaption: json['momentCaption'] as String?,
-      );
+    id: json['id'] as String,
+    senderId: json['senderId'] as String,
+    recipientId: json['recipientId'] as String,
+    body: json['body'] as String? ?? '',
+    createdAt: _int(json['createdAt']),
+    kind: json['kind'] as String? ?? 'text',
+    momentPostId: json['momentPostId'] as String?,
+    readAt: _intOrNull(json['readAt']),
+    senderName: json['senderName'] as String?,
+    senderAvatarUrl: json['senderAvatarUrl'] as String?,
+    photoAssetId: json['photoAssetId'] as String?,
+    momentCaption: json['momentCaption'] as String?,
+  );
 
   /// The same message, read. Flipped locally so a badge clears on the tap
   /// rather than on the round trip.
   DirectMessage read(int at) => DirectMessage(
-        id: id,
-        senderId: senderId,
-        recipientId: recipientId,
-        body: body,
-        createdAt: createdAt,
-        kind: kind,
-        momentPostId: momentPostId,
-        readAt: at,
-        senderName: senderName,
-        senderAvatarUrl: senderAvatarUrl,
-        photoAssetId: photoAssetId,
-        momentCaption: momentCaption,
-      );
+    id: id,
+    senderId: senderId,
+    recipientId: recipientId,
+    body: body,
+    createdAt: createdAt,
+    kind: kind,
+    momentPostId: momentPostId,
+    readAt: at,
+    senderName: senderName,
+    senderAvatarUrl: senderAvatarUrl,
+    photoAssetId: photoAssetId,
+    momentCaption: momentCaption,
+  );
 }
 
 /// One row of the messages list: a friend, what they last said, and how much of
@@ -1050,13 +1075,14 @@ class Conversation {
   String get label => displayName ?? 'Bạn bè';
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
-        userId: json['userId'] as String,
-        displayName: json['displayName'] as String?,
-        avatarUrl: json['avatarRemoteUrl'] as String?,
-        unread: _int(json['unread']),
-        lastMessage: DirectMessage.fromJson(
-            (json['lastMessage'] as Map).cast<String, dynamic>()),
-      );
+    userId: json['userId'] as String,
+    displayName: json['displayName'] as String?,
+    avatarUrl: json['avatarRemoteUrl'] as String?,
+    unread: _int(json['unread']),
+    lastMessage: DirectMessage.fromJson(
+      (json['lastMessage'] as Map).cast<String, dynamic>(),
+    ),
+  );
 }
 
 /// One page of the community feed plus where the next one starts./// One page of the community feed plus where the next one starts.
@@ -1102,26 +1128,26 @@ class Moment {
   /// The same moment, read. Cheaper than refetching the page a moment sits on
   /// just to flip one flag.
   Moment markedViewed(int at) => Moment(
-        id: id,
-        userId: userId,
-        photoAssetId: photoAssetId,
-        createdAt: createdAt,
-        caption: caption,
-        authorName: authorName,
-        authorAvatarUrl: authorAvatarUrl,
-        viewedAt: at,
-        visibility: visibility,
-      );
+    id: id,
+    userId: userId,
+    photoAssetId: photoAssetId,
+    createdAt: createdAt,
+    caption: caption,
+    authorName: authorName,
+    authorAvatarUrl: authorAvatarUrl,
+    viewedAt: at,
+    visibility: visibility,
+  );
 
   factory Moment.fromJson(Map<String, dynamic> json) => Moment(
-        id: json['id'] as String,
-        userId: json['userId'] as String,
-        photoAssetId: json['photoAssetId'] as String,
-        createdAt: _int(json['createdAt']),
-        caption: json['caption'] as String?,
-        authorName: json['authorName'] as String?,
-        authorAvatarUrl: json['authorAvatarUrl'] as String?,
-        viewedAt: _intOrNull(json['viewedAt']),
-        visibility: json['visibility'] as String? ?? 'friends',
-      );
+    id: json['id'] as String,
+    userId: json['userId'] as String,
+    photoAssetId: json['photoAssetId'] as String,
+    createdAt: _int(json['createdAt']),
+    caption: json['caption'] as String?,
+    authorName: json['authorName'] as String?,
+    authorAvatarUrl: json['authorAvatarUrl'] as String?,
+    viewedAt: _intOrNull(json['viewedAt']),
+    visibility: json['visibility'] as String? ?? 'friends',
+  );
 }

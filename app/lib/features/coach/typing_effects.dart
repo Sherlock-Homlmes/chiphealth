@@ -31,8 +31,12 @@ class _CoachThinkingIndicatorState extends State<CoachThinkingIndicator> {
     _timer = Timer.periodic(const Duration(milliseconds: 1400), (_) {
       if (!mounted) return;
       // Hold on the last stage rather than looping: a loop reads as "stuck".
-      setState(() => _stage =
-          (_stage + 1).clamp(0, CoachThinkingIndicator.stages.length - 1));
+      setState(
+        () => _stage = (_stage + 1).clamp(
+          0,
+          CoachThinkingIndicator.stages.length - 1,
+        ),
+      );
     });
   }
 
@@ -64,8 +68,10 @@ class _CoachThinkingIndicatorState extends State<CoachThinkingIndicator> {
               child: Text(
                 CoachThinkingIndicator.stages[_stage],
                 key: ValueKey(_stage),
-                style:
-                    const TextStyle(color: RetroTokens.inkSoft, fontSize: 13),
+                style: const TextStyle(
+                  color: RetroTokens.inkSoft,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],

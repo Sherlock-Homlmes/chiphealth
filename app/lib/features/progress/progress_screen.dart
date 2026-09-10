@@ -69,7 +69,10 @@ class ProgressScreen extends ConsumerWidget {
                 _ChartCard(
                   title: 'Tiến trình cân nặng (kg)',
                   child: _WeightChart(
-                      range: range, metrics: metrics, goals: goals),
+                    range: range,
+                    metrics: metrics,
+                    goals: goals,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _ChartCard(
@@ -129,8 +132,10 @@ class _Header extends ConsumerWidget {
 
     if (mode != PeriodMode.custom) {
       final now = DateTime.now();
-      ref.read(periodProvider.notifier).state =
-          Period(mode: mode, anchor: DateTime(now.year, now.month, now.day));
+      ref.read(periodProvider.notifier).state = Period(
+        mode: mode,
+        anchor: DateTime(now.year, now.month, now.day),
+      );
       return;
     }
 
@@ -188,8 +193,9 @@ class _Header extends ConsumerWidget {
               icon: Icons.chevron_left,
               tooltip: 'Kỳ trước',
               onTap: canStep
-                  ? () =>
-                      ref.read(periodProvider.notifier).state = period.step(-1)
+                  ? () => ref.read(periodProvider.notifier).state = period.step(
+                      -1,
+                    )
                   : null,
             ),
             const SizedBox(width: 8),
@@ -198,7 +204,7 @@ class _Header extends ConsumerWidget {
               tooltip: 'Kỳ sau',
               onTap: canForward
                   ? () =>
-                      ref.read(periodProvider.notifier).state = period.step(1)
+                        ref.read(periodProvider.notifier).state = period.step(1)
                   : null,
             ),
           ],
@@ -219,8 +225,11 @@ class _Header extends ConsumerWidget {
                     color: RetroTokens.inkSoft,
                   ),
                 ),
-                const Icon(Icons.expand_more,
-                    size: 18, color: RetroTokens.inkSoft),
+                const Icon(
+                  Icons.expand_more,
+                  size: 18,
+                  color: RetroTokens.inkSoft,
+                ),
               ],
             ),
           ),
@@ -243,27 +252,29 @@ class _ArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: tooltip,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: RetroTokens.paperRaised,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: onTap == null ? RetroTokens.inkFaint : RetroTokens.ink,
-                width: RetroTokens.border,
-              ),
-            ),
-            child: Icon(icon,
-                size: 20,
-                color: onTap == null ? RetroTokens.inkFaint : RetroTokens.ink),
+    message: tooltip,
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: RetroTokens.paperRaised,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: onTap == null ? RetroTokens.inkFaint : RetroTokens.ink,
+            width: RetroTokens.border,
           ),
         ),
-      );
+        child: Icon(
+          icon,
+          size: 20,
+          color: onTap == null ? RetroTokens.inkFaint : RetroTokens.ink,
+        ),
+      ),
+    ),
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -274,11 +285,7 @@ enum _Agg { sum, average, last }
 
 /// Turns a date→value map into the chart's buckets: one per day for a week or
 /// a month, one per calendar month for anything longer.
-List<Bucket> _bucketize(
-  DateRange range,
-  Map<String, double> byDate,
-  _Agg agg,
-) {
+List<Bucket> _bucketize(DateRange range, Map<String, double> byDate, _Agg agg) {
   if (range.days <= 31) {
     return [
       for (final day in range.dates)
@@ -330,7 +337,8 @@ Map<String, double> _weightsByDate(List<BodyMetric> metrics) {
 /// The active weight goal, if the user has one.
 Goal? _weightGoal(List<Goal> goals) {
   for (final goal in goals) {
-    final isWeight = goal.goalType == 'lose_weight' ||
+    final isWeight =
+        goal.goalType == 'lose_weight' ||
         goal.goalType == 'gain_weight' ||
         goal.targetUnit == 'kg';
     if (isWeight && goal.status == 'active' && goal.targetValue != null) {
@@ -352,17 +360,18 @@ class _ChartCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => HomeCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 14),
-            child,
-          ],
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
-      );
+        const SizedBox(height: 14),
+        child,
+      ],
+    ),
+  );
 }
 
 class _WeightCard extends StatelessWidget {
@@ -391,7 +400,8 @@ class _WeightCard extends StatelessWidget {
     final change = periodValues.length >= 2
         ? periodValues.last - periodValues.first
         : null;
-    final start = goal?.startValue ??
+    final start =
+        goal?.startValue ??
         (everything.values.isNotEmpty ? everything.values.first : null);
     final progress = goal?.progress(current) ?? 0;
 
@@ -445,19 +455,28 @@ class _WeightCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Text(start == null ? '—' : '${_kg.format(start)} kg',
-                  style: const TextStyle(
-                      fontSize: 12, color: RetroTokens.inkSoft)),
+              Text(
+                start == null ? '—' : '${_kg.format(start)} kg',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
               const Expanded(
-                child: Icon(Icons.arrow_forward,
-                    size: 14, color: RetroTokens.inkSoft),
+                child: Icon(
+                  Icons.arrow_forward,
+                  size: 14,
+                  color: RetroTokens.inkSoft,
+                ),
               ),
               Text(
                 goal?.targetValue == null
                     ? 'chưa đặt mục tiêu'
                     : '${_kg.format(goal!.targetValue)} kg',
-                style:
-                    const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: RetroTokens.inkSoft,
+                ),
               ),
             ],
           ),
@@ -480,31 +499,32 @@ class _PanelStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                fontSize: 10,
-                letterSpacing: 0.8,
-                fontWeight: FontWeight.w700,
-                color: RetroTokens.inkSoft,
-              )),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              maxLines: 1,
-              softWrap: false,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(color: tone, fontSize: 24),
-            ),
-          ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          fontSize: 10,
+          letterSpacing: 0.8,
+          fontWeight: FontWeight.w700,
+          color: RetroTokens.inkSoft,
+        ),
+      ),
+      const SizedBox(height: 4),
+      FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          value,
+          maxLines: 1,
+          softWrap: false,
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(color: tone, fontSize: 24),
+        ),
+      ),
+    ],
+  );
 }
 
 class _WeightChart extends StatelessWidget {
@@ -523,17 +543,22 @@ class _WeightChart extends StatelessWidget {
     if (metrics.isLoading) return const ChartEmpty();
     final goal = _weightGoal(goals.valueOrNull ?? const []);
     final buckets = _bucketize(
-        range, _weightsByDate(metrics.valueOrNull ?? const []), _Agg.last);
+      range,
+      _weightsByDate(metrics.valueOrNull ?? const []),
+      _Agg.last,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         WeightLineChart(buckets: buckets, goalWeightKg: goal?.targetValue),
         const SizedBox(height: 10),
-        const ChartLegend(items: [
-          (RetroTokens.warn, 'Mục tiêu cân nặng'),
-          (RetroTokens.accent, 'Cân nặng ghi nhận'),
-        ]),
+        const ChartLegend(
+          items: [
+            (RetroTokens.warn, 'Mục tiêu cân nặng'),
+            (RetroTokens.accent, 'Cân nặng ghi nhận'),
+          ],
+        ),
       ],
     );
   }
@@ -571,11 +596,13 @@ class _CaloriesInChart extends StatelessWidget {
           target: target,
         ),
         const SizedBox(height: 10),
-        ChartLegend(items: [
-          (RetroTokens.fat, 'Trong mục tiêu'),
-          (RetroTokens.accent, 'Vượt mục tiêu'),
-          (RetroTokens.ink, 'Mục tiêu ${target.round()} kcal'),
-        ]),
+        ChartLegend(
+          items: [
+            (RetroTokens.fat, 'Trong mục tiêu'),
+            (RetroTokens.accent, 'Vượt mục tiêu'),
+            (RetroTokens.ink, 'Mục tiêu ${target.round()} kcal'),
+          ],
+        ),
       ],
     );
   }
@@ -603,9 +630,9 @@ class _CaloriesOutChart extends StatelessWidget {
           color: RetroTokens.info,
         ),
         const SizedBox(height: 10),
-        const ChartLegend(items: [
-          (RetroTokens.info, 'Calo tiêu hao từ vận động'),
-        ]),
+        const ChartLegend(
+          items: [(RetroTokens.info, 'Calo tiêu hao từ vận động')],
+        ),
       ],
     );
   }
@@ -635,10 +662,12 @@ class _WaterChart extends ConsumerWidget {
           target: target,
         ),
         const SizedBox(height: 10),
-        ChartLegend(items: [
-          (RetroTokens.water, 'Lượng nước (ml)'),
-          (RetroTokens.ink, 'Mục tiêu ${target.round()} ml'),
-        ]),
+        ChartLegend(
+          items: [
+            (RetroTokens.water, 'Lượng nước (ml)'),
+            (RetroTokens.ink, 'Mục tiêu ${target.round()} ml'),
+          ],
+        ),
       ],
     );
   }
@@ -683,12 +712,16 @@ class _BmiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = (allMetrics.valueOrNull ?? const <BodyMetric>[]).toList()
       ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-    final weight = metrics.lastWhere((m) => m.weightKg != null,
-        orElse: () => const BodyMetric(recordedAt: 0, localDate: ''));
+    final weight = metrics.lastWhere(
+      (m) => m.weightKg != null,
+      orElse: () => const BodyMetric(recordedAt: 0, localDate: ''),
+    );
     // Height is entered once and rarely again, so the latest known one wins
     // even if it predates the current period.
-    final height = metrics.lastWhere((m) => m.heightCm != null,
-        orElse: () => const BodyMetric(recordedAt: 0, localDate: ''));
+    final height = metrics.lastWhere(
+      (m) => m.heightCm != null,
+      orElse: () => const BodyMetric(recordedAt: 0, localDate: ''),
+    );
     final kg = weight.weightKg;
     final cm = height.heightCm;
     final bmi = (kg == null || cm == null || cm <= 0)
@@ -702,14 +735,16 @@ class _BmiCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text('Chỉ số BMI của bạn',
-                    style:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                child: Text(
+                  'Chỉ số BMI của bạn',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
               ),
               Tooltip(
                 triggerMode: TooltipTriggerMode.tap,
                 showDuration: const Duration(seconds: 6),
-                message: 'BMI = cân nặng (kg) chia cho bình phương chiều cao '
+                message:
+                    'BMI = cân nặng (kg) chia cho bình phương chiều cao '
                     '(m). Là chỉ số tham khảo, không phân biệt cơ và mỡ.',
                 child: Container(
                   width: 22,
@@ -719,11 +754,14 @@ class _BmiCard extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: RetroTokens.inkSoft),
                   ),
-                  child: const Text('?',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: RetroTokens.inkSoft)),
+                  child: const Text(
+                    '?',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: RetroTokens.inkSoft,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -738,12 +776,16 @@ class _BmiCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(bmi.toStringAsFixed(1),
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  bmi.toStringAsFixed(1),
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(width: 10),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: _bandFor(bmi).color,
                     borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
@@ -751,9 +793,10 @@ class _BmiCard extends StatelessWidget {
                   child: Text(
                     _bandFor(bmi).label,
                     style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -769,8 +812,9 @@ class _BmiCard extends StatelessWidget {
                       Container(
                         height: 18,
                         decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(RetroTokens.radiusPill),
+                          borderRadius: BorderRadius.circular(
+                            RetroTokens.radiusPill,
+                          ),
                           gradient: const LinearGradient(
                             colors: [
                               RetroTokens.info,
@@ -792,8 +836,10 @@ class _BmiCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(2),
-                            border:
-                                Border.all(color: RetroTokens.ink, width: 0.5),
+                            border: Border.all(
+                              color: RetroTokens.ink,
+                              width: 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -815,12 +861,18 @@ class _BmiCard extends StatelessWidget {
                         width: 8,
                         height: 8,
                         decoration: BoxDecoration(
-                            color: band.color, shape: BoxShape.circle),
+                          color: band.color,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox(width: 6),
-                      Text('${band.label} ${band.range}',
-                          style: const TextStyle(
-                              fontSize: 11, color: RetroTokens.inkSoft)),
+                      Text(
+                        '${band.label} ${band.range}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: RetroTokens.inkSoft,
+                        ),
+                      ),
                     ],
                   ),
               ],

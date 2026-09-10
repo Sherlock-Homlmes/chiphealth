@@ -33,73 +33,69 @@ class MomentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => RetroBox(
-        padding: EdgeInsets.zero,
-        onTap: onTap,
-        shadow: !nested,
-        borderColor: nested ? RetroTokens.panelLine : RetroTokens.ink,
-        borderWidth: nested ? 1 : RetroTokens.border,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: compact
-                  ? Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        MomentPhoto(assetId: moment.photoAssetId),
-                        Positioned(
-                          top: 6,
-                          left: 6,
-                          child: AuthorAvatar.of(moment),
-                        ),
-                      ],
-                    )
-                  : MomentPhoto(assetId: moment.photoAssetId),
-            ),
-            if (!compact)
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    padding: EdgeInsets.zero,
+    onTap: onTap,
+    shadow: !nested,
+    borderColor: nested ? RetroTokens.panelLine : RetroTokens.ink,
+    borderWidth: nested ? 1 : RetroTokens.border,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: compact
+              ? Stack(
+                  fit: StackFit.expand,
                   children: [
-                    if (moment.caption != null)
-                      Text(moment.caption!,
-                          maxLines: 2, overflow: TextOverflow.ellipsis),
-                    Text(
-                      '${moment.authorName ?? 'Bạn'} · ${Units.timeOfDay(moment.createdAt)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 11, color: RetroTokens.inkFaint),
-                    ),
+                    MomentPhoto(assetId: moment.photoAssetId),
+                    Positioned(top: 6, left: 6, child: AuthorAvatar.of(moment)),
                   ],
-                ),
-              ),
-          ],
+                )
+              : MomentPhoto(assetId: moment.photoAssetId),
         ),
-      );
+        if (!compact)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (moment.caption != null)
+                  Text(
+                    moment.caption!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                Text(
+                  '${moment.authorName ?? 'Bạn'} · ${Units.timeOfDay(moment.createdAt)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: RetroTokens.inkFaint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
 }
 
 /// The author's face, small, over the photo. Falls back to the first letter of
 /// their name when the identity provider gave us no picture — a blank circle
 /// says less than an initial does.
 class AuthorAvatar extends StatelessWidget {
-  const AuthorAvatar({
-    super.key,
-    this.name,
-    this.avatarUrl,
-    this.size = 22,
-  });
+  const AuthorAvatar({super.key, this.name, this.avatarUrl, this.size = 22});
 
   /// The moment's author. A convenience for the common case — a tile knows the
   /// moment, not the two fields inside it.
   AuthorAvatar.of(Moment moment, {Key? key, double size = 22})
-      : this(
-          key: key,
-          name: moment.authorName,
-          avatarUrl: moment.authorAvatarUrl,
-          size: size,
-        );
+    : this(
+        key: key,
+        name: moment.authorName,
+        avatarUrl: moment.authorAvatarUrl,
+        size: size,
+      );
 
   final String? name;
   final String? avatarUrl;
@@ -120,7 +116,11 @@ class AuthorAvatar extends StatelessWidget {
         // A ring, so a light avatar on a light photo still reads as a face.
         border: Border.all(color: RetroTokens.paperRaised, width: 1.5),
         boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 3, offset: Offset(0, 1))
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 3,
+            offset: Offset(0, 1),
+          ),
         ],
       ),
       clipBehavior: Clip.antiAlias,
@@ -140,8 +140,11 @@ class AuthorAvatar extends StatelessWidget {
               height: size,
               // A provider that 403s on a stale picture URL must not paint an
               // exception over the tile.
-              errorBuilder: (_, __, ___) => const Icon(Icons.person,
-                  size: 14, color: RetroTokens.inkFaint),
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.person,
+                size: 14,
+                color: RetroTokens.inkFaint,
+              ),
             ),
     );
   }
@@ -171,8 +174,10 @@ class MomentPhoto extends ConsumerWidget {
           gaplessPlayback: true,
           // Decoding happens during paint, where an exception would take the
           // whole grid down rather than the one tile that cannot be decoded.
-          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined,
-              color: RetroTokens.inkFaint),
+          errorBuilder: (_, __, ___) => const Icon(
+            Icons.broken_image_outlined,
+            color: RetroTokens.inkFaint,
+          ),
         ),
         loading: () => const SizedBox(
           height: 18,

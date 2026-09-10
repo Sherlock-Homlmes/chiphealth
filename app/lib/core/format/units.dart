@@ -84,8 +84,9 @@ class Units {
     final day = DateTime.parse(isoDate);
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day);
-    final diff =
-        midnight.difference(DateTime(day.year, day.month, day.day)).inDays;
+    final diff = midnight
+        .difference(DateTime(day.year, day.month, day.day))
+        .inDays;
     if (diff == 0) return 'Hôm nay';
     if (diff == 1) return 'Hôm qua';
     return DateFormat('EEEE, d/M', 'vi').format(day);

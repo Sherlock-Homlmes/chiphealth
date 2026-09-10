@@ -32,33 +32,31 @@ Widget _bottomLabel(List<Bucket> buckets, double value, TitleMeta meta) {
 }
 
 Widget _leftLabel(double value, TitleMeta meta) => Text(
-      value.round().toString(),
-      style: const TextStyle(fontSize: 10, color: RetroTokens.inkFaint),
-    );
+  value.round().toString(),
+  style: const TextStyle(fontSize: 10, color: RetroTokens.inkFaint),
+);
 
 FlGridData _grid(double interval) => FlGridData(
-      show: true,
-      drawVerticalLine: false,
-      horizontalInterval: interval <= 0 ? 1 : interval,
-      getDrawingHorizontalLine: (_) => const FlLine(
-        color: RetroTokens.paperSunk,
-        strokeWidth: 1,
-      ),
-    );
+  show: true,
+  drawVerticalLine: false,
+  horizontalInterval: interval <= 0 ? 1 : interval,
+  getDrawingHorizontalLine: (_) =>
+      const FlLine(color: RetroTokens.paperSunk, strokeWidth: 1),
+);
 
 /// A dashed horizontal reference line — the weight goal, the calorie target,
 /// the water target. Always the same look so it reads as "target" everywhere.
 ExtraLinesData _targetLine(double? y, Color color) => ExtraLinesData(
-      horizontalLines: [
-        if (y != null)
-          HorizontalLine(
-            y: y,
-            color: color,
-            strokeWidth: 2,
-            dashArray: const [6, 4],
-          ),
-      ],
-    );
+  horizontalLines: [
+    if (y != null)
+      HorizontalLine(
+        y: y,
+        color: color,
+        strokeWidth: 2,
+        dashArray: const [6, 4],
+      ),
+  ],
+);
 
 class ChartEmpty extends StatelessWidget {
   const ChartEmpty({super.key, this.height = 160});
@@ -67,12 +65,14 @@ class ChartEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        height: height,
-        child: const Center(
-          child: Text('Chưa có dữ liệu trong kỳ này',
-              style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint)),
-        ),
-      );
+    height: height,
+    child: const Center(
+      child: Text(
+        'Chưa có dữ liệu trong kỳ này',
+        style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
+      ),
+    ),
+  );
 }
 
 /// Weight over the period, with a dashed line at the goal weight.
@@ -228,7 +228,8 @@ class SeriesBarChart extends StatelessWidget {
                     toY: buckets[i].value,
                     width: buckets.length > 14 ? 6 : 14,
                     borderRadius: BorderRadius.circular(4),
-                    color: target != null &&
+                    color:
+                        target != null &&
                             overColor != null &&
                             buckets[i].value > target!
                         ? overColor
@@ -251,20 +252,21 @@ class ChartLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Wrap(
-        spacing: 14,
-        runSpacing: 6,
-        children: [
-          for (final (color, label) in items)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(width: 14, height: 3, color: color),
-                const SizedBox(width: 6),
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 11, color: RetroTokens.inkSoft)),
-              ],
+    spacing: 14,
+    runSpacing: 6,
+    children: [
+      for (final (color, label) in items)
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 14, height: 3, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11, color: RetroTokens.inkSoft),
             ),
-        ],
-      );
+          ],
+        ),
+    ],
+  );
 }

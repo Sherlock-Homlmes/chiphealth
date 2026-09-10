@@ -13,11 +13,11 @@ class PhoneFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: child,
-        ),
-      );
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 400),
+      child: child,
+    ),
+  );
 }
 
 /// Section header used on every screen, so headings never drift in size/weight.
@@ -29,24 +29,24 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                text.toUpperCase(),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: RetroTokens.inkSoft,
-                ),
-              ),
+    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            text.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: RetroTokens.inkSoft,
             ),
-            if (action != null) action!,
-          ],
+          ),
         ),
-      );
+        if (action != null) action!,
+      ],
+    ),
+  );
 }
 
 /// Big number + caption. The number always uses the monospace face.
@@ -66,40 +66,44 @@ class StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => RetroBox(
-        onTap: onTap,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // A value like "1,140 kcal" must shrink to fit, not wrap: two lines
-            // read as two separate figures. softWrap must be off, or the Text
-            // wraps at the tile width before FittedBox can measure it.
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.visible,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(color: tone),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(label,
-                style:
-                    const TextStyle(fontSize: 12, color: RetroTokens.inkSoft)),
-          ],
+    onTap: onTap,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // A value like "1,140 kcal" must shrink to fit, not wrap: two lines
+        // read as two separate figures. softWrap must be off, or the Text
+        // wraps at the tile width before FittedBox can measure it.
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.visible,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(color: tone),
+          ),
         ),
-      );
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+        ),
+      ],
+    ),
+  );
 }
 
 class RetroChip extends StatelessWidget {
-  const RetroChip(this.text,
-      {super.key, this.tone = RetroTokens.inkSoft, this.background});
+  const RetroChip(
+    this.text, {
+    super.key,
+    this.tone = RetroTokens.inkSoft,
+    this.background,
+  });
 
   final String text;
   final Color tone;
@@ -107,16 +111,17 @@ class RetroChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: background ?? RetroTokens.paperSunk,
-          border: Border.all(color: tone),
-          borderRadius: BorderRadius.circular(2),
-        ),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 11, color: tone, fontWeight: FontWeight.w600)),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: background ?? RetroTokens.paperSunk,
+      border: Border.all(color: tone),
+      borderRadius: BorderRadius.circular(2),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(fontSize: 11, color: tone, fontWeight: FontWeight.w600),
+    ),
+  );
 }
 
 /// The one place loading / error / empty are rendered, so no screen can quietly
@@ -131,7 +136,9 @@ Widget asyncBody<T>(
   return value.when(
     loading: () => const Center(
       child: Padding(
-          padding: EdgeInsets.all(32), child: CircularProgressIndicator()),
+        padding: EdgeInsets.all(32),
+        child: CircularProgressIndicator(),
+      ),
     ),
     error: (err, _) => Center(
       child: Padding(
@@ -139,9 +146,11 @@ Widget asyncBody<T>(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('$err',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: RetroTokens.accent)),
+            Text(
+              '$err',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: RetroTokens.accent),
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: 12),
               OutlinedButton(onPressed: onRetry, child: const Text('Thử lại')),
@@ -155,8 +164,10 @@ Widget asyncBody<T>(
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Text(emptyText,
-                style: const TextStyle(color: RetroTokens.inkFaint)),
+            child: Text(
+              emptyText,
+              style: const TextStyle(color: RetroTokens.inkFaint),
+            ),
           ),
         );
       }

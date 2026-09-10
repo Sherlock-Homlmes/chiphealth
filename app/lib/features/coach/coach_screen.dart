@@ -80,8 +80,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       _scrollToEnd();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -91,8 +92,11 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   void _scrollToEnd() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scroll.hasClients) {
-        _scroll.animateTo(_scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
       }
     });
   }
@@ -107,8 +111,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('$_error',
-                    style: const TextStyle(color: RetroTokens.accent)),
+                child: Text(
+                  '$_error',
+                  style: const TextStyle(color: RetroTokens.accent),
+                ),
               ),
             Expanded(
               child: _conversationId == null && _error == null
@@ -139,10 +145,12 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                                   ? RetroTokens.accentSoft
                                   : RetroTokens.paperRaised,
                               border: Border.all(
-                                  color: RetroTokens.ink,
-                                  width: RetroTokens.border),
-                              borderRadius:
-                                  BorderRadius.circular(RetroTokens.radiusLg),
+                                color: RetroTokens.ink,
+                                width: RetroTokens.border,
+                              ),
+                              borderRadius: BorderRadius.circular(
+                                RetroTokens.radiusLg,
+                              ),
                               boxShadow: const [RetroTokens.shadowSm],
                             ),
                             child: i == _animatingIndex && !message.isUser
@@ -165,8 +173,11 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
               decoration: const BoxDecoration(
                 color: RetroTokens.paperRaised,
                 border: Border(
-                    top: BorderSide(
-                        color: RetroTokens.ink, width: RetroTokens.border)),
+                  top: BorderSide(
+                    color: RetroTokens.ink,
+                    width: RetroTokens.border,
+                  ),
+                ),
               ),
               child: SafeArea(
                 top: false,
@@ -177,8 +188,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                         controller: _input,
                         minLines: 1,
                         maxLines: 4,
-                        decoration:
-                            const InputDecoration(hintText: 'Hỏi coach…'),
+                        decoration: const InputDecoration(
+                          hintText: 'Hỏi coach…',
+                        ),
                         onSubmitted: (_) => _send(),
                       ),
                     ),

@@ -69,7 +69,10 @@ jobs:
     name: Mobile app (Flutter)
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/cirruslabs/flutter:stable
+      # Pinned by digest = Flutter 3.44.0 / Dart 3.12.0. The floating :stable
+      # tag resolves to different formatter versions over time, which makes
+      # `dart format --set-exit-if-changed` fail unpredictably.
+      image: ghcr.io/cirruslabs/flutter@sha256:46691e311715845de03a3ba4753a475476936805b29431b1f00f1816981033f8
     defaults:
       run:
         working-directory: app

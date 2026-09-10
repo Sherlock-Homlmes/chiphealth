@@ -41,19 +41,26 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
   Future<void> _logFromCamera(ImageSource source) async {
     final picker = ImagePicker();
     final shot = await picker.pickImage(
-        source: source, imageQuality: 85, maxWidth: 1600);
+      source: source,
+      imageQuality: 85,
+      maxWidth: 1600,
+    );
     if (shot == null) return;
 
     setState(() => _busy = true);
     try {
-      final assetId = await ref.read(mediaRepositoryProvider).upload(
+      final assetId = await ref
+          .read(mediaRepositoryProvider)
+          .upload(
             await shot.readAsBytes(),
             kind: 'meal_photo',
             mimeType: 'image/jpeg',
           );
       final repo = ref.read(nutritionRepositoryProvider);
       final meal = await repo.createMeal(
-          mealType: _guessMealType(), photoAssetId: assetId);
+        mealType: _guessMealType(),
+        photoAssetId: assetId,
+      );
       // A failure to *start* the analysis is not a failure to log the meal: the
       // row exists either way, so the detail screen is opened regardless and
       // owns the error — it is the screen with the retry on it.
@@ -66,8 +73,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       _reload();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -115,10 +123,13 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     if (added == null || !mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(
-        content: Text(
-            'Đã thêm $added ml · hôm nay ${ref.read(waterProvider(date))} ml'),
-      ));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Đã thêm $added ml · hôm nay ${ref.read(waterProvider(date))} ml',
+          ),
+        ),
+      );
   }
 
   /// Meal type from the clock — the user can change it on the detail screen.
@@ -156,7 +167,10 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                 height: 20,
                 width: 20,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : const Icon(Icons.add, size: 30),
       ),
       body: RefreshIndicator(
@@ -210,9 +224,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              Text('${timeline.error}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: RetroTokens.inkSoft)),
+              Text(
+                '${timeline.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: RetroTokens.inkSoft),
+              ),
               const SizedBox(height: 12),
               OutlinedButton(
                 onPressed: () =>
@@ -230,8 +246,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         Padding(
           padding: EdgeInsets.all(32),
           child: Center(
-              child: Text('Chưa ghi bữa nào. Nhấn "+" để bắt đầu.',
-                  style: TextStyle(color: RetroTokens.inkFaint))),
+            child: Text(
+              'Chưa ghi bữa nào. Nhấn "+" để bắt đầu.',
+              style: TextStyle(color: RetroTokens.inkFaint),
+            ),
+          ),
         ),
       ];
     }
@@ -247,17 +266,21 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
           padding: EdgeInsets.symmetric(vertical: 20),
           child: Center(
             child: SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2)),
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
         )
       else if (!timeline.hasMore)
         const Padding(
           padding: EdgeInsets.symmetric(vertical: 20),
           child: Center(
-              child: Text('Hết rồi.',
-                  style: TextStyle(color: RetroTokens.inkFaint, fontSize: 12))),
+            child: Text(
+              'Hết rồi.',
+              style: TextStyle(color: RetroTokens.inkFaint, fontSize: 12),
+            ),
+          ),
         ),
     ];
   }
@@ -286,14 +309,18 @@ class _TodayCard extends ConsumerWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(Units.kcal(d.consumedKcal),
-                  style: Theme.of(context).textTheme.titleLarge),
+              Text(
+                Units.kcal(d.consumedKcal),
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
               const SizedBox(width: 8),
               if (d.tdeeKcal != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('/ ${d.tdeeKcal!.round()} TDEE',
-                      style: const TextStyle(color: RetroTokens.inkSoft)),
+                  child: Text(
+                    '/ ${d.tdeeKcal!.round()} TDEE',
+                    style: const TextStyle(color: RetroTokens.inkSoft),
+                  ),
                 ),
             ],
           ),
@@ -302,8 +329,8 @@ class _TodayCard extends ConsumerWidget {
             d.balanceKcal == null
                 ? 'Chưa đủ dữ liệu để tính cân bằng calo'
                 : d.isDeficit
-                    ? 'Thâm hụt ${d.balanceKcal!.abs().round()} kcal'
-                    : 'Vượt ${d.balanceKcal!.round()} kcal',
+                ? 'Thâm hụt ${d.balanceKcal!.abs().round()} kcal'
+                : 'Vượt ${d.balanceKcal!.round()} kcal',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: d.isDeficit ? RetroTokens.ok : RetroTokens.warn,
@@ -402,8 +429,11 @@ class _TodayCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Icon(Icons.add_circle,
-                    color: RetroTokens.water, size: 26),
+                const Icon(
+                  Icons.add_circle,
+                  color: RetroTokens.water,
+                  size: 26,
+                ),
               ],
             ),
           ),
@@ -419,9 +449,9 @@ class _CardRule extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 14),
-        child: Divider(color: RetroTokens.paperSunk, height: 1, thickness: 1),
-      );
+    padding: EdgeInsets.symmetric(vertical: 14),
+    child: Divider(color: RetroTokens.paperSunk, height: 1, thickness: 1),
+  );
 }
 
 /// The date subtitle, with what that day added up to on the right.
@@ -442,9 +472,10 @@ class _DayHeading extends StatelessWidget {
             child: Text(
               Units.dayHeading(day.date),
               style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  color: RetroTokens.ink),
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: RetroTokens.ink,
+              ),
             ),
           ),
           Text(
@@ -490,22 +521,31 @@ class _MealTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(dish ?? _mealLabel(meal.mealType),
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text(subtitle,
-                      style: const TextStyle(
-                          fontSize: 12, color: RetroTokens.inkSoft)),
+                  Text(
+                    dish ?? _mealLabel(meal.mealType),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: RetroTokens.inkSoft,
+                    ),
+                  ),
                 ],
               ),
             ),
             if (meal.isAnalysing)
               const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2))
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
             else
-              Text(Units.kcal(meal.totalCaloriesKcal),
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              Text(
+                Units.kcal(meal.totalCaloriesKcal),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
           ],
         ),
       ),
@@ -514,8 +554,8 @@ class _MealTile extends StatelessWidget {
 }
 
 String _mealLabel(String type) => switch (type) {
-      'breakfast' => 'Bữa sáng',
-      'lunch' => 'Bữa trưa',
-      'dinner' => 'Bữa tối',
-      _ => 'Bữa phụ',
-    };
+  'breakfast' => 'Bữa sáng',
+  'lunch' => 'Bữa trưa',
+  'dinner' => 'Bữa tối',
+  _ => 'Bữa phụ',
+};

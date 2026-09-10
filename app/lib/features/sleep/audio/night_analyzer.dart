@@ -28,13 +28,13 @@ class DetectedSleepEvent {
   String? audioAssetId;
 
   Map<String, dynamic> toJson() => {
-        'eventType': eventType,
-        'occurredAt': occurredAt,
-        'durationMs': durationMs,
-        'peakDb': peakDb,
-        'confidence': confidence,
-        if (audioAssetId != null) 'audioAssetId': audioAssetId,
-      };
+    'eventType': eventType,
+    'occurredAt': occurredAt,
+    'durationMs': durationMs,
+    'peakDb': peakDb,
+    'confidence': confidence,
+    if (audioAssetId != null) 'audioAssetId': audioAssetId,
+  };
 }
 
 class NightAnalyzerResult {
@@ -143,8 +143,7 @@ class NightAnalyzer {
   Future<void> get idle => _queue;
 
   int get snoreCount => _events.where((e) => e.eventType == 'snore').length;
-  int get talkCount =>
-      _events.where((e) => e.eventType == 'sleep_talk').length;
+  int get talkCount => _events.where((e) => e.eventType == 'sleep_talk').length;
   int get coughCount => _events.where((e) => e.eventType == 'cough').length;
 
   /// Feed one chunk of mono 16-bit little-endian PCM from the record stream.
@@ -187,7 +186,9 @@ class NightAnalyzer {
     final endMs = startMs + _windowMs;
 
     final minute = _minutes.putIfAbsent(
-        (startMs - startedAt) ~/ 60000, _MinuteStat.new);
+      (startMs - startedAt) ~/ 60000,
+      _MinuteStat.new,
+    );
     minute.dbSum += db;
     minute.windows++;
 
@@ -216,8 +217,13 @@ class NightAnalyzer {
 
   /// Feeds the event state machine — synchronously for quiet windows, from
   /// the async chain for classified ones.
-  void _advanceEvent(String? type, int startMs, int endMs, double db,
-      {double confidence = 0}) {
+  void _advanceEvent(
+    String? type,
+    int startMs,
+    int endMs,
+    double db, {
+    double confidence = 0,
+  }) {
     if (_openType == null) {
       if (type != null && _events.length < maxEvents) {
         _openType = type;
@@ -265,8 +271,10 @@ class NightAnalyzer {
       // Pre-roll clamps at the night's start; the length cap counts from the
       // effective start, so a leading event is not shortened by pre-roll it
       // never had.
-      final clipStartMs =
-          math.max(startedAt, _openStartMs - preRollSeconds * 1000);
+      final clipStartMs = math.max(
+        startedAt,
+        _openStartMs - preRollSeconds * 1000,
+      );
       var clipEndMs = _openLastEndMs + 2000; // a breath of tail
       clipEndMs = math.min(clipEndMs, clipStartMs + maxClipSeconds * 1000);
       final pcm = _sliceRing(_msToByte(clipStartMs), _msToByte(clipEndMs));
@@ -276,14 +284,16 @@ class NightAnalyzer {
       }
     }
 
-    _events.add(DetectedSleepEvent(
-      eventType: type,
-      occurredAt: _openStartMs,
-      durationMs: _openLastEndMs - _openStartMs,
-      peakDb: (_openPeakDb * 10).roundToDouble() / 10,
-      confidence: _openConfidence,
-      clip: clip,
-    ));
+    _events.add(
+      DetectedSleepEvent(
+        eventType: type,
+        occurredAt: _openStartMs,
+        durationMs: _openLastEndMs - _openStartMs,
+        peakDb: (_openPeakDb * 10).roundToDouble() / 10,
+        confidence: _openConfidence,
+        clip: clip,
+      ),
+    );
     _openType = null;
     _openQuietRun = 0;
   }
@@ -340,8 +350,10 @@ class NightAnalyzer {
     final nightMinutes = (endedMs - startedAt) ~/ 60000;
     if (nightMinutes < 30 || _classifiedWindows == 0) return null;
 
-    final stats =
-        List.generate(nightMinutes, (m) => _minutes[m] ?? _MinuteStat());
+    final stats = List.generate(
+      nightMinutes,
+      (m) => _minutes[m] ?? _MinuteStat(),
+    );
     final labels = List.filled(nightMinutes, 'light');
 
     // 1) Awake: sustained loud minutes without sleep-event windows (a snoring
@@ -349,9 +361,8 @@ class NightAnalyzer {
     var awakeRun = 0;
     for (var m = 0; m < nightMinutes; m++) {
       final s = stats[m];
-      final loud = s.meanDb > awakeDb &&
-          s.windows > 0 &&
-          s.eventWindows * 2 < s.windows;
+      final loud =
+          s.meanDb > awakeDb && s.windows > 0 && s.eventWindows * 2 < s.windows;
       if (loud) {
         if (++awakeRun >= 2) {
           labels[m] = 'awake';
@@ -367,7 +378,7 @@ class NightAnalyzer {
     //    late-night ones. REM minutes are picked outside the deep set.
     final asleep = <int>[
       for (var m = 0; m < nightMinutes; m++)
-        if (labels[m] != 'awake') m
+        if (labels[m] != 'awake') m,
     ];
     final deepTarget = (asleep.length * _deepShare).round();
     final remTarget = (asleep.length * _remShare).round();
@@ -403,9 +414,11 @@ class NightAnalyzer {
       var bestVotes = -1;
       for (final cand in ['awake', 'light', 'deep', 'rem']) {
         var votes = 0;
-        for (var k = math.max(0, m - 2);
-            k <= math.min(nightMinutes - 1, m + 2);
-            k++) {
+        for (
+          var k = math.max(0, m - 2);
+          k <= math.min(nightMinutes - 1, m + 2);
+          k++
+        ) {
           if (labels[k] == cand) votes++;
         }
         if (votes > bestVotes) {
@@ -427,12 +440,18 @@ class NightAnalyzer {
     for (var r = 1; r < runs.length; r++) {
       if (runs[r].length < 5) {
         smoothed.fillRange(
-            runs[r].first, runs[r].last + 1, smoothed[runs[r - 1].first]);
+          runs[r].first,
+          runs[r].last + 1,
+          smoothed[runs[r - 1].first],
+        );
       }
     }
     if (runs.length > 1 && runs[0].length < 5) {
       smoothed.fillRange(
-          runs[0].first, runs[0].last + 1, smoothed[runs[1].first]);
+        runs[0].first,
+        runs[0].last + 1,
+        smoothed[runs[1].first],
+      );
     }
 
     final segments = <SleepStageSegment>[];
@@ -440,12 +459,22 @@ class NightAnalyzer {
       final startMs = startedAt + m * 60000;
       final endMs = math.min(startMs + 60000, endedMs);
       final last = segments.isEmpty ? null : segments.last;
-      if (last != null && last.stage == smoothed[m] && last.endedAt == startMs) {
+      if (last != null &&
+          last.stage == smoothed[m] &&
+          last.endedAt == startMs) {
         segments[segments.length - 1] = SleepStageSegment(
-            stage: smoothed[m], startedAt: last.startedAt, endedAt: endMs);
+          stage: smoothed[m],
+          startedAt: last.startedAt,
+          endedAt: endMs,
+        );
       } else {
-        segments.add(SleepStageSegment(
-            stage: smoothed[m], startedAt: startMs, endedAt: endMs));
+        segments.add(
+          SleepStageSegment(
+            stage: smoothed[m],
+            startedAt: startMs,
+            endedAt: endMs,
+          ),
+        );
       }
     }
     return segments;

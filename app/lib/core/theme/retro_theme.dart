@@ -26,16 +26,14 @@ ThemeData buildRetroTheme() {
 
   return base.copyWith(
     textTheme: display
-        .apply(
-          bodyColor: RetroTokens.ink,
-          displayColor: RetroTokens.ink,
-        )
+        .apply(bodyColor: RetroTokens.ink, displayColor: RetroTokens.ink)
         .copyWith(
           // Numbers are read as data, so they always get the monospace face.
           titleLarge: mono.copyWith(
-              fontSize: 28,
-              fontWeight: FontWeight.w600,
-              color: RetroTokens.ink),
+            fontSize: 28,
+            fontWeight: FontWeight.w600,
+            color: RetroTokens.ink,
+          ),
           labelSmall: mono.copyWith(fontSize: 11, color: RetroTokens.inkFaint),
         ),
     appBarTheme: AppBarTheme(
@@ -50,7 +48,10 @@ ThemeData buildRetroTheme() {
       iconTheme: const IconThemeData(color: RetroTokens.ink),
     ),
     dividerTheme: const DividerThemeData(
-        color: RetroTokens.paperSunk, thickness: 1, space: 1),
+      color: RetroTokens.paperSunk,
+      thickness: 1,
+      space: 1,
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: RetroTokens.paperRaised,
@@ -75,8 +76,10 @@ ThemeData buildRetroTheme() {
       style: OutlinedButton.styleFrom(
         foregroundColor: RetroTokens.ink,
         backgroundColor: RetroTokens.paperRaised,
-        side:
-            const BorderSide(color: RetroTokens.ink, width: RetroTokens.border),
+        side: const BorderSide(
+          color: RetroTokens.ink,
+          width: RetroTokens.border,
+        ),
         shape: _buttonShape(),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       ),
@@ -102,11 +105,11 @@ ThemeData buildRetroTheme() {
 // The same soft radius as the cards, so fields and buttons read as part of
 // the rounded surface language instead of square outliers.
 OutlineInputBorder _inputBorder(Color color) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
-      borderSide: BorderSide(color: color, width: RetroTokens.border),
-    );
+  borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
+  borderSide: BorderSide(color: color, width: RetroTokens.border),
+);
 
 RoundedRectangleBorder _buttonShape() => RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
-      side: const BorderSide(color: RetroTokens.ink, width: RetroTokens.border),
-    );
+  borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
+  side: const BorderSide(color: RetroTokens.ink, width: RetroTokens.border),
+);

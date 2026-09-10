@@ -101,9 +101,11 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     // Re-running needs the photo: a spoken meal's clip is transcribed and thrown
     // away, so there is nothing left to analyse a second time.
     if (meal.photoAssetId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Bữa ăn nói không phân tích lại được — hãy nhập lại.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bữa ăn nói không phân tích lại được — hãy nhập lại.'),
+        ),
+      );
       return;
     }
     setState(() {
@@ -126,11 +128,13 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         content: const Text('Bữa ăn này và mọi thành phần của nó sẽ bị xóa.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Giữ lại')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Giữ lại'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Hủy bỏ')),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Hủy bỏ'),
+          ),
         ],
       ),
     );
@@ -144,8 +148,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     } catch (err) {
       _discarded = false;
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     }
   }
@@ -165,8 +170,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
       await _load();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     }
   }
@@ -192,8 +198,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
       await _load();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     }
   }
@@ -220,16 +227,17 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
       case _AddComponent():
         await _addItem();
       case _MealFields(
-          :final dishName,
-          :final mealType,
-          :final loggedAt,
-          :final note
-        ):
+        :final dishName,
+        :final mealType,
+        :final loggedAt,
+        :final note,
+      ):
         await _saveMealFields(
-            dishName: dishName,
-            mealType: mealType,
-            loggedAt: loggedAt,
-            note: note);
+          dishName: dishName,
+          mealType: mealType,
+          loggedAt: loggedAt,
+          note: note,
+        );
     }
   }
 
@@ -253,8 +261,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
       await _load();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     }
   }
@@ -278,37 +287,52 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
               padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Chia sẻ bữa ăn',
-                    style: TextStyle(
-                        color: RetroTokens.onPanel,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16)),
+                child: Text(
+                  'Chia sẻ bữa ăn',
+                  style: TextStyle(
+                    color: RetroTokens.onPanel,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
               ),
             ),
             // Moments are photo posts: a meal logged by voice has no picture to
             // put in the feed, so that destination is simply not offered.
             if (meal.photoAssetId != null)
               ListTile(
-                leading: const Icon(Icons.auto_awesome_motion,
-                    color: RetroTokens.onPanel),
-                title: const Text('Đăng lên Khoảnh khắc',
-                    style: TextStyle(color: RetroTokens.onPanel)),
-                subtitle: const Text('Bạn bè trong ChipHealth nhìn thấy',
-                    style: TextStyle(color: RetroTokens.onPanelSoft)),
+                leading: const Icon(
+                  Icons.auto_awesome_motion,
+                  color: RetroTokens.onPanel,
+                ),
+                title: const Text(
+                  'Đăng lên Khoảnh khắc',
+                  style: TextStyle(color: RetroTokens.onPanel),
+                ),
+                subtitle: const Text(
+                  'Bạn bè trong ChipHealth nhìn thấy',
+                  style: TextStyle(color: RetroTokens.onPanelSoft),
+                ),
                 onTap: () => Navigator.pop(ctx, _ShareTarget.moment),
               ),
             ListTile(
               leading: const Icon(Icons.share, color: RetroTokens.onPanel),
-              title: const Text('Chia sẻ lên mạng xã hội',
-                  style: TextStyle(color: RetroTokens.onPanel)),
-              subtitle: const Text('Facebook, Instagram, Zalo, Messenger…',
-                  style: TextStyle(color: RetroTokens.onPanelSoft)),
+              title: const Text(
+                'Chia sẻ lên mạng xã hội',
+                style: TextStyle(color: RetroTokens.onPanel),
+              ),
+              subtitle: const Text(
+                'Facebook, Instagram, Zalo, Messenger…',
+                style: TextStyle(color: RetroTokens.onPanelSoft),
+              ),
               onTap: () => Navigator.pop(ctx, _ShareTarget.external),
             ),
             ListTile(
               leading: const Icon(Icons.copy, color: RetroTokens.onPanel),
-              title: const Text('Sao chép nội dung',
-                  style: TextStyle(color: RetroTokens.onPanel)),
+              title: const Text(
+                'Sao chép nội dung',
+                style: TextStyle(color: RetroTokens.onPanel),
+              ),
               onTap: () => Navigator.pop(ctx, _ShareTarget.clipboard),
             ),
             const SizedBox(height: 8),
@@ -352,7 +376,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     final photo = meal.photoAssetId;
     if (photo == null) return;
     try {
-      await ref.read(momentsRepositoryProvider).post(
+      await ref
+          .read(momentsRepositoryProvider)
+          .post(
             photoAssetId: photo,
             caption: _shareText(meal),
             linkedMealLogId: meal.id,
@@ -361,12 +387,14 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-              const SnackBar(content: Text('Đã đăng lên Khoảnh khắc')));
+            const SnackBar(content: Text('Đã đăng lên Khoảnh khắc')),
+          );
       }
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     }
   }
@@ -386,8 +414,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     } catch (err) {
       if (mounted) {
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     }
   }
@@ -419,24 +448,24 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                   ],
                 )
               : meal == null
-                  ? const Center(child: CircularProgressIndicator())
-                  : _body(meal),
+              ? const Center(child: CircularProgressIndicator())
+              : _body(meal),
         ),
       ),
       bottomNavigationBar:
           meal == null || meal.isAnalysing || meal.isFailedDraft
-              ? null
-              : Align(
-                  // Not PhoneFrame's Center: a height-unconstrained box here
-                  // stretches the bar to the full screen height (same lesson as
-                  // the shell's nav pill). heightFactor 1 hugs the content.
-                  alignment: Alignment.bottomCenter,
-                  heightFactor: 1,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: _BottomActions(onSave: _save, saving: _saving),
-                  ),
-                ),
+          ? null
+          : Align(
+              // Not PhoneFrame's Center: a height-unconstrained box here
+              // stretches the bar to the full screen height (same lesson as
+              // the shell's nav pill). heightFactor 1 hugs the content.
+              alignment: Alignment.bottomCenter,
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: _BottomActions(onSave: _save, saving: _saving),
+              ),
+            ),
     );
   }
 
@@ -460,8 +489,10 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                   const SizedBox(height: 28),
                   const CircularProgressIndicator(),
                   const SizedBox(height: 14),
-                  const Text('Đang phân tích…',
-                      style: TextStyle(color: RetroTokens.inkSoft)),
+                  const Text(
+                    'Đang phân tích…',
+                    style: TextStyle(color: RetroTokens.inkSoft),
+                  ),
                 ],
               ),
             ),
@@ -488,10 +519,10 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
               text: !canRetry
                   ? 'Bữa ăn này chưa được phân tích và không chạy lại được — hãy ghi lại.'
                   : timedOut
-                      ? 'Phân tích kéo dài quá 3 phút. Hãy thử lại nhé.'
-                      : never
-                          ? 'Chưa phân tích được bữa ăn này — không kết nối được máy chủ.'
-                          : 'Không phân tích được bữa ăn này.',
+                  ? 'Phân tích kéo dài quá 3 phút. Hãy thử lại nhé.'
+                  : never
+                  ? 'Chưa phân tích được bữa ăn này — không kết nối được máy chủ.'
+                  : 'Không phân tích được bữa ăn này.',
               actionLabel: canRetry ? 'Thử lại' : 'Hủy bỏ',
               onAction: canRetry ? _retry : _discard,
               secondaryLabel: canRetry ? 'Hủy bỏ' : null,
@@ -505,8 +536,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     // Everything below the header reads off the staged meal, so a component the
     // user has taken off is gone from the totals, the score and the fibre bar
     // before it is gone from the server.
-    final view = meal
-        .withItems(meal.items.where((i) => !_removed.contains(i.id)).toList());
+    final view = meal.withItems(
+      meal.items.where((i) => !_removed.contains(i.id)).toList(),
+    );
     final score = MealHealthScore.of(view);
 
     return ListView(
@@ -522,37 +554,52 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(Units.timeOfDay(meal.loggedAt),
-                        style: const TextStyle(
-                            color: RetroTokens.inkFaint, fontSize: 13)),
+                    Text(
+                      Units.timeOfDay(meal.loggedAt),
+                      style: const TextStyle(
+                        color: RetroTokens.inkFaint,
+                        fontSize: 13,
+                      ),
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       meal.dishName?.isNotEmpty == true
                           ? meal.dishName!
                           : _mealLabel(meal.mealType),
                       style: const TextStyle(
-                          fontSize: 28,
-                          height: 1.15,
-                          fontWeight: FontWeight.w800,
-                          color: RetroTokens.ink),
+                        fontSize: 28,
+                        height: 1.15,
+                        fontWeight: FontWeight.w800,
+                        color: RetroTokens.ink,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.favorite,
-                            size: 18, color: RetroTokens.fat),
+                        const Icon(
+                          Icons.favorite,
+                          size: 18,
+                          color: RetroTokens.fat,
+                        ),
                         const SizedBox(width: 6),
-                        Text('Sức Khỏe: ${score.value}/10',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: RetroTokens.inkSoft)),
+                        Text(
+                          'Sức Khỏe: ${score.value}/10',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: RetroTokens.inkSoft,
+                          ),
+                        ),
                         if (score.reasons.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text('· ${score.reasons.first}',
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: RetroTokens.inkFaint, fontSize: 13)),
+                            child: Text(
+                              '· ${score.reasons.first}',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: RetroTokens.inkFaint,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
                         ],
                       ],
@@ -586,11 +633,11 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
 enum _ShareTarget { moment, external, clipboard }
 
 String _mealLabel(String type) => switch (type) {
-      'breakfast' => 'Bữa sáng',
-      'lunch' => 'Bữa trưa',
-      'dinner' => 'Bữa tối',
-      _ => 'Bữa phụ',
-    };
+  'breakfast' => 'Bữa sáng',
+  'lunch' => 'Bữa trưa',
+  'dinner' => 'Bữa tối',
+  _ => 'Bữa phụ',
+};
 
 /// Back arrow on the left; share and the "hủy bỏ" menu in the top-right corner.
 class _Header extends StatelessWidget {
@@ -629,8 +676,10 @@ class _Header extends StatelessWidget {
                 itemBuilder: (_) => const [
                   PopupMenuItem(
                     value: 'discard',
-                    child: Text('Hủy bỏ bữa ăn',
-                        style: TextStyle(color: RetroTokens.accent)),
+                    child: Text(
+                      'Hủy bỏ bữa ăn',
+                      style: TextStyle(color: RetroTokens.accent),
+                    ),
                   ),
                 ],
               ),
@@ -660,11 +709,14 @@ class _NutritionCard extends StatelessWidget {
           Row(
             children: [
               const Expanded(
-                child: Text('Calo & Dinh dưỡng',
-                    style: TextStyle(
-                        color: RetroTokens.onPanelSoft,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
+                child: Text(
+                  'Calo & Dinh dưỡng',
+                  style: TextStyle(
+                    color: RetroTokens.onPanelSoft,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               _Pill(label: 'Chỉnh sửa', onTap: onEdit),
             ],
@@ -676,36 +728,44 @@ class _NutritionCard extends StatelessWidget {
               _BigNumber(value: grams.round().toString(), unit: 'g'),
               const Spacer(),
               _BigNumber(
-                  value: meal.totalCaloriesKcal.round().toString(),
-                  unit: 'kcal'),
+                value: meal.totalCaloriesKcal.round().toString(),
+                unit: 'kcal',
+              ),
             ],
           ),
           const SizedBox(height: 16),
           _MacroBar(
-              carbs: meal.totalCarbsG,
-              protein: meal.totalProteinG,
-              fat: meal.totalFatG),
+            carbs: meal.totalCarbsG,
+            protein: meal.totalProteinG,
+            fat: meal.totalFatG,
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                  child: _MacroColumn(
-                      color: RetroTokens.carbs,
-                      icon: Icons.bakery_dining,
-                      label: 'Tinh bột',
-                      grams: meal.totalCarbsG)),
+                child: _MacroColumn(
+                  color: RetroTokens.carbs,
+                  icon: Icons.bakery_dining,
+                  label: 'Tinh bột',
+                  grams: meal.totalCarbsG,
+                ),
+              ),
               Expanded(
-                  child: _MacroColumn(
-                      color: RetroTokens.protein,
-                      icon: Icons.egg_alt,
-                      label: 'Chất đạm',
-                      grams: meal.totalProteinG)),
+                child: _MacroColumn(
+                  color: RetroTokens.protein,
+                  icon: Icons.egg_alt,
+                  label: 'Chất đạm',
+                  grams: meal.totalProteinG,
+                ),
+              ),
               Expanded(
-                  child: _MacroColumn(
-                      color: RetroTokens.fat,
-                      icon: Icons.water_drop,
-                      label: 'Chất béo',
-                      grams: meal.totalFatG)),
+                child: _MacroColumn(
+                  color: RetroTokens.fat,
+                  icon: Icons.water_drop,
+                  label: 'Chất béo',
+                  grams: meal.totalFatG,
+                ),
+              ),
             ],
           ),
           if (meal.analysisStatus != null) ...[
@@ -760,8 +820,9 @@ class _AnalysisVoteState extends ConsumerState<_AnalysisVote> {
     } catch (err) {
       if (!mounted) return;
       setState(() => _vote = previous);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('$err')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$err')));
     }
   }
 
@@ -770,27 +831,31 @@ class _AnalysisVoteState extends ConsumerState<_AnalysisVote> {
     return Row(
       children: [
         const Expanded(
-          child: Text('ChipHealth phân tích thế nào?',
-              style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 13)),
+          child: Text(
+            'ChipHealth phân tích thế nào?',
+            style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 13),
+          ),
         ),
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(
-              _vote == 'up' ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
-              size: 18,
-              color: _vote == 'up' ? RetroTokens.fat : RetroTokens.onPanelSoft),
+            _vote == 'up' ? Icons.thumb_up_alt : Icons.thumb_up_alt_outlined,
+            size: 18,
+            color: _vote == 'up' ? RetroTokens.fat : RetroTokens.onPanelSoft,
+          ),
           onPressed: () => _cast('up'),
         ),
         IconButton(
           visualDensity: VisualDensity.compact,
           icon: Icon(
-              _vote == 'down'
-                  ? Icons.thumb_down_alt
-                  : Icons.thumb_down_alt_outlined,
-              size: 18,
-              color: _vote == 'down'
-                  ? RetroTokens.accent
-                  : RetroTokens.onPanelSoft),
+            _vote == 'down'
+                ? Icons.thumb_down_alt
+                : Icons.thumb_down_alt_outlined,
+            size: 18,
+            color: _vote == 'down'
+                ? RetroTokens.accent
+                : RetroTokens.onPanelSoft,
+          ),
           onPressed: () => _cast('down'),
         ),
       ],
@@ -817,17 +882,22 @@ class _IngredientsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Thành phần',
-              style: TextStyle(
-                  color: RetroTokens.onPanelSoft,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
+          const Text(
+            'Thành phần',
+            style: TextStyle(
+              color: RetroTokens.onPanelSoft,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 6),
           if (meal.items.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
-              child: Text('Chưa có thành phần nào.',
-                  style: TextStyle(color: RetroTokens.onPanelSoft)),
+              child: Text(
+                'Chưa có thành phần nào.',
+                style: TextStyle(color: RetroTokens.onPanelSoft),
+              ),
             ),
           for (var i = 0; i < meal.items.length; i++) ...[
             if (i > 0) const Divider(color: RetroTokens.panelLine, height: 1),
@@ -841,8 +911,10 @@ class _IngredientsCard extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: onAdd,
-              child: const Text('+ Thêm thành phần mới',
-                  style: TextStyle(color: RetroTokens.onPanel)),
+              child: const Text(
+                '+ Thêm thành phần mới',
+                style: TextStyle(color: RetroTokens.onPanel),
+              ),
             ),
           ),
         ],
@@ -852,8 +924,11 @@ class _IngredientsCard extends StatelessWidget {
 }
 
 class _IngredientRow extends StatelessWidget {
-  const _IngredientRow(
-      {required this.item, required this.onRemove, required this.onTap});
+  const _IngredientRow({
+    required this.item,
+    required this.onRemove,
+    required this.onTap,
+  });
 
   final MealItem item;
   final VoidCallback onRemove;
@@ -871,17 +946,22 @@ class _IngredientRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(item.ingredientName,
-                      style: const TextStyle(
-                          color: RetroTokens.onPanel,
-                          fontWeight: FontWeight.w700)),
+                  Text(
+                    item.ingredientName,
+                    style: const TextStyle(
+                      color: RetroTokens.onPanel,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 5),
                   Row(
                     children: [
                       Text(
                         '${item.quantityG.round()} g · ${Units.kcal(item.caloriesKcal)}',
                         style: const TextStyle(
-                            color: RetroTokens.onPanelSoft, fontSize: 12),
+                          color: RetroTokens.onPanelSoft,
+                          fontSize: 12,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       _Dot(color: RetroTokens.carbs, value: item.carbsG),
@@ -899,8 +979,11 @@ class _IngredientRow extends StatelessWidget {
                 backgroundColor: RetroTokens.panelFill,
                 shape: const CircleBorder(),
               ),
-              icon: const Icon(Icons.remove,
-                  size: 16, color: RetroTokens.onPanel),
+              icon: const Icon(
+                Icons.remove,
+                size: 16,
+                color: RetroTokens.onPanel,
+              ),
             ),
           ],
         ),
@@ -928,9 +1011,13 @@ class _Dot extends StatelessWidget {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
-          Text(value == null ? '–' : value!.round().toString(),
-              style: const TextStyle(
-                  color: RetroTokens.onPanelSoft, fontSize: 12)),
+          Text(
+            value == null ? '–' : value!.round().toString(),
+            style: const TextStyle(
+              color: RetroTokens.onPanelSoft,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -954,23 +1041,31 @@ class _FiberCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Chất xơ',
-              style: TextStyle(
-                  color: RetroTokens.onPanelSoft,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600)),
+          const Text(
+            'Chất xơ',
+            style: TextStyle(
+              color: RetroTokens.onPanelSoft,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 6),
           Row(
             children: [
               const Expanded(
-                child: Text('Mức chất xơ',
-                    style: TextStyle(
-                        color: RetroTokens.onPanel,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16)),
+                child: Text(
+                  'Mức chất xơ',
+                  style: TextStyle(
+                    color: RetroTokens.onPanel,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
               ),
-              Text('${fiber.round()} / ${_dailyTargetG.round()} g',
-                  style: const TextStyle(color: RetroTokens.onPanelSoft)),
+              Text(
+                '${fiber.round()} / ${_dailyTargetG.round()} g',
+                style: const TextStyle(color: RetroTokens.onPanelSoft),
+              ),
             ],
           ),
           SliderTheme(
@@ -1013,16 +1108,22 @@ class _BottomActions extends StatelessWidget {
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(52),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(26)),
+                  borderRadius: BorderRadius.circular(26),
+                ),
               ),
               child: saving
                   ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('Lưu',
-                      style: TextStyle(fontWeight: FontWeight.w700)),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Lưu',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
             ),
           ),
         ],
@@ -1040,17 +1141,17 @@ class _Panel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-          decoration: BoxDecoration(
-            color: RetroTokens.panel,
-            border: Border.all(color: RetroTokens.panelLine),
-            borderRadius: BorderRadius.circular(28),
-          ),
-          child: child,
-        ),
-      );
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Container(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+      decoration: BoxDecoration(
+        color: RetroTokens.panel,
+        border: Border.all(color: RetroTokens.panelLine),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: child,
+    ),
+  );
 }
 
 class _Pill extends StatelessWidget {
@@ -1061,20 +1162,23 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-          decoration: BoxDecoration(
-            color: RetroTokens.panelFill,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(label,
-              style: const TextStyle(
-                  color: RetroTokens.onPanel,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600)),
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: RetroTokens.panelFill,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: RetroTokens.onPanel,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
         ),
-      );
+      ),
+    ),
+  );
 }
 
 class _BigNumber extends StatelessWidget {
@@ -1085,27 +1189,34 @@ class _BigNumber extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Text(value,
-              style: const TextStyle(
-                  color: RetroTokens.onPanel,
-                  fontSize: 34,
-                  height: 1,
-                  fontWeight: FontWeight.w800)),
-          const SizedBox(width: 5),
-          Text(unit,
-              style: const TextStyle(
-                  color: RetroTokens.onPanelSoft, fontSize: 14)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.baseline,
+    textBaseline: TextBaseline.alphabetic,
+    children: [
+      Text(
+        value,
+        style: const TextStyle(
+          color: RetroTokens.onPanel,
+          fontSize: 34,
+          height: 1,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(width: 5),
+      Text(
+        unit,
+        style: const TextStyle(color: RetroTokens.onPanelSoft, fontSize: 14),
+      ),
+    ],
+  );
 }
 
 /// One bar, three segments, in the order the columns under it are read.
 class _MacroBar extends StatelessWidget {
-  const _MacroBar(
-      {required this.carbs, required this.protein, required this.fat});
+  const _MacroBar({
+    required this.carbs,
+    required this.protein,
+    required this.fat,
+  });
 
   final double carbs;
   final double protein;
@@ -1130,14 +1241,17 @@ class _MacroBar extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-                flex: (carbs * 100).round().clamp(1, 1000000),
-                child: Container(color: RetroTokens.carbs)),
+              flex: (carbs * 100).round().clamp(1, 1000000),
+              child: Container(color: RetroTokens.carbs),
+            ),
             Expanded(
-                flex: (protein * 100).round().clamp(1, 1000000),
-                child: Container(color: RetroTokens.protein)),
+              flex: (protein * 100).round().clamp(1, 1000000),
+              child: Container(color: RetroTokens.protein),
+            ),
             Expanded(
-                flex: (fat * 100).round().clamp(1, 1000000),
-                child: Container(color: RetroTokens.fat)),
+              flex: (fat * 100).round().clamp(1, 1000000),
+              child: Container(color: RetroTokens.fat),
+            ),
           ],
         ),
       ),
@@ -1160,35 +1274,43 @@ class _MacroColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 13, color: color),
-              const SizedBox(width: 5),
-              Text(label,
-                  style: const TextStyle(
-                      color: RetroTokens.onPanelSoft, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 5),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(grams.round().toString(),
-                  style: const TextStyle(
-                      color: RetroTokens.onPanel,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700)),
-              const SizedBox(width: 2),
-              const Text('g',
-                  style:
-                      TextStyle(color: RetroTokens.onPanelSoft, fontSize: 12)),
-            ],
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: RetroTokens.onPanelSoft,
+              fontSize: 12,
+            ),
           ),
         ],
-      );
+      ),
+      const SizedBox(height: 5),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Text(
+            grams.round().toString(),
+            style: const TextStyle(
+              color: RetroTokens.onPanel,
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 2),
+          const Text(
+            'g',
+            style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 12),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _CenteredMessage extends StatelessWidget {
@@ -1208,23 +1330,24 @@ class _CenteredMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(text,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: RetroTokens.inkSoft)),
-              const SizedBox(height: 20),
-              FilledButton(onPressed: onAction, child: Text(actionLabel)),
-              if (secondaryLabel != null)
-                TextButton(
-                    onPressed: onSecondary, child: Text(secondaryLabel!)),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: RetroTokens.inkSoft),
           ),
-        ),
-      );
+          const SizedBox(height: 20),
+          FilledButton(onPressed: onAction, child: Text(actionLabel)),
+          if (secondaryLabel != null)
+            TextButton(onPressed: onSecondary, child: Text(secondaryLabel!)),
+        ],
+      ),
+    ),
+  );
 }
 
 /// What the meal editor came back with: either the meal's own fields, or a
@@ -1290,16 +1413,32 @@ class _MealEditorState extends State<_MealEditor> {
       lastDate: now,
     );
     if (picked == null) return;
-    setState(() => _at =
-        DateTime(picked.year, picked.month, picked.day, _at.hour, _at.minute));
+    setState(
+      () => _at = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        _at.hour,
+        _at.minute,
+      ),
+    );
   }
 
   Future<void> _pickTime() async {
     final picked = await showTimePicker(
-        context: context, initialTime: TimeOfDay.fromDateTime(_at));
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_at),
+    );
     if (picked == null) return;
-    setState(() => _at =
-        DateTime(_at.year, _at.month, _at.day, picked.hour, picked.minute));
+    setState(
+      () => _at = DateTime(
+        _at.year,
+        _at.month,
+        _at.day,
+        picked.hour,
+        picked.minute,
+      ),
+    );
   }
 
   @override
@@ -1316,11 +1455,14 @@ class _MealEditorState extends State<_MealEditor> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Chỉnh sửa bữa ăn',
-                style: TextStyle(
-                    color: RetroTokens.onPanel,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16)),
+            const Text(
+              'Chỉnh sửa bữa ăn',
+              style: TextStyle(
+                color: RetroTokens.onPanel,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _name,
@@ -1349,10 +1491,13 @@ class _MealEditorState extends State<_MealEditor> {
                   child: OutlinedButton.icon(
                     onPressed: _pickDate,
                     icon: const Icon(Icons.event, size: 18),
-                    label: Text(Units.dayHeading(
+                    label: Text(
+                      Units.dayHeading(
                         '${_at.year.toString().padLeft(4, '0')}-'
                         '${_at.month.toString().padLeft(2, '0')}-'
-                        '${_at.day.toString().padLeft(2, '0')}')),
+                        '${_at.day.toString().padLeft(2, '0')}',
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1379,30 +1524,40 @@ class _MealEditorState extends State<_MealEditor> {
             const Divider(color: RetroTokens.panelLine, height: 1),
             const Padding(
               padding: EdgeInsets.only(top: 10, bottom: 2),
-              child: Text('Thành phần',
-                  style: TextStyle(
-                      color: RetroTokens.onPanelSoft,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600)),
+              child: Text(
+                'Thành phần',
+                style: TextStyle(
+                  color: RetroTokens.onPanelSoft,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
             for (final item in widget.items)
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(item.ingredientName,
-                    style: const TextStyle(color: RetroTokens.onPanel)),
+                title: Text(
+                  item.ingredientName,
+                  style: const TextStyle(color: RetroTokens.onPanel),
+                ),
                 subtitle: Text(
-                    '${item.quantityG.round()} g · ${Units.kcal(item.caloriesKcal)}',
-                    style: const TextStyle(color: RetroTokens.onPanelSoft)),
-                trailing: const Icon(Icons.chevron_right,
-                    color: RetroTokens.onPanelSoft),
+                  '${item.quantityG.round()} g · ${Units.kcal(item.caloriesKcal)}',
+                  style: const TextStyle(color: RetroTokens.onPanelSoft),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right,
+                  color: RetroTokens.onPanelSoft,
+                ),
                 onTap: () => Navigator.pop(context, _EditComponent(item)),
               ),
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton(
                 onPressed: () => Navigator.pop(context, const _AddComponent()),
-                child: const Text('+ Thêm thành phần mới',
-                    style: TextStyle(color: RetroTokens.onPanel)),
+                child: const Text(
+                  '+ Thêm thành phần mới',
+                  style: TextStyle(color: RetroTokens.onPanel),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -1446,10 +1601,12 @@ class _ItemEditor extends StatefulWidget {
 class _ItemEditorState extends State<_ItemEditor> {
   late final _name = TextEditingController(text: widget.item?.ingredientName);
   late final _grams = TextEditingController(text: _num(widget.item?.quantityG));
-  late final _kcal =
-      TextEditingController(text: _num(widget.item?.caloriesKcal));
-  late final _protein =
-      TextEditingController(text: _num(widget.item?.proteinG));
+  late final _kcal = TextEditingController(
+    text: _num(widget.item?.caloriesKcal),
+  );
+  late final _protein = TextEditingController(
+    text: _num(widget.item?.proteinG),
+  );
   late final _carbs = TextEditingController(text: _num(widget.item?.carbsG));
   late final _fat = TextEditingController(text: _num(widget.item?.fatG));
   late final _fiber = TextEditingController(text: _num(widget.item?.fiberG));
@@ -1475,53 +1632,64 @@ class _ItemEditorState extends State<_ItemEditor> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(adding ? 'Thêm thành phần' : 'Sửa thành phần',
-                style: const TextStyle(
-                    color: RetroTokens.onPanel,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16)),
+            Text(
+              adding ? 'Thêm thành phần' : 'Sửa thành phần',
+              style: const TextStyle(
+                color: RetroTokens.onPanel,
+                fontWeight: FontWeight.w700,
+                fontSize: 16,
+              ),
+            ),
             const SizedBox(height: 12),
             _field(_name, 'Tên', text: true),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _field(_grams, 'Khối lượng (g)')),
-              const SizedBox(width: 8),
-              Expanded(child: _field(_kcal, 'Calo (kcal)')),
-            ]),
+            Row(
+              children: [
+                Expanded(child: _field(_grams, 'Khối lượng (g)')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_kcal, 'Calo (kcal)')),
+              ],
+            ),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _field(_carbs, 'Tinh bột (g)')),
-              const SizedBox(width: 8),
-              Expanded(child: _field(_protein, 'Đạm (g)')),
-              const SizedBox(width: 8),
-              Expanded(child: _field(_fat, 'Béo (g)')),
-            ]),
+            Row(
+              children: [
+                Expanded(child: _field(_carbs, 'Tinh bột (g)')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_protein, 'Đạm (g)')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_fat, 'Béo (g)')),
+              ],
+            ),
             const SizedBox(height: 8),
-            Row(children: [
-              Expanded(child: _field(_fiber, 'Xơ (g)')),
-              const SizedBox(width: 8),
-              Expanded(child: _field(_sugar, 'Đường (g)')),
-              const SizedBox(width: 8),
-              Expanded(child: _field(_sodium, 'Natri (mg)')),
-            ]),
+            Row(
+              children: [
+                Expanded(child: _field(_fiber, 'Xơ (g)')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_sugar, 'Đường (g)')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_sodium, 'Natri (mg)')),
+              ],
+            ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: () {
                 final name = _name.text.trim();
                 if (name.isEmpty) return;
-                Navigator.of(context).pop(MealItem(
-                  id: widget.item?.id ?? 0,
-                  ingredientName: name,
-                  quantityG: _parse(_grams.text) ?? 0,
-                  caloriesKcal: _parse(_kcal.text) ?? 0,
-                  proteinG: _parse(_protein.text),
-                  carbsG: _parse(_carbs.text),
-                  fatG: _parse(_fat.text),
-                  fiberG: _parse(_fiber.text),
-                  sugarG: _parse(_sugar.text),
-                  sodiumMg: _parse(_sodium.text),
-                  isUserCorrected: true,
-                ));
+                Navigator.of(context).pop(
+                  MealItem(
+                    id: widget.item?.id ?? 0,
+                    ingredientName: name,
+                    quantityG: _parse(_grams.text) ?? 0,
+                    caloriesKcal: _parse(_kcal.text) ?? 0,
+                    proteinG: _parse(_protein.text),
+                    carbsG: _parse(_carbs.text),
+                    fatG: _parse(_fat.text),
+                    fiberG: _parse(_fiber.text),
+                    sugarG: _parse(_sugar.text),
+                    sodiumMg: _parse(_sodium.text),
+                    isUserCorrected: true,
+                  ),
+                );
               },
               child: Text(adding ? 'Thêm' : 'Lưu'),
             ),

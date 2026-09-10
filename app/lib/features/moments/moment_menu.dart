@@ -50,9 +50,14 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
               onTap: () => Navigator.pop(sheetContext, _MomentAction.save),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline, color: RetroTokens.accent),
-              title: const Text('Xoá',
-                  style: TextStyle(color: RetroTokens.accent)),
+              leading: const Icon(
+                Icons.delete_outline,
+                color: RetroTokens.accent,
+              ),
+              title: const Text(
+                'Xoá',
+                style: TextStyle(color: RetroTokens.accent),
+              ),
               onTap: () => Navigator.pop(sheetContext, _MomentAction.delete),
             ),
           ],
@@ -80,13 +85,19 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
     setState(() => _busy = true);
     try {
       final bytes = await _bytes();
-      await SharePlus.instance.share(ShareParams(
-        text: widget.moment.caption,
-        files: [
-          XFile.fromData(bytes, mimeType: 'image/jpeg', name: 'chiphealth.jpg'),
-        ],
-        fileNameOverrides: const ['chiphealth.jpg'],
-      ));
+      await SharePlus.instance.share(
+        ShareParams(
+          text: widget.moment.caption,
+          files: [
+            XFile.fromData(
+              bytes,
+              mimeType: 'image/jpeg',
+              name: 'chiphealth.jpg',
+            ),
+          ],
+          fileNameOverrides: const ['chiphealth.jpg'],
+        ),
+      );
     } catch (err) {
       _failed(err);
     } finally {
@@ -118,8 +129,10 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Xoá',
-                style: TextStyle(color: RetroTokens.accent)),
+            child: const Text(
+              'Xoá',
+              style: TextStyle(color: RetroTokens.accent),
+            ),
           ),
         ],
       ),
@@ -146,24 +159,26 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: _busy ? null : _open,
-        child: Container(
-          height: 32,
-          width: 32,
-          alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0x66000000),
-          ),
-          child: _busy
-              ? const SizedBox(
-                  height: 14,
-                  width: 14,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                )
-              : const Icon(Icons.more_horiz, size: 20, color: Colors.white),
-        ),
-      );
+    behavior: HitTestBehavior.opaque,
+    onTap: _busy ? null : _open,
+    child: Container(
+      height: 32,
+      width: 32,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0x66000000),
+      ),
+      child: _busy
+          ? const SizedBox(
+              height: 14,
+              width: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            )
+          : const Icon(Icons.more_horiz, size: 20, color: Colors.white),
+    ),
+  );
 }

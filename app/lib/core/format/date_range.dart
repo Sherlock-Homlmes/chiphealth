@@ -6,11 +6,11 @@ enum PeriodMode { week, month, year, custom }
 
 extension PeriodModeLabel on PeriodMode {
   String get label => switch (this) {
-        PeriodMode.week => 'Tuần',
-        PeriodMode.month => 'Tháng',
-        PeriodMode.year => 'Năm',
-        PeriodMode.custom => 'Tùy chọn khoảng thời gian',
-      };
+    PeriodMode.week => 'Tuần',
+    PeriodMode.month => 'Tháng',
+    PeriodMode.year => 'Năm',
+    PeriodMode.custom => 'Tùy chọn khoảng thời gian',
+  };
 }
 
 /// An inclusive span of local dates. Value type, so it can key a provider
@@ -33,9 +33,9 @@ class DateRange {
   /// Every date in the range, oldest first. Used as the x axis of every chart,
   /// so a day with no data still gets a slot.
   List<DateTime> get dates => [
-        for (var i = 0; i < days; i++)
-          DateTime(start.year, start.month, start.day + i),
-      ];
+    for (var i = 0; i < days; i++)
+      DateTime(start.year, start.month, start.day + i),
+  ];
 
   bool contains(DateTime day) => !day.isBefore(start) && !day.isAfter(end);
 
@@ -74,7 +74,9 @@ class Period {
   factory Period.thisWeek() {
     final now = DateTime.now();
     return Period(
-        mode: PeriodMode.week, anchor: DateTime(now.year, now.month, now.day));
+      mode: PeriodMode.week,
+      anchor: DateTime(now.year, now.month, now.day),
+    );
   }
 
   final PeriodMode mode;
@@ -88,36 +90,45 @@ class Period {
     switch (mode) {
       case PeriodMode.week:
         final monday = DateTime(
-            anchor.year, anchor.month, anchor.day - (anchor.weekday - 1));
+          anchor.year,
+          anchor.month,
+          anchor.day - (anchor.weekday - 1),
+        );
         return DateRange(
-            monday, DateTime(monday.year, monday.month, monday.day + 6));
+          monday,
+          DateTime(monday.year, monday.month, monday.day + 6),
+        );
       case PeriodMode.month:
-        return DateRange(DateTime(anchor.year, anchor.month, 1),
-            DateTime(anchor.year, anchor.month + 1, 0));
+        return DateRange(
+          DateTime(anchor.year, anchor.month, 1),
+          DateTime(anchor.year, anchor.month + 1, 0),
+        );
       case PeriodMode.year:
         return DateRange(
-            DateTime(anchor.year, 1, 1), DateTime(anchor.year, 12, 31));
+          DateTime(anchor.year, 1, 1),
+          DateTime(anchor.year, 12, 31),
+        );
       case PeriodMode.custom:
         return custom ?? DateRange(anchor, anchor);
     }
   }
 
   Period step(int delta) => switch (mode) {
-        PeriodMode.week => Period(
-            mode: mode,
-            anchor: DateTime(anchor.year, anchor.month, anchor.day + 7 * delta),
-          ),
-        PeriodMode.month => Period(
-            mode: mode,
-            anchor: DateTime(anchor.year, anchor.month + delta, 1),
-          ),
-        PeriodMode.year => Period(
-            mode: mode,
-            anchor: DateTime(anchor.year + delta, anchor.month, 1),
-          ),
-        // A hand-picked range has no next or previous.
-        PeriodMode.custom => this,
-      };
+    PeriodMode.week => Period(
+      mode: mode,
+      anchor: DateTime(anchor.year, anchor.month, anchor.day + 7 * delta),
+    ),
+    PeriodMode.month => Period(
+      mode: mode,
+      anchor: DateTime(anchor.year, anchor.month + delta, 1),
+    ),
+    PeriodMode.year => Period(
+      mode: mode,
+      anchor: DateTime(anchor.year + delta, anchor.month, 1),
+    ),
+    // A hand-picked range has no next or previous.
+    PeriodMode.custom => this,
+  };
 
   /// True once the range would run past today: there is nothing to show in the
   /// future, so ›  is disabled.

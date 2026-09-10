@@ -35,14 +35,13 @@ class MomentsFeedState {
     bool? loadingMore,
     Object? error,
     bool clearError = false,
-  }) =>
-      MomentsFeedState(
-        moments: moments ?? this.moments,
-        cursor: cursor ?? this.cursor,
-        loading: loading ?? this.loading,
-        loadingMore: loadingMore ?? this.loadingMore,
-        error: clearError ? null : (error ?? this.error),
-      );
+  }) => MomentsFeedState(
+    moments: moments ?? this.moments,
+    cursor: cursor ?? this.cursor,
+    loading: loading ?? this.loading,
+    loadingMore: loadingMore ?? this.loadingMore,
+    error: clearError ? null : (error ?? this.error),
+  );
 }
 
 /// The community feed, paged backwards forever.
@@ -80,9 +79,11 @@ class MomentsFeed extends StateNotifier<MomentsFeedState> {
     final i = state.moments.indexWhere((m) => m.id == id);
     if (i < 0 || state.moments[i].seen) return;
 
-    state = state.copyWith(moments: [
-      for (final m in state.moments) m.id == id ? m.markedViewed(at) : m,
-    ]);
+    state = state.copyWith(
+      moments: [
+        for (final m in state.moments) m.id == id ? m.markedViewed(at) : m,
+      ],
+    );
     try {
       await _repo.markViewed(id);
     } catch (_) {
@@ -124,4 +125,5 @@ class MomentsFeed extends StateNotifier<MomentsFeedState> {
 
 final momentsFeedProvider =
     StateNotifierProvider<MomentsFeed, MomentsFeedState>(
-        (ref) => MomentsFeed(ref.watch(momentsRepositoryProvider)));
+      (ref) => MomentsFeed(ref.watch(momentsRepositoryProvider)),
+    );

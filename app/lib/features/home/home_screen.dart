@@ -94,8 +94,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   nutrition.when(
                     loading: () => const _OverviewSkeleton(),
                     error: (err, _) => HomeCard(
-                      child: Text('$err',
-                          style: const TextStyle(color: RetroTokens.accent)),
+                      child: Text(
+                        '$err',
+                        style: const TextStyle(color: RetroTokens.accent),
+                      ),
                     ),
                     data: (daily) => _OverviewCard(
                       daily: daily,
@@ -142,8 +144,9 @@ class _CommunityCard extends ConsumerWidget {
   /// until it has been looked at. Own posts never carry a view row, so they
   /// qualify on the day rule alone.
   static bool _belongsTo(Moment moment, String isoDay, String? myId) {
-    final posted =
-        Units.localDate(DateTime.fromMillisecondsSinceEpoch(moment.createdAt));
+    final posted = Units.localDate(
+      DateTime.fromMillisecondsSinceEpoch(moment.createdAt),
+    );
     if (posted == isoDay) return true;
     if (isoDay != Units.today()) return false;
     return moment.userId != myId && !moment.seen;
@@ -164,15 +167,18 @@ class _CommunityCard extends ConsumerWidget {
     // feed reaches past that day or runs out.
     final reachedDay = feed.moments.isEmpty
         ? false
-        : Units.localDate(DateTime.fromMillisecondsSinceEpoch(
-                feed.moments.last.createdAt))
-            .compareTo(isoDay) <=
-            0;
+        : Units.localDate(
+                DateTime.fromMillisecondsSinceEpoch(
+                  feed.moments.last.createdAt,
+                ),
+              ).compareTo(isoDay) <=
+              0;
     final digging = news.isEmpty && feed.hasMore && !reachedDay;
     if (digging && !feed.loadingMore) {
       // Mid-build, so the fetch waits for the frame to finish.
       WidgetsBinding.instance.addPostFrameCallback(
-          (_) => ref.read(momentsFeedProvider.notifier).loadMore());
+        (_) => ref.read(momentsFeedProvider.notifier).loadMore(),
+      );
     }
 
     // Nothing for this day: the whole card goes, header and all. An error still
@@ -200,11 +206,18 @@ class _CommunityCard extends ConsumerWidget {
                   padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   child: Row(
                     children: [
-                      Text('Xem tất cả',
-                          style: TextStyle(
-                              fontSize: 12, color: RetroTokens.accent)),
-                      Icon(Icons.chevron_right,
-                          size: 16, color: RetroTokens.accent),
+                      Text(
+                        'Xem tất cả',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: RetroTokens.accent,
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: RetroTokens.accent,
+                      ),
                     ],
                   ),
                 ),
@@ -307,25 +320,25 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [
-          const Expanded(
-            child: Text(
-              'Chiphealth',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-                color: RetroTokens.ink,
-              ),
-            ),
+    children: [
+      const Expanded(
+        child: Text(
+          'Chiphealth',
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
+            color: RetroTokens.ink,
           ),
-          IconButton(
-            tooltip: 'Cài đặt',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.go('/profile'),
-          ),
-        ],
-      );
+        ),
+      ),
+      IconButton(
+        tooltip: 'Cài đặt',
+        icon: const Icon(Icons.settings_outlined),
+        onPressed: () => context.go('/profile'),
+      ),
+    ],
+  );
 }
 
 /// T2..CN of the week containing the selected day. Future days are not
@@ -345,7 +358,10 @@ class _WeekStrip extends StatelessWidget {
     // Built by calendar arithmetic, not Duration, so a DST shift can never
     // hand back 23:00 the previous day and break the == below.
     final monday = DateTime(
-        selected.year, selected.month, selected.day - (selected.weekday - 1));
+      selected.year,
+      selected.month,
+      selected.day - (selected.weekday - 1),
+    );
 
     // Expanded has to be a direct child of the Row, so the dates are computed
     // into a list first rather than inside a Builder.
@@ -376,13 +392,13 @@ class _OverviewSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const HomeCard(
-        child: SizedBox(
-          height: 180,
-          child: Center(
-            child: CircularProgressIndicator(color: RetroTokens.inkFaint),
-          ),
-        ),
-      );
+    child: SizedBox(
+      height: 180,
+      child: Center(
+        child: CircularProgressIndicator(color: RetroTokens.inkFaint),
+      ),
+    ),
+  );
 }
 
 /// Mascot + the three energy lines, then a two-page macro carousel.
@@ -447,52 +463,56 @@ class _OverviewCard extends StatelessWidget {
               controller: controller,
               onPageChanged: onPageChanged,
               children: [
-                _MacroRow(children: [
-                  MacroBar(
-                    label: 'Tinh bột',
-                    value: daily.carbsG,
-                    target: targets.carbsG,
-                    unit: 'g',
-                    color: RetroTokens.carbs,
-                  ),
-                  MacroBar(
-                    label: 'Chất đạm',
-                    value: daily.proteinG,
-                    target: targets.proteinG,
-                    unit: 'g',
-                    color: RetroTokens.protein,
-                  ),
-                  MacroBar(
-                    label: 'Chất béo',
-                    value: daily.fatG,
-                    target: targets.fatG,
-                    unit: 'g',
-                    color: RetroTokens.fat,
-                  ),
-                ]),
-                _MacroRow(children: [
-                  MacroBar(
-                    label: 'Đường',
-                    value: daily.sugarG,
-                    target: targets.sugarG,
-                    unit: 'g',
-                    color: RetroTokens.sugar,
-                  ),
-                  MacroBar(
-                    label: 'Natri',
-                    value: daily.sodiumMg,
-                    target: targets.sodiumMg,
-                    unit: 'mg',
-                    color: RetroTokens.sodium,
-                  ),
-                  MacroBar(
-                    label: 'Chất xơ',
-                    value: daily.fiberG,
-                    target: targets.fiberG,
-                    unit: 'g',
-                    color: RetroTokens.fiber,
-                  ),
-                ]),
+                _MacroRow(
+                  children: [
+                    MacroBar(
+                      label: 'Tinh bột',
+                      value: daily.carbsG,
+                      target: targets.carbsG,
+                      unit: 'g',
+                      color: RetroTokens.carbs,
+                    ),
+                    MacroBar(
+                      label: 'Chất đạm',
+                      value: daily.proteinG,
+                      target: targets.proteinG,
+                      unit: 'g',
+                      color: RetroTokens.protein,
+                    ),
+                    MacroBar(
+                      label: 'Chất béo',
+                      value: daily.fatG,
+                      target: targets.fatG,
+                      unit: 'g',
+                      color: RetroTokens.fat,
+                    ),
+                  ],
+                ),
+                _MacroRow(
+                  children: [
+                    MacroBar(
+                      label: 'Đường',
+                      value: daily.sugarG,
+                      target: targets.sugarG,
+                      unit: 'g',
+                      color: RetroTokens.sugar,
+                    ),
+                    MacroBar(
+                      label: 'Natri',
+                      value: daily.sodiumMg,
+                      target: targets.sodiumMg,
+                      unit: 'mg',
+                      color: RetroTokens.sodium,
+                    ),
+                    MacroBar(
+                      label: 'Chất xơ',
+                      value: daily.fiberG,
+                      target: targets.fiberG,
+                      unit: 'g',
+                      color: RetroTokens.fiber,
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -511,14 +531,14 @@ class _MacroRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const SizedBox(width: 14),
-            Expanded(child: children[i]),
-          ],
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (var i = 0; i < children.length; i++) ...[
+        if (i > 0) const SizedBox(width: 14),
+        Expanded(child: children[i]),
+      ],
+    ],
+  );
 }
 
 class _EnergyLine extends StatelessWidget {
@@ -535,30 +555,32 @@ class _EnergyLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [
-          Icon(icon, size: 15, color: RetroTokens.inkSoft),
-          const SizedBox(width: 6),
-          Text('$label:',
-              style: const TextStyle(fontSize: 13, color: RetroTokens.inkSoft)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                maxLines: 1,
-                softWrap: false,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: RetroTokens.ink,
-                ),
-              ),
+    children: [
+      Icon(icon, size: 15, color: RetroTokens.inkSoft),
+      const SizedBox(width: 6),
+      Text(
+        '$label:',
+        style: const TextStyle(fontSize: 13, color: RetroTokens.inkSoft),
+      ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            value,
+            maxLines: 1,
+            softWrap: false,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: RetroTokens.ink,
             ),
           ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 }
 
 /// Water is device-local (see WaterController) and always renders its cups on a
@@ -587,9 +609,13 @@ class _WaterCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Nước',
-                        style: TextStyle(
-                            fontSize: 12, color: RetroTokens.inkFaint)),
+                    const Text(
+                      'Nước',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: RetroTokens.inkFaint,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       '${_ml.format(drunk)} ml',
@@ -599,8 +625,13 @@ class _WaterCard extends ConsumerWidget {
                 ),
               ),
               AddButton(
-                onTap: () => addWater(context, ref,
-                    date: date, drunk: drunk, target: target),
+                onTap: () => addWater(
+                  context,
+                  ref,
+                  date: date,
+                  drunk: drunk,
+                  target: target,
+                ),
                 color: RetroTokens.water,
               ),
             ],
@@ -621,8 +652,13 @@ class _WaterCard extends ConsumerWidget {
                       // The first glass doubles as the quick-add affordance.
                       showPlus: i == 0,
                       onTap: () => i == 0 && drunk == 0
-                          ? addWater(context, ref,
-                              date: date, drunk: drunk, target: target)
+                          ? addWater(
+                              context,
+                              ref,
+                              date: date,
+                              drunk: drunk,
+                              target: target,
+                            )
                           : controller.setCups(i + 1),
                     ),
                   ),
@@ -635,8 +671,10 @@ class _WaterCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   'Mục tiêu: ${_ml.format(target)} ml',
-                  style:
-                      const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: RetroTokens.inkSoft,
+                  ),
                 ),
               ),
               PopupMenuButton<int>(
@@ -667,11 +705,7 @@ class _WaterCard extends ConsumerWidget {
 
 /// A glass filled from the bottom to [fill] (0..1).
 class _Cup extends StatelessWidget {
-  const _Cup({
-    required this.fill,
-    required this.showPlus,
-    required this.onTap,
-  });
+  const _Cup({required this.fill, required this.showPlus, required this.onTap});
 
   final double fill;
   final bool showPlus;
@@ -679,30 +713,36 @@ class _Cup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              const Icon(Icons.local_drink_outlined,
-                  size: 26, color: RetroTokens.inkFaint),
-              // The water rises inside the outline: Align with a heightFactor
-              // crops the filled glyph from the bottom up, so a half-drunk
-              // glass reads as half full rather than as another empty one.
-              if (fill > 0)
-                ClipRect(
-                  clipper: _WaterLevel(fill),
-                  child: const Icon(Icons.local_drink,
-                      size: 26, color: RetroTokens.water),
-                ),
-              if (showPlus && fill <= 0)
-                const Icon(Icons.add, size: 11, color: RetroTokens.ink),
-            ],
+    onTap: onTap,
+    behavior: HitTestBehavior.opaque,
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Stack(
+        alignment: Alignment.bottomRight,
+        children: [
+          const Icon(
+            Icons.local_drink_outlined,
+            size: 26,
+            color: RetroTokens.inkFaint,
           ),
-        ),
-      );
+          // The water rises inside the outline: Align with a heightFactor
+          // crops the filled glyph from the bottom up, so a half-drunk
+          // glass reads as half full rather than as another empty one.
+          if (fill > 0)
+            ClipRect(
+              clipper: _WaterLevel(fill),
+              child: const Icon(
+                Icons.local_drink,
+                size: 26,
+                color: RetroTokens.water,
+              ),
+            ),
+          if (showPlus && fill <= 0)
+            const Icon(Icons.add, size: 11, color: RetroTokens.ink),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Keeps the bottom [fill] of the glyph and cuts the rest, so the water level
@@ -755,7 +795,9 @@ class _MealsCard extends StatelessWidget {
               // `go` would replace this route instead of stacking on it —
               // leaving its back button with nothing to pop.
               _MealRow(
-                  meal: meal, onTap: () => context.push('/meals/${meal.id}')),
+                meal: meal,
+                onTap: () => context.push('/meals/${meal.id}'),
+              ),
           ],
         ],
       ),
@@ -778,28 +820,27 @@ class _MealRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  meal.dishName ?? _types[meal.mealType] ?? meal.mealType,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              Text(
-                Units.kcal(meal.totalCaloriesKcal),
-                style:
-                    const TextStyle(fontSize: 13, color: RetroTokens.inkSoft),
-              ),
-            ],
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              meal.dishName ?? _types[meal.mealType] ?? meal.mealType,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-      );
+          Text(
+            Units.kcal(meal.totalCaloriesKcal),
+            style: const TextStyle(fontSize: 13, color: RetroTokens.inkSoft),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Activity mirrors the meals card: burned calories and a "+" that starts a
@@ -855,42 +896,47 @@ class _CardHead extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 12, color: RetroTokens.inkFaint)),
-                const SizedBox(height: 2),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          value,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      value,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(width: 4),
-                    Text(unit,
-                        style: const TextStyle(
-                            fontSize: 12, color: RetroTokens.inkSoft)),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  unit,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: RetroTokens.inkSoft,
+                  ),
                 ),
               ],
             ),
-          ),
-          AddButton(onTap: onAdd, size: 48),
-        ],
-      );
+          ],
+        ),
+      ),
+      AddButton(onTap: onAdd, size: 48),
+    ],
+  );
 }

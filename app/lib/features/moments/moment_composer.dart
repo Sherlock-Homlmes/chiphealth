@@ -13,9 +13,24 @@ const kQuickReactions = ['❤️', '🔥', '😂'];
 /// What the "+" opens. A fixed set rather than a system emoji keyboard: the
 /// point is one tap, not a search box.
 const kMoreReactions = [
-  '😮', '😍', '🥹', '😭', '😅', '🤣',
-  '👍', '👏', '🙌', '💪', '🎉', '✨',
-  '😎', '🤔', '🥰', '😱', '💯', '🍀',
+  '😮',
+  '😍',
+  '🥹',
+  '😭',
+  '😅',
+  '🤣',
+  '👍',
+  '👏',
+  '🙌',
+  '💪',
+  '🎉',
+  '✨',
+  '😎',
+  '🤔',
+  '🥰',
+  '😱',
+  '💯',
+  '🍀',
 ];
 
 /// What sits under a moment: a box to write in on the left, the reactions on
@@ -121,46 +136,50 @@ class _MomentComposerState extends ConsumerState<MomentComposer> {
 
   @override
   Widget build(BuildContext context) => Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _controller,
-              textInputAction: TextInputAction.send,
-              maxLength: 500,
-              onSubmitted: (_) => _send(),
-              decoration: InputDecoration(
-                hintText: 'Gửi tin nhắn…',
-                counterText: '',
-                isDense: true,
-                filled: true,
-                fillColor: RetroTokens.paperRaised,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: RetroTokens.panelLine),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: RetroTokens.panelLine),
-                ),
-              ),
+    children: [
+      Expanded(
+        child: TextField(
+          controller: _controller,
+          textInputAction: TextInputAction.send,
+          maxLength: 500,
+          onSubmitted: (_) => _send(),
+          decoration: InputDecoration(
+            hintText: 'Gửi tin nhắn…',
+            counterText: '',
+            isDense: true,
+            filled: true,
+            fillColor: RetroTokens.paperRaised,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: const BorderSide(color: RetroTokens.panelLine),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(999),
+              borderSide: const BorderSide(color: RetroTokens.panelLine),
             ),
           ),
-          for (final emoji in kQuickReactions)
-            _ReactionButton(
-              emoji: emoji,
-              onTap: (origin) => _react(emoji, origin: origin),
-            ),
-          // One more tap for anything outside the three above.
-          IconButton(
-            tooltip: 'Thêm biểu cảm',
-            onPressed: _busy ? null : _pickMore,
-            icon: const Icon(Icons.add_reaction_outlined,
-                color: RetroTokens.inkSoft),
-          ),
-        ],
-      );
+        ),
+      ),
+      for (final emoji in kQuickReactions)
+        _ReactionButton(
+          emoji: emoji,
+          onTap: (origin) => _react(emoji, origin: origin),
+        ),
+      // One more tap for anything outside the three above.
+      IconButton(
+        tooltip: 'Thêm biểu cảm',
+        onPressed: _busy ? null : _pickMore,
+        icon: const Icon(
+          Icons.add_reaction_outlined,
+          color: RetroTokens.inkSoft,
+        ),
+      ),
+    ],
+  );
 }
 
 /// One tappable emoji. It hands its own context back so the animation can start
@@ -173,13 +192,13 @@ class _ReactionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => onTap(context),
-        child: Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Text(emoji, style: const TextStyle(fontSize: 24)),
-        ),
-      );
+    behavior: HitTestBehavior.opaque,
+    onTap: () => onTap(context),
+    child: Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Text(emoji, style: const TextStyle(fontSize: 24)),
+    ),
+  );
 }
 
 /// Unread-count badge for the messages icon in the app bar.
@@ -215,9 +234,10 @@ class MessagesBadge extends ConsumerWidget {
                 unread > 99 ? '99+' : '$unread',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700),
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),

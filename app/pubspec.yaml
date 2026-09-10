@@ -7,8 +7,10 @@ version: 0.1.0+1
 # machine. Run `flutter pub get` and then `flutter pub upgrade --major-versions` on a real
 # machine and reconcile. See README.md § "Unverified".
 environment:
-  sdk: ">=3.5.0 <4.0.0"
-  flutter: ">=3.24.0"
+  # >=3.7 opts `dart format` into the tall style the codebase is written in;
+  # 3.9/3.35 are what the resolved plugin set (camera 0.11.4+) requires.
+  sdk: ">=3.9.0 <4.0.0"
+  flutter: ">=3.35.0"
 
 dependencies:
   flutter:

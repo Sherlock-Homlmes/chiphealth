@@ -42,18 +42,26 @@ class WorkoutDetailScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                            child: _stat(
-                                context,
-                                units.distance(session.distanceM),
-                                'quãng đường')),
+                          child: _stat(
+                            context,
+                            units.distance(session.distanceM),
+                            'quãng đường',
+                          ),
+                        ),
                         Expanded(
-                            child: _stat(
-                                context,
-                                Units.duration(session.durationSeconds),
-                                'thời gian')),
+                          child: _stat(
+                            context,
+                            Units.duration(session.durationSeconds),
+                            'thời gian',
+                          ),
+                        ),
                         Expanded(
-                            child: _stat(context,
-                                units.pace(session.avgPaceSecPerKm), 'pace')),
+                          child: _stat(
+                            context,
+                            units.pace(session.avgPaceSecPerKm),
+                            'pace',
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -76,28 +84,35 @@ class WorkoutDetailScreen extends ConsumerWidget {
                           for (final split in splits)
                             Padding(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               child: Row(
                                 children: [
                                   SizedBox(
                                     width: 28,
-                                    child: Text('${split.splitIndex}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall),
+                                    child: Text(
+                                      '${split.splitIndex}',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelSmall,
+                                    ),
                                   ),
                                   Expanded(
                                     child: Text(
-                                        units.pace(split.avgPaceSecPerKm),
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600)),
+                                      units.pace(split.avgPaceSecPerKm),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
                                   Text(
                                     split.avgHeartRate == null
                                         ? '—'
                                         : '${split.avgHeartRate} bpm',
                                     style: const TextStyle(
-                                        color: RetroTokens.inkSoft),
+                                      color: RetroTokens.inkSoft,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -117,16 +132,17 @@ class WorkoutDetailScreen extends ConsumerWidget {
   }
 
   Widget _stat(BuildContext context, String value, String label) => Column(
-        children: [
-          Text(value,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontSize: 20)),
-          Text(label,
-              style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft)),
-        ],
-      );
+    children: [
+      Text(
+        value,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20),
+      ),
+      Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+      ),
+    ],
+  );
 }
 
 /// Time-in-zone. Zone colours are fixed in the tokens so Z4 always looks like Z4.
@@ -137,8 +153,9 @@ class _ZoneBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final maxSeconds =
-        zones.map((z) => z.secondsInZone).fold<int>(1, (a, b) => a > b ? a : b);
+    final maxSeconds = zones
+        .map((z) => z.secondsInZone)
+        .fold<int>(1, (a, b) => a > b ? a : b);
     return Column(
       children: [
         for (final zone in zones)
@@ -147,20 +164,26 @@ class _ZoneBars extends StatelessWidget {
             child: Row(
               children: [
                 SizedBox(
-                    width: 28,
-                    child: Text('Z${zone.zoneNumber}',
-                        style: Theme.of(context).textTheme.labelSmall)),
+                  width: 28,
+                  child: Text(
+                    'Z${zone.zoneNumber}',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
                 Expanded(
                   child: Stack(
                     children: [
                       Container(height: 16, color: RetroTokens.paperSunk),
                       FractionallySizedBox(
-                        widthFactor:
-                            (zone.secondsInZone / maxSeconds).clamp(0.02, 1),
+                        widthFactor: (zone.secondsInZone / maxSeconds).clamp(
+                          0.02,
+                          1,
+                        ),
                         child: Container(
                           height: 16,
-                          color: RetroTokens.zoneColors[(zone.zoneNumber - 1)
-                              .clamp(0, RetroTokens.zoneColors.length - 1)],
+                          color:
+                              RetroTokens.zoneColors[(zone.zoneNumber - 1)
+                                  .clamp(0, RetroTokens.zoneColors.length - 1)],
                         ),
                       ),
                     ],
@@ -169,10 +192,14 @@ class _ZoneBars extends StatelessWidget {
                 const SizedBox(width: 8),
                 SizedBox(
                   width: 64,
-                  child: Text(Units.duration(zone.secondsInZone),
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                          fontSize: 12, color: RetroTokens.inkSoft)),
+                  child: Text(
+                    Units.duration(zone.secondsInZone),
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: RetroTokens.inkSoft,
+                    ),
+                  ),
                 ),
               ],
             ),

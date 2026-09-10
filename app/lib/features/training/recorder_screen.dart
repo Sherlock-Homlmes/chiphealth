@@ -162,7 +162,9 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       );
 
       if (_samples.isNotEmpty) {
-        final assetId = await ref.read(mediaRepositoryProvider).upload(
+        final assetId = await ref
+            .read(mediaRepositoryProvider)
+            .upload(
               _encodeStream(),
               kind: 'workout_stream',
               mimeType: 'application/x-ndjson',
@@ -179,13 +181,15 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                 children: [
                   for (final pr in records)
                     Text(
-                        '${pr.metric} · ${pr.value.toStringAsFixed(0)} ${pr.unit}'),
+                      '${pr.metric} · ${pr.value.toStringAsFixed(0)} ${pr.unit}',
+                    ),
                 ],
               ),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Tuyệt')),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Tuyệt'),
+                ),
               ],
             ),
           );
@@ -197,8 +201,9 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       if (mounted) context.pushReplacement('/workouts/$sessionId');
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
         setState(() => _saving = false);
       }
     }
@@ -226,8 +231,9 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
         _activitySeeded = true;
         final latest = feed.valueOrNull?.firstOrNull;
         if (latest != null) {
-          _activity =
-              list.where((a) => a.id == latest.activityTypeId).firstOrNull;
+          _activity = list
+              .where((a) => a.id == latest.activityTypeId)
+              .firstOrNull;
         }
       }
     }
@@ -266,17 +272,20 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                 Center(
                   child: Column(
                     children: [
-                      Text(Units.duration(_elapsedSeconds),
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontSize: 56)),
-                      Text(_paused ? 'tạm dừng tự động' : 'thời gian',
-                          style: TextStyle(
-                            color: _paused
-                                ? RetroTokens.warn
-                                : RetroTokens.inkSoft,
-                          )),
+                      Text(
+                        Units.duration(_elapsedSeconds),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleLarge?.copyWith(fontSize: 56),
+                      ),
+                      Text(
+                        _paused ? 'tạm dừng tự động' : 'thời gian',
+                        style: TextStyle(
+                          color: _paused
+                              ? RetroTokens.warn
+                              : RetroTokens.inkSoft,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -284,19 +293,30 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                 Row(
                   children: [
                     Expanded(
-                        child: _metric(context, units.distance(_distanceM),
-                            'quãng đường')),
+                      child: _metric(
+                        context,
+                        units.distance(_distanceM),
+                        'quãng đường',
+                      ),
+                    ),
                     Expanded(
-                        child: _metric(
-                      context,
-                      units.pace(_distanceM > 0
-                          ? _movingSeconds / (_distanceM / 1000)
-                          : null),
-                      'pace',
-                    )),
+                      child: _metric(
+                        context,
+                        units.pace(
+                          _distanceM > 0
+                              ? _movingSeconds / (_distanceM / 1000)
+                              : null,
+                        ),
+                        'pace',
+                      ),
+                    ),
                     Expanded(
-                        child: _metric(
-                            context, '${_elevationGainM.round()} m', 'độ cao')),
+                      child: _metric(
+                        context,
+                        '${_elevationGainM.round()} m',
+                        'độ cao',
+                      ),
+                    ),
                   ],
                 ),
                 const Spacer(),
@@ -313,7 +333,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                             height: 18,
                             width: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
                         : const Text('Kết thúc và lưu'),
                   ),
               ],
@@ -325,14 +348,15 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   }
 
   Widget _metric(BuildContext context, String value, String label) => Column(
-        children: [
-          Text(value,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontSize: 22)),
-          Text(label,
-              style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft)),
-        ],
-      );
+    children: [
+      Text(
+        value,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 22),
+      ),
+      Text(
+        label,
+        style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+      ),
+    ],
+  );
 }

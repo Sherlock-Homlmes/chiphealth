@@ -53,7 +53,10 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
 
   Future<void> _capture() async {
     final shot = await ImagePicker().pickImage(
-        source: ImageSource.camera, imageQuality: 85, maxWidth: 1400);
+      source: ImageSource.camera,
+      imageQuality: 85,
+      maxWidth: 1400,
+    );
     if (shot == null) return;
 
     // Read the bytes once, here: a retry after a failed upload must not need a
@@ -74,11 +77,9 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
   Future<void> _post(Uint8List bytes, String? caption) async {
     setState(() => _posting = true);
     try {
-      final assetId = await ref.read(mediaRepositoryProvider).upload(
-            bytes,
-            kind: 'moment_photo',
-            mimeType: 'image/jpeg',
-          );
+      final assetId = await ref
+          .read(mediaRepositoryProvider)
+          .upload(bytes, kind: 'moment_photo', mimeType: 'image/jpeg');
       await ref
           .read(momentsRepositoryProvider)
           .post(photoAssetId: assetId, caption: caption);
@@ -88,16 +89,18 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(_postError(err)),
-          duration: const Duration(seconds: 6),
-          // The photo is still in memory, so the failure is recoverable
-          // without going back to the camera.
-          action: SnackBarAction(
-            label: 'Thử lại',
-            onPressed: () => _post(bytes, caption),
+        ..showSnackBar(
+          SnackBar(
+            content: Text(_postError(err)),
+            duration: const Duration(seconds: 6),
+            // The photo is still in memory, so the failure is recoverable
+            // without going back to the camera.
+            action: SnackBarAction(
+              label: 'Thử lại',
+              onPressed: () => _post(bytes, caption),
+            ),
           ),
-        ));
+        );
     } finally {
       if (mounted) setState(() => _posting = false);
     }
@@ -129,13 +132,21 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
       final moments = await ref.read(momentsRepositoryProvider).widget();
       final first = moments.isEmpty ? null : moments.first;
       await HomeWidget.saveWidgetData<String>(
-          'moment_author', first?.authorName ?? '');
+        'moment_author',
+        first?.authorName ?? '',
+      );
       await HomeWidget.saveWidgetData<String>(
-          'moment_caption', first?.caption ?? '');
+        'moment_caption',
+        first?.caption ?? '',
+      );
       await HomeWidget.saveWidgetData<String>(
-          'moment_asset', first?.photoAssetId ?? '');
+        'moment_asset',
+        first?.photoAssetId ?? '',
+      );
       await HomeWidget.updateWidget(
-          name: Env.widgetName, iOSName: Env.widgetName);
+        name: Env.widgetName,
+        iOSName: Env.widgetName,
+      );
     } catch (_) {
       // The widget is a nice-to-have; never let it break posting.
     }
@@ -151,9 +162,9 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
         actions: [
           IconButton(
             tooltip: _grid ? 'Xem từng ảnh' : 'Xem dạng lưới',
-            icon: Icon(_grid
-                ? Icons.crop_portrait_outlined
-                : Icons.grid_view_outlined),
+            icon: Icon(
+              _grid ? Icons.crop_portrait_outlined : Icons.grid_view_outlined,
+            ),
             onPressed: () => setState(() => _grid = !_grid),
           ),
           MessagesBadge(
@@ -178,7 +189,10 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
                 height: 18,
                 width: 18,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : const Icon(Icons.camera_alt),
       ),
       body: RefreshIndicator(
@@ -244,8 +258,9 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
       scrollDirection: Axis.vertical,
       // Page physics alone never overscroll, and RefreshIndicator has nothing
       // to listen to without one.
-      physics: const PageScrollPhysics()
-          .applyTo(const AlwaysScrollableScrollPhysics()),
+      physics: const PageScrollPhysics().applyTo(
+        const AlwaysScrollableScrollPhysics(),
+      ),
       itemCount: moments.length + tail,
       onPageChanged: (i) {
         _page = i;
@@ -345,9 +360,9 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
   /// A list rather than a centred text: pull-to-refresh needs a scrollable,
   /// and a filter with nothing behind it is a state you refresh out of.
   Widget _emptyFilter() => ListView(
-        padding: const EdgeInsets.all(32),
-        children: const [_EmptyFilterText()],
-      );
+    padding: const EdgeInsets.all(32),
+    children: const [_EmptyFilterText()],
+  );
 }
 
 class _EmptyFilterText extends StatelessWidget {
@@ -355,10 +370,10 @@ class _EmptyFilterText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Text(
-        'Người này chưa có khoảnh khắc nào.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: RetroTokens.inkSoft),
-      );
+    'Người này chưa có khoảnh khắc nào.',
+    textAlign: TextAlign.center,
+    style: TextStyle(color: RetroTokens.inkSoft),
+  );
 }
 
 /// One moment at full size: the photo, its caption and author, then the two
@@ -434,13 +449,13 @@ class _GridPhoto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => RetroBox(
-        padding: EdgeInsets.zero,
-        onTap: onTap,
-        shadow: false,
-        borderColor: RetroTokens.panelLine,
-        borderWidth: 1,
-        child: MomentPhoto(assetId: moment.photoAssetId),
-      );
+    padding: EdgeInsets.zero,
+    onTap: onTap,
+    shadow: false,
+    borderColor: RetroTokens.panelLine,
+    borderWidth: 1,
+    child: MomentPhoto(assetId: moment.photoAssetId),
+  );
 }
 
 /// Who to look at: everyone, or one person at a time. Built from the moments
@@ -549,23 +564,23 @@ class _CaptionDialogState extends State<_CaptionDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-        title: const Text('Thêm chú thích'),
-        content: TextField(
-          controller: _controller,
-          maxLength: 60,
-          decoration: const InputDecoration(hintText: 'ngắn thôi'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Bỏ qua'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
-            child: const Text('Đăng'),
-          ),
-        ],
-      );
+    title: const Text('Thêm chú thích'),
+    content: TextField(
+      controller: _controller,
+      maxLength: 60,
+      decoration: const InputDecoration(hintText: 'ngắn thôi'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Bỏ qua'),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+        child: const Text('Đăng'),
+      ),
+    ],
+  );
 }
 
 class _FriendsScreen extends ConsumerStatefulWidget {
@@ -595,8 +610,9 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                   Expanded(
                     child: TextField(
                       controller: _email,
-                      decoration:
-                          const InputDecoration(labelText: 'Email của bạn bè'),
+                      decoration: const InputDecoration(
+                        labelText: 'Email của bạn bè',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -611,8 +627,9 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                         ref.invalidate(friendsProvider);
                       } catch (err) {
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context)
-                              .showSnackBar(SnackBar(content: Text('$err')));
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(SnackBar(content: Text('$err')));
                         }
                       }
                     },
@@ -635,7 +652,8 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                         child: Row(
                           children: [
                             Expanded(
-                                child: Text('${(raw as Map)['requesterId']}')),
+                              child: Text('${(raw as Map)['requesterId']}'),
+                            ),
                             TextButton(
                               onPressed: () async {
                                 await ref

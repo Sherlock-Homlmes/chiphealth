@@ -14,7 +14,7 @@ import 'api_exception.dart';
 /// rotation invalidates the token the other callers are still holding.
 class ApiClient {
   ApiClient({required this.tokens, Dio? dio})
-      : _dio = dio ?? Dio(BaseOptions(baseUrl: Env.apiBaseUrl)) {
+    : _dio = dio ?? Dio(BaseOptions(baseUrl: Env.apiBaseUrl)) {
     _dio.options
       ..connectTimeout = const Duration(seconds: 10)
       ..receiveTimeout = const Duration(seconds: 30)
@@ -51,14 +51,18 @@ class ApiClient {
 
   /// Raw bytes with their own content type — used where the payload is the body
   /// itself rather than a JSON field, e.g. a voice clip for meal logging.
-  Future<T> postBytes<T>(String path, List<int> bytes,
-          {required String contentType}) =>
-      _send<T>('POST', path, body: _raw(bytes), contentType: contentType);
+  Future<T> postBytes<T>(
+    String path,
+    List<int> bytes, {
+    required String contentType,
+  }) => _send<T>('POST', path, body: _raw(bytes), contentType: contentType);
 
   /// The same for an upload target that expects PUT — the media endpoint.
-  Future<T> putBytes<T>(String path, List<int> bytes,
-          {required String contentType}) =>
-      _send<T>('PUT', path, body: _raw(bytes), contentType: contentType);
+  Future<T> putBytes<T>(
+    String path,
+    List<int> bytes, {
+    required String contentType,
+  }) => _send<T>('PUT', path, body: _raw(bytes), contentType: contentType);
 
   /// Dio hands a body to the adapter untouched only when it is exactly a
   /// [Uint8List]; any other `List<int>` goes through the transformer, which
@@ -77,11 +81,15 @@ class ApiClient {
   }
 
   /// Absolute URL for a streaming endpoint, token included.
-  Future<Uri?> streamUri(String path, {Map<String, String> query = const {}}) async {
+  Future<Uri?> streamUri(
+    String path, {
+    Map<String, String> query = const {},
+  }) async {
     final token = await streamToken();
     if (token == null || token.isEmpty) return null;
-    return Uri.parse('${Env.apiBaseUrl}$path')
-        .replace(queryParameters: {...query, 'access_token': token});
+    return Uri.parse(
+      '${Env.apiBaseUrl}$path',
+    ).replace(queryParameters: {...query, 'access_token': token});
   }
 
   Future<T> patch<T>(String path, {Object? body}) =>
@@ -113,7 +121,10 @@ class ApiClient {
         data: body,
         queryParameters: query?..removeWhere((_, v) => v == null),
         options: Options(
-            method: method, headers: headers, responseType: responseType),
+          method: method,
+          headers: headers,
+          responseType: responseType,
+        ),
       );
     } on DioException catch (err) {
       throw ApiException(
@@ -126,12 +137,15 @@ class ApiClient {
     if (res.statusCode == 401 && allowRetry && !anonymous) {
       final token = await _refreshAccessToken();
       if (token != null) {
-        return _send<T>(method, path,
-            body: body,
-            query: query,
-            allowRetry: false,
-            contentType: contentType,
-            responseType: responseType);
+        return _send<T>(
+          method,
+          path,
+          body: body,
+          query: query,
+          allowRetry: false,
+          contentType: contentType,
+          responseType: responseType,
+        );
       }
     }
 
@@ -153,9 +167,9 @@ class ApiClient {
         message: error['message'] as String? ?? 'Có lỗi xảy ra',
         issues: rawIssues is List
             ? rawIssues
-                .whereType<Map>()
-                .map((e) => ApiIssue.fromJson(e.cast<String, dynamic>()))
-                .toList()
+                  .whereType<Map>()
+                  .map((e) => ApiIssue.fromJson(e.cast<String, dynamic>()))
+                  .toList()
             : const [],
       );
     }

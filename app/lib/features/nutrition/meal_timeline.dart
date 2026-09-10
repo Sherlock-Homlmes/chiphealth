@@ -40,10 +40,7 @@ class MealTimelineState {
     final dates = byDate.keys.toList()..sort((a, b) => b.compareTo(a));
     return [
       for (final date in dates)
-        MealDay(
-          date: date,
-          meals: byDate[date]!.reversed.toList(),
-        ),
+        MealDay(date: date, meals: byDate[date]!.reversed.toList()),
     ];
   }
 
@@ -55,15 +52,14 @@ class MealTimelineState {
     bool? hasMore,
     Object? error,
     bool clearError = false,
-  }) =>
-      MealTimelineState(
-        meals: meals ?? this.meals,
-        cursor: cursor ?? this.cursor,
-        loading: loading ?? this.loading,
-        loadingMore: loadingMore ?? this.loadingMore,
-        hasMore: hasMore ?? this.hasMore,
-        error: clearError ? null : (error ?? this.error),
-      );
+  }) => MealTimelineState(
+    meals: meals ?? this.meals,
+    cursor: cursor ?? this.cursor,
+    loading: loading ?? this.loading,
+    loadingMore: loadingMore ?? this.loadingMore,
+    hasMore: hasMore ?? this.hasMore,
+    error: clearError ? null : (error ?? this.error),
+  );
 }
 
 /// One day's worth of the diary — the subtitle plus what was eaten under it.
@@ -94,13 +90,18 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
   Future<void> refresh() async {
     state = const MealTimelineState();
     final now = DateTime.now();
-    final windowStart =
-        DateTime(now.year, now.month, now.day - (kTimelineWindowDays - 1));
+    final windowStart = DateTime(
+      now.year,
+      now.month,
+      now.day - (kTimelineWindowDays - 1),
+    );
 
     try {
       // A big enough limit that the opening week is one round trip in practice.
-      final page =
-          await _repo.meals(from: DateRange.iso(windowStart), limit: 100);
+      final page = await _repo.meals(
+        from: DateRange.iso(windowStart),
+        limit: 100,
+      );
       if (!mounted) return;
       state = MealTimelineState(
         meals: _visible(page.items),
@@ -160,4 +161,5 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
 
 final mealTimelineProvider =
     StateNotifierProvider<MealTimeline, MealTimelineState>(
-        (ref) => MealTimeline(ref.watch(nutritionRepositoryProvider)));
+      (ref) => MealTimeline(ref.watch(nutritionRepositoryProvider)),
+    );

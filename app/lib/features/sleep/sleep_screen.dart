@@ -9,7 +9,8 @@ import '../../widgets/retro_widgets.dart';
 import 'night_recorder_screen.dart';
 
 final sleepSessionsProvider = FutureProvider<List<SleepSession>>(
-    (ref) => ref.watch(sleepRepositoryProvider).sessions());
+  (ref) => ref.watch(sleepRepositoryProvider).sessions(),
+);
 
 class SleepScreen extends ConsumerWidget {
   const SleepScreen({super.key});
@@ -51,26 +52,35 @@ class SleepScreen extends ConsumerWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('${d.debtHours.toStringAsFixed(1)}h',
-                                style: Theme.of(context).textTheme.titleLarge),
+                            Text(
+                              '${d.debtHours.toStringAsFixed(1)}h',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
                             const SizedBox(width: 8),
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
-                              child: Text('trong ${d.windowDays} ngày gần nhất',
-                                  style: const TextStyle(
-                                      color: RetroTokens.inkSoft)),
+                              child: Text(
+                                'trong ${d.windowDays} ngày gần nhất',
+                                style: const TextStyle(
+                                  color: RetroTokens.inkSoft,
+                                ),
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 10),
                         _DebtBars(
-                            days: d.byDay, targetSeconds: d.targetSeconds),
+                          days: d.byDay,
+                          targetSeconds: d.targetSeconds,
+                        ),
                         const SizedBox(height: 8),
                         Text(
                           'Mục tiêu ${Units.hoursMinutes(d.targetSeconds)}/đêm. '
                           'Đêm không ghi nhận không tính vào nợ.',
                           style: const TextStyle(
-                              fontSize: 12, color: RetroTokens.inkFaint),
+                            fontSize: 12,
+                            color: RetroTokens.inkFaint,
+                          ),
                         ),
                       ],
                     ),
@@ -99,15 +109,19 @@ class SleepScreen extends ConsumerWidget {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Text(night.localDate,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w700)),
+                                    child: Text(
+                                      night.localDate,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
                                   ),
                                   Text(
-                                      Units.hoursMinutes(
-                                          night.totalSleepSeconds),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700)),
+                                    Units.hoursMinutes(night.totalSleepSeconds),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 6),
@@ -128,7 +142,8 @@ class SleepScreen extends ConsumerWidget {
                                   ),
                                   if (night.events.isNotEmpty)
                                     RetroChip(
-                                        '${night.events.length} sự kiện âm thanh'),
+                                      '${night.events.length} sự kiện âm thanh',
+                                    ),
                                 ],
                               ),
                             ],
@@ -199,8 +214,10 @@ class _DebtBars extends StatelessWidget {
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 2),
-                          child:
-                              _DebtBar(day: day, targetSeconds: targetSeconds),
+                          child: _DebtBar(
+                            day: day,
+                            targetSeconds: targetSeconds,
+                          ),
                         ),
                       ),
                   ],
@@ -221,7 +238,10 @@ class _DebtBars extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     style: const TextStyle(
-                        fontSize: 9, color: RetroTokens.inkFaint, height: 1),
+                      fontSize: 9,
+                      color: RetroTokens.inkFaint,
+                      height: 1,
+                    ),
                   ),
                 ),
             ],
@@ -286,8 +306,9 @@ class _DebtBar extends StatelessWidget {
       );
     }
 
-    final ratio =
-        targetSeconds <= 0 ? 0.0 : day.actualSleepSeconds / targetSeconds;
+    final ratio = targetSeconds <= 0
+        ? 0.0
+        : day.actualSleepSeconds / targetSeconds;
     final short = day.dailyDiffSeconds < 0;
     return Tooltip(
       message:
@@ -341,8 +362,10 @@ class _StageBar extends StatelessWidget {
     ].where((s) => s.seconds > 0).toList();
 
     if (parts.isEmpty) {
-      return const Text('Không có dữ liệu giai đoạn',
-          style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint));
+      return const Text(
+        'Không có dữ liệu giai đoạn',
+        style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
+      );
     }
 
     return Column(
@@ -367,7 +390,9 @@ class _StageBar extends StatelessWidget {
                 // in value that they otherwise bleed into each other.
                 if (part != parts.first)
                   const SizedBox(
-                      width: 1.5, child: ColoredBox(color: RetroTokens.ink)),
+                    width: 1.5,
+                    child: ColoredBox(color: RetroTokens.ink),
+                  ),
                 Expanded(
                   flex: part.seconds,
                   child: ColoredBox(color: part.color),
@@ -456,8 +481,10 @@ class _NightDetail extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(Units.hoursMinutes(n.totalSleepSeconds),
-                          style: Theme.of(context).textTheme.titleLarge),
+                      Text(
+                        Units.hoursMinutes(n.totalSleepSeconds),
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
                       const SizedBox(height: 8),
                       _Hypnogram(stages: n.stages),
                     ],
@@ -469,8 +496,11 @@ class _NightDetail extends ConsumerWidget {
                 const Padding(
                   padding: EdgeInsets.all(24),
                   child: Center(
-                      child: Text('Không ghi nhận sự kiện nào.',
-                          style: TextStyle(color: RetroTokens.inkFaint))),
+                    child: Text(
+                      'Không ghi nhận sự kiện nào.',
+                      style: TextStyle(color: RetroTokens.inkFaint),
+                    ),
+                  ),
                 ),
               for (final event in n.events)
                 Padding(
@@ -483,20 +513,28 @@ class _NightDetail extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                  '${_eventLabel(event.eventType)} · '
-                                  '${Units.timeOfDay(event.occurredAt)}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600)),
+                                '${_eventLabel(event.eventType)} · '
+                                '${Units.timeOfDay(event.occurredAt)}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               if (event.transcript != null)
-                                Text('“${event.transcript}”',
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        color: RetroTokens.inkSoft)),
+                                Text(
+                                  '“${event.transcript}”',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: RetroTokens.inkSoft,
+                                  ),
+                                ),
                               if (event.stageAtEvent != null)
-                                Text('trong giai đoạn ${event.stageAtEvent}',
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: RetroTokens.inkFaint)),
+                                Text(
+                                  'trong giai đoạn ${event.stageAtEvent}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: RetroTokens.inkFaint,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -506,10 +544,12 @@ class _NightDetail extends ConsumerWidget {
                             // Clips are kept indefinitely; playback wiring is in the README.
                             onPressed: () =>
                                 ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Phát clip — cần just_audio wiring')),
-                            ),
+                                  const SnackBar(
+                                    content: Text(
+                                      'Phát clip — cần just_audio wiring',
+                                    ),
+                                  ),
+                                ),
                           ),
                       ],
                     ),
@@ -525,13 +565,13 @@ class _NightDetail extends ConsumerWidget {
 }
 
 String _eventLabel(String type) => switch (type) {
-      'snore' => 'Ngáy',
-      'sleep_talk' => 'Nói mớ',
-      'cough' => 'Ho',
-      'movement' => 'Cựa quậy',
-      'apnea_suspect' => 'Nghi ngưng thở',
-      _ => 'Khác',
-    };
+  'snore' => 'Ngáy',
+  'sleep_talk' => 'Nói mớ',
+  'cough' => 'Ho',
+  'movement' => 'Cựa quậy',
+  'apnea_suspect' => 'Nghi ngưng thở',
+  _ => 'Khác',
+};
 
 /// Full-night stage timeline in the four standard stages.
 class _Hypnogram extends StatelessWidget {
@@ -553,8 +593,10 @@ class _Hypnogram extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (stages.isEmpty) {
-      return const Text('Không có dữ liệu giai đoạn',
-          style: TextStyle(color: RetroTokens.inkFaint));
+      return const Text(
+        'Không có dữ liệu giai đoạn',
+        style: TextStyle(color: RetroTokens.inkFaint),
+      );
     }
     return SizedBox(
       height: 96,
@@ -566,8 +608,10 @@ class _Hypnogram extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: 44,
-                    child: Text(_labels[stage] ?? stage,
-                        style: Theme.of(context).textTheme.labelSmall),
+                    child: Text(
+                      _labels[stage] ?? stage,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                   ),
                   Expanded(
                     child: Row(
@@ -593,9 +637,9 @@ class _Hypnogram extends StatelessWidget {
   }
 
   static Color _colorFor(String stage) => switch (stage) {
-        'awake' => RetroTokens.sleepAwake,
-        'light' => RetroTokens.sleepLight,
-        'deep' => RetroTokens.sleepDeep,
-        _ => RetroTokens.sleepRem,
-      };
+    'awake' => RetroTokens.sleepAwake,
+    'light' => RetroTokens.sleepLight,
+    'deep' => RetroTokens.sleepDeep,
+    _ => RetroTokens.sleepRem,
+  };
 }

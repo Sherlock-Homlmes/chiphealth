@@ -20,8 +20,9 @@ class BarcodeScanScreen extends ConsumerStatefulWidget {
 }
 
 class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
-  final _controller =
-      MobileScannerController(detectionSpeed: DetectionSpeed.noDuplicates);
+  final _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.noDuplicates,
+  );
   bool _looking = false;
   String? _scannedCode;
   FoodHit? _found;
@@ -47,9 +48,14 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
       String? assetId;
       if (withPhoto) {
         final shot = await ImagePicker().pickImage(
-            source: ImageSource.camera, imageQuality: 80, maxWidth: 1400);
+          source: ImageSource.camera,
+          imageQuality: 80,
+          maxWidth: 1400,
+        );
         if (shot != null) {
-          assetId = await ref.read(mediaRepositoryProvider).upload(
+          assetId = await ref
+              .read(mediaRepositoryProvider)
+              .upload(
                 await shot.readAsBytes(),
                 kind: 'meal_photo',
                 mimeType: 'image/jpeg',
@@ -57,17 +63,21 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
         }
       }
 
-      await ref.read(nutritionRepositoryProvider).reportBarcode(
+      await ref
+          .read(nutritionRepositoryProvider)
+          .reportBarcode(
             code,
-            productNameHint:
-                _hint.text.trim().isEmpty ? null : _hint.text.trim(),
+            productNameHint: _hint.text.trim().isEmpty
+                ? null
+                : _hint.text.trim(),
             photoAssetId: assetId,
           );
       if (mounted) setState(() => _reported = true);
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     } finally {
       if (mounted) setState(() => _reporting = false);
@@ -97,8 +107,9 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
       });
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     } finally {
       if (mounted) setState(() => _looking = false);
@@ -112,33 +123,42 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
       body: Column(
         children: [
           Expanded(
-              child:
-                  MobileScanner(controller: _controller, onDetect: _onDetect)),
+            child: MobileScanner(controller: _controller, onDetect: _onDetect),
+          ),
           if (_scannedCode != null)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color:
-                    _missing ? RetroTokens.warnSoft : RetroTokens.paperRaised,
+                color: _missing
+                    ? RetroTokens.warnSoft
+                    : RetroTokens.paperRaised,
                 border: const Border(
                   top: BorderSide(
-                      color: RetroTokens.ink, width: RetroTokens.border),
+                    color: RetroTokens.ink,
+                    width: RetroTokens.border,
+                  ),
                 ),
               ),
               child: PhoneFrame(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_scannedCode!,
-                        style: Theme.of(context).textTheme.labelSmall),
+                    Text(
+                      _scannedCode!,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
                     const SizedBox(height: 6),
                     if (_looking)
                       const LinearProgressIndicator()
                     else if (_found != null) ...[
-                      Text(_found!.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 16)),
+                      Text(
+                        _found!.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
+                        ),
+                      ),
                       Text(
                         '${Units.kcal(_found!.caloriesKcal)} / ${_found!.servingSizeG.round()} g',
                         style: const TextStyle(color: RetroTokens.inkSoft),
@@ -149,10 +169,13 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                         child: const Text('Thêm vào bữa ăn'),
                       ),
                     ] else if (_missing) ...[
-                      const Text('Chưa có dữ liệu cho mã này',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: RetroTokens.warn)),
+                      const Text(
+                        'Chưa có dữ liệu cho mã này',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: RetroTokens.warn,
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       if (_reported)
                         const Text(
@@ -164,7 +187,9 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                           'Đã ghi nhận lượt quét. Cho biết đây là sản phẩm gì để quản trị '
                           'viên bổ sung nhanh hơn:',
                           style: TextStyle(
-                              fontSize: 12, color: RetroTokens.inkSoft),
+                            fontSize: 12,
+                            color: RetroTokens.inkSoft,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         TextField(
@@ -195,8 +220,10 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                                         height: 16,
                                         width: 16,
                                         child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white))
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
                                     : const Text('Gửi'),
                               ),
                             ),

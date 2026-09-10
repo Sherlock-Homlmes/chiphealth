@@ -62,7 +62,8 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Cần quyền micro để phát hiện ngáy / nói mớ')),
+            content: Text('Cần quyền micro để phát hiện ngáy / nói mớ'),
+          ),
         );
       }
       return;
@@ -77,21 +78,26 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       try {
         final started = DateTime.now();
         final analyzer = NightAnalyzer(
-            startedAt: started.millisecondsSinceEpoch, classifier: classifier);
+          startedAt: started.millisecondsSinceEpoch,
+          classifier: classifier,
+        );
         final recorder = AudioRecorder();
-        final stream = await recorder.startStream(const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000, // YAMNet's expected input rate
-          numChannels: 1,
-        ));
+        final stream = await recorder.startStream(
+          const RecordConfig(
+            encoder: AudioEncoder.pcm16bits,
+            sampleRate: 16000, // YAMNet's expected input rate
+            numChannels: 1,
+          ),
+        );
         _streamSub = stream.listen(analyzer.pushBytes);
         _recorder = recorder;
         _analyzer = analyzer;
         streamStarted = started;
       } catch (err) {
         if (mounted) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text('$err')));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('$err')));
         }
         await _streamSub?.cancel();
         await _recorder?.dispose();
@@ -128,8 +134,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       _streamSub = null;
       _recorder = null;
 
-      List<SleepStageSegment> stages =
-          _fallbackStages(startedAt, endedAt);
+      List<SleepStageSegment> stages = _fallbackStages(startedAt, endedAt);
       var eventJson = const <Map<String, dynamic>>[];
       if (analyzer != null) {
         await analyzer.idle; // let in-flight windows finish
@@ -155,7 +160,9 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
         eventJson = result.events.map((e) => e.toJson()).toList();
       }
 
-      await ref.read(sleepRepositoryProvider).upload(
+      await ref
+          .read(sleepRepositoryProvider)
+          .upload(
             source: 'phone_mic',
             startedAt: startedAt.millisecondsSinceEpoch,
             endedAt: endedAt.millisecondsSinceEpoch,
@@ -167,8 +174,9 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       if (mounted) Navigator.of(context).pop();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
         setState(() => _saving = false);
       }
     }
@@ -177,12 +185,12 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
   /// No classifier / nothing inferred → one light block. The duration is
   /// still what the sleep-debt window needs.
   List<SleepStageSegment> _fallbackStages(DateTime from, DateTime to) => [
-        SleepStageSegment(
-          stage: 'light',
-          startedAt: from.millisecondsSinceEpoch,
-          endedAt: to.millisecondsSinceEpoch,
-        ),
-      ];
+    SleepStageSegment(
+      stage: 'light',
+      startedAt: from.millisecondsSinceEpoch,
+      endedAt: to.millisecondsSinceEpoch,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -192,8 +200,8 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
     final status = !running
         ? 'Đặt máy gần giường, cắm sạc'
         : analyzer == null
-            ? 'Đang nghe — thiết bị không hỗ trợ phân tích, chỉ đo thời lượng'
-            : 'Ngáy ${analyzer.snoreCount} · Nói mớ ${analyzer.talkCount} · Ho ${analyzer.coughCount}';
+        ? 'Đang nghe — thiết bị không hỗ trợ phân tích, chỉ đo thời lượng'
+        : 'Ngáy ${analyzer.snoreCount} · Nói mớ ${analyzer.talkCount} · Ho ${analyzer.coughCount}';
 
     return Scaffold(
       backgroundColor: RetroTokens.ink,
@@ -219,10 +227,10 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
                         running
                             ? Units.duration(_elapsed.inSeconds)
                             : 'Sẵn sàng',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(color: RetroTokens.paper, fontSize: 48),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: RetroTokens.paper,
+                          fontSize: 48,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -236,8 +244,11 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
                 const Spacer(),
                 FilledButton(
                   onPressed: _saving ? null : (running ? _stop : _start),
-                  child:
-                      Text(_saving ? 'Đang lưu…' : (running ? 'Tôi dậy rồi' : 'Bắt đầu ghi')),
+                  child: Text(
+                    _saving
+                        ? 'Đang lưu…'
+                        : (running ? 'Tôi dậy rồi' : 'Bắt đầu ghi'),
+                  ),
                 ),
                 const SizedBox(height: 16),
               ],

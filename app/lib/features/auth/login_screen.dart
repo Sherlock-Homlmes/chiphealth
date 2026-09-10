@@ -21,11 +21,12 @@ class LoginScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Spacer(),
-                Text('ChipHealth',
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineMedium
-                        ?.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  'ChipHealth',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 6),
                 const Text(
                   'Dinh dưỡng, luyện tập, giấc ngủ — một chỗ, một huấn luyện viên.',
@@ -40,23 +41,30 @@ class LoginScreen extends ConsumerWidget {
                       color: RetroTokens.accentSoft,
                       borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
                       border: Border.all(
-                          color: RetroTokens.accent, width: RetroTokens.border),
+                        color: RetroTokens.accent,
+                        width: RetroTokens.border,
+                      ),
                     ),
-                    child: Text(auth.error!,
-                        style: const TextStyle(color: RetroTokens.accent)),
+                    child: Text(
+                      auth.error!,
+                      style: const TextStyle(color: RetroTokens.accent),
+                    ),
                   ),
                 FilledButton(
                   onPressed: auth.loading
                       ? null
                       : () => ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithGoogle(),
+                            .read(authControllerProvider.notifier)
+                            .signInWithGoogle(),
                   child: auth.loading
                       ? const SizedBox(
                           height: 18,
                           width: 18,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Đăng nhập bằng Google'),
                 ),
                 const SizedBox(height: 12),

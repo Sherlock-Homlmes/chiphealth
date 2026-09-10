@@ -22,7 +22,7 @@ class ShellScaffold extends StatelessWidget {
       '/progress',
       Icons.insert_chart_outlined,
       Icons.insert_chart,
-      'Tiến trình'
+      'Tiến trình',
     ),
   ];
 
@@ -105,7 +105,9 @@ class ShellScaffold extends StatelessWidget {
                   color: RetroTokens.paperRaised,
                   borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
                   border: Border.all(
-                      color: RetroTokens.ink, width: RetroTokens.border),
+                    color: RetroTokens.ink,
+                    width: RetroTokens.border,
+                  ),
                   boxShadow: const [
                     BoxShadow(color: RetroTokens.ink, offset: Offset(3, 3)),
                   ],
@@ -159,24 +161,24 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-        selected: selected,
-        button: true,
-        label: label,
-        child: GestureDetector(
-          onTap: onTap,
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: selected ? RetroTokens.accentSoft : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 22,
-              color: selected ? RetroTokens.accent : RetroTokens.inkSoft,
-            ),
-          ),
+    selected: selected,
+    button: true,
+    label: label,
+    child: GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: selected ? RetroTokens.accentSoft : Colors.transparent,
+          shape: BoxShape.circle,
         ),
-      );
+        child: Icon(
+          icon,
+          size: 22,
+          color: selected ? RetroTokens.accent : RetroTokens.inkSoft,
+        ),
+      ),
+    ),
+  );
 }

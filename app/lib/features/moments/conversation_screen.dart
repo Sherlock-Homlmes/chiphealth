@@ -50,14 +50,17 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     if (body.isEmpty || _sending) return;
     setState(() => _sending = true);
     try {
-      await ref.read(momentsRepositoryProvider).sendMessage(widget.userId, body);
+      await ref
+          .read(momentsRepositoryProvider)
+          .sendMessage(widget.userId, body);
       _controller.clear();
       ref.invalidate(conversationProvider(widget.userId));
       await ref.read(conversationsProvider.notifier).refresh();
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -90,15 +93,19 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                 error: (err, _) => Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
-                    child: Text('$err',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: RetroTokens.accent)),
+                    child: Text(
+                      '$err',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: RetroTokens.accent),
+                    ),
                   ),
                 ),
                 data: (items) => items.isEmpty
                     ? const Center(
-                        child: Text('Chưa có tin nhắn nào.',
-                            style: TextStyle(color: RetroTokens.inkSoft)),
+                        child: Text(
+                          'Chưa có tin nhắn nào.',
+                          style: TextStyle(color: RetroTokens.inkSoft),
+                        ),
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -135,8 +142,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                           ? const SizedBox(
                               height: 18,
                               width: 18,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Icon(Icons.send, color: RetroTokens.accent),
                     ),
                   ],
@@ -163,13 +170,16 @@ class _Bubble extends StatelessWidget {
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
-        crossAxisAlignment:
-            mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        crossAxisAlignment: mine
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
         children: [
           // The pinned photo: what this message is answering.
           if (photoAssetId != null) ...[
             Text(
-              mine ? 'Đã trả lời khoảnh khắc' : 'Đã trả lời khoảnh khắc của bạn',
+              mine
+                  ? 'Đã trả lời khoảnh khắc'
+                  : 'Đã trả lời khoảnh khắc của bạn',
               style: const TextStyle(fontSize: 10, color: RetroTokens.inkFaint),
             ),
             const SizedBox(height: 4),
@@ -198,7 +208,8 @@ class _Bubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: mine ? RetroTokens.accentSoft : RetroTokens.paperRaised,
                 border: Border.all(
-                    color: mine ? RetroTokens.accent : RetroTokens.panelLine),
+                  color: mine ? RetroTokens.accent : RetroTokens.panelLine,
+                ),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
@@ -208,7 +219,9 @@ class _Bubble extends StatelessWidget {
                   Text(
                     Units.timeOfDay(message.createdAt),
                     style: const TextStyle(
-                        fontSize: 10, color: RetroTokens.inkFaint),
+                      fontSize: 10,
+                      color: RetroTokens.inkFaint,
+                    ),
                   ),
                 ],
               ),

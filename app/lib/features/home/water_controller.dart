@@ -53,8 +53,11 @@ class WaterController extends StateNotifier<int> {
 /// glasses is one full glass and a second one just over half — the row has to
 /// be able to draw that. Lives here, next to the ml, so the drawing code cannot
 /// invent a different rule.
-double cupFillRatio(int index, int drunkMl,
-    {int cupMl = WaterController.cupMl}) {
+double cupFillRatio(
+  int index,
+  int drunkMl, {
+  int cupMl = WaterController.cupMl,
+}) {
   if (cupMl <= 0) return 0;
   return ((drunkMl - index * cupMl) / cupMl).clamp(0.0, 1.0);
 }
@@ -82,16 +85,20 @@ class WaterTargetController extends StateNotifier<int> {
 /// Millilitres drunk on one local date (`YYYY-MM-DD`).
 final waterProvider =
     StateNotifierProvider.family<WaterController, int, String>(
-        (ref, date) => WaterController(date));
+      (ref, date) => WaterController(date),
+    );
 
 final waterTargetProvider = StateNotifierProvider<WaterTargetController, int>(
-    (ref) => WaterTargetController());
+  (ref) => WaterTargetController(),
+);
 
 /// Millilitres per day across a period, for the progress chart. Days never
 /// logged read as 0 rather than being dropped, so the bars line up with the
 /// other charts' x axis.
-final waterRangeProvider =
-    FutureProvider.family<Map<String, int>, DateRange>((ref, range) async {
+final waterRangeProvider = FutureProvider.family<Map<String, int>, DateRange>((
+  ref,
+  range,
+) async {
   // Watching the single-day notifiers keeps the chart live while the user taps
   // glasses on the home screen. Only worth it for a short range — a year would
   // spin up 365 notifiers to redraw twelve bars.

@@ -8,7 +8,9 @@ class ApiIssue {
   factory ApiIssue.fromJson(Map<String, dynamic> json) {
     final path = (json['path'] as List?)?.map((e) => '$e').join('.') ?? '';
     return ApiIssue(
-        path: path, message: json['message'] as String? ?? 'invalid');
+      path: path,
+      message: json['message'] as String? ?? 'invalid',
+    );
   }
 }
 

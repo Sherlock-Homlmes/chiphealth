@@ -22,8 +22,8 @@ class MealPhotoThumb extends ConsumerWidget {
     final radius = size >= 160
         ? 28.0
         : size >= 72
-            ? 20.0
-            : 12.0;
+        ? 20.0
+        : 12.0;
     final placeholder = Container(
       height: size,
       width: size,
@@ -31,13 +31,15 @@ class MealPhotoThumb extends ConsumerWidget {
         color: RetroTokens.paperSunk,
         borderRadius: BorderRadius.circular(radius),
       ),
-      child: Icon(Icons.restaurant,
-          size: size >= 160
-              ? 56
-              : size >= 72
-                  ? 24
-                  : 18,
-          color: RetroTokens.inkFaint),
+      child: Icon(
+        Icons.restaurant,
+        size: size >= 160
+            ? 56
+            : size >= 72
+            ? 24
+            : 18,
+        color: RetroTokens.inkFaint,
+      ),
     );
 
     if (assetId == null) return placeholder;
@@ -47,8 +49,12 @@ class MealPhotoThumb extends ConsumerWidget {
       builder: (_, snap) => ClipRRect(
         borderRadius: BorderRadius.circular(radius),
         child: snap.hasData
-            ? Image.memory(snap.data!,
-                height: size, width: size, fit: BoxFit.cover)
+            ? Image.memory(
+                snap.data!,
+                height: size,
+                width: size,
+                fit: BoxFit.cover,
+              )
             : placeholder,
       ),
     );

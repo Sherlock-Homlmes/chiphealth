@@ -6,7 +6,11 @@ import 'dart:typed_data';
 /// Everything is little-endian per the RIFF spec. A ByteData with the exact
 /// final size is allocated once because clips cap at ~15 s (~480 KB) and
 /// building them by concatenation would copy the whole buffer per append.
-Uint8List pcm16ToWav(Uint8List pcm, {int sampleRate = 16000, int channels = 1}) {
+Uint8List pcm16ToWav(
+  Uint8List pcm, {
+  int sampleRate = 16000,
+  int channels = 1,
+}) {
   final dataBytes = pcm.length;
   final bytes = ByteData(44 + dataBytes);
 

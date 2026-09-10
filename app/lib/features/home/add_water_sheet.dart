@@ -57,68 +57,66 @@ class _AddWaterSheetState extends State<_AddWaterSheet> {
 
   @override
   Widget build(BuildContext context) => Padding(
-        // Lifts the sheet above the keyboard.
-        padding:
-            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+    // Lifts the sheet above the keyboard.
+    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    child: SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Thêm nước',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Hôm nay: ${_ml.format(widget.drunk)} / '
+              '${_ml.format(widget.target)} ml',
+              style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                const Text('Thêm nước',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(
-                  'Hôm nay: ${_ml.format(widget.drunk)} / '
-                  '${_ml.format(widget.target)} ml',
-                  style:
-                      const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final preset in _presets)
-                      OutlinedButton(
-                        onPressed: () => _submit(preset),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                        ),
-                        child: Text('$preset ml'),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _field,
-                        autofocus: true,
-                        keyboardType: TextInputType.number,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(
-                          labelText: 'Lượng nước',
-                          suffixText: 'ml',
-                        ),
+                for (final preset in _presets)
+                  OutlinedButton(
+                    onPressed: () => _submit(preset),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: _submit,
-                      child: const Text('Thêm'),
-                    ),
-                  ],
-                ),
+                    child: Text('$preset ml'),
+                  ),
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _field,
+                    autofocus: true,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _submit(),
+                    decoration: const InputDecoration(
+                      labelText: 'Lượng nước',
+                      suffixText: 'ml',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(onPressed: _submit, child: const Text('Thêm')),
+              ],
+            ),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 }

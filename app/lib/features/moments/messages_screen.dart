@@ -42,9 +42,7 @@ class MessagesScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(32),
         children: [
           Text(
-            state.error != null
-                ? '${state.error}'
-                : 'Chưa có tin nhắn nào.',
+            state.error != null ? '${state.error}' : 'Chưa có tin nhắn nào.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: RetroTokens.inkSoft),
           ),
@@ -88,7 +86,8 @@ class _ConversationRow extends StatelessWidget {
       title: Text(
         conversation.label,
         style: TextStyle(
-            fontWeight: unread ? FontWeight.w700 : FontWeight.w500),
+          fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
+        ),
       ),
       subtitle: Text(_preview, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
@@ -114,8 +113,7 @@ class _ConversationRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(left: 6),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
                   color: RetroTokens.accent,
                   borderRadius: BorderRadius.circular(999),
@@ -123,9 +121,10 @@ class _ConversationRow extends StatelessWidget {
                 child: Text(
                   '${conversation.unread}',
                   style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700),
+                    fontSize: 10,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),

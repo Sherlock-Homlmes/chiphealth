@@ -8,8 +8,12 @@ import '../models/models.dart';
 import '../providers.dart';
 
 class AuthState {
-  const AuthState(
-      {this.user, this.loading = false, this.error, this.booted = false});
+  const AuthState({
+    this.user,
+    this.loading = false,
+    this.error,
+    this.booted = false,
+  });
 
   final AppUser? user;
   final bool loading;
@@ -18,18 +22,18 @@ class AuthState {
 
   bool get isSignedIn => user != null;
 
-  AuthState copyWith(
-          {AppUser? user,
-          bool? loading,
-          String? error,
-          bool? booted,
-          bool clearUser = false}) =>
-      AuthState(
-        user: clearUser ? null : (user ?? this.user),
-        loading: loading ?? this.loading,
-        error: error,
-        booted: booted ?? this.booted,
-      );
+  AuthState copyWith({
+    AppUser? user,
+    bool? loading,
+    String? error,
+    bool? booted,
+    bool clearUser = false,
+  }) => AuthState(
+    user: clearUser ? null : (user ?? this.user),
+    loading: loading ?? this.loading,
+    error: error,
+    booted: booted ?? this.booted,
+  );
 }
 
 /// Google is the only sign-in method. The app exchanges the Google **id_token**
@@ -51,8 +55,8 @@ class AuthController extends StateNotifier<AuthState> {
       return;
     }
     try {
-      final data =
-          (await _api.get<dynamic>('/v1/me') as Map).cast<String, dynamic>();
+      final data = (await _api.get<dynamic>('/v1/me') as Map)
+          .cast<String, dynamic>();
       state = state.copyWith(
         user: AppUser.fromJson((data['user'] as Map).cast<String, dynamic>()),
         booted: true,
@@ -71,8 +75,9 @@ class AuthController extends StateNotifier<AuthState> {
   /// server has already retired, which is what a browser left open across a
   /// database reset is holding.
   Future<String?> seedDevSession() async {
-    final devToken =
-        Env.hasDevSession ? Env.devRefreshToken : await _fetchDevSessionToken();
+    final devToken = Env.hasDevSession
+        ? Env.devRefreshToken
+        : await _fetchDevSessionToken();
     if (devToken == null) return null;
     await _ref
         .read(tokenStoreProvider)
@@ -96,8 +101,9 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       final google = GoogleSignIn(
         scopes: const ['email', 'profile'],
-        serverClientId:
-            Env.googleServerClientId.isEmpty ? null : Env.googleServerClientId,
+        serverClientId: Env.googleServerClientId.isEmpty
+            ? null
+            : Env.googleServerClientId,
         clientId: Env.googleIosClientId.isEmpty ? null : Env.googleIosClientId,
       );
       final account = await google.signIn();
@@ -109,17 +115,23 @@ class AuthController extends StateNotifier<AuthState> {
       final idToken = auth.idToken;
       if (idToken == null) {
         state = state.copyWith(
-            loading: false, error: 'Google không trả về id_token');
+          loading: false,
+          error: 'Google không trả về id_token',
+        );
         return;
       }
 
-      final data = (await _api.postAnonymous<dynamic>('/v1/auth/google', body: {
-        'idToken': idToken,
-        'platform': 'mobile',
-      }) as Map)
-          .cast<String, dynamic>();
+      final data =
+          (await _api.postAnonymous<dynamic>(
+                    '/v1/auth/google',
+                    body: {'idToken': idToken, 'platform': 'mobile'},
+                  )
+                  as Map)
+              .cast<String, dynamic>();
 
-      await _ref.read(tokenStoreProvider).save(
+      await _ref
+          .read(tokenStoreProvider)
+          .save(
             accessToken: data['accessToken'] as String,
             refreshToken: data['refreshToken'] as String,
             expiresAt: (data['expiresAt'] as num).toInt(),
@@ -141,4 +153,5 @@ class AuthController extends StateNotifier<AuthState> {
 }
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
-    (ref) => AuthController(ref));
+  (ref) => AuthController(ref),
+);

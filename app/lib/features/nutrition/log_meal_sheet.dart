@@ -37,18 +37,43 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
                 ),
               ),
               const SizedBox(height: 8),
-              _option(ctx, LogMealMethod.photo, Icons.photo_camera,
-                  'Chụp bữa ăn', 'AI nhận diện từng thành phần'),
-              _option(ctx, LogMealMethod.barcode, Icons.qr_code_scanner,
-                  'Quét mã vạch', 'Sản phẩm đóng gói'),
-              _option(ctx, LogMealMethod.voice, Icons.mic, 'Nói',
-                  'Kể bữa ăn, máy tự tách thành phần'),
-              _option(ctx, LogMealMethod.manual, Icons.edit_note, 'Nhập tay',
-                  'Tìm món có sẵn hoặc tự điền số'),
+              _option(
+                ctx,
+                LogMealMethod.photo,
+                Icons.photo_camera,
+                'Chụp bữa ăn',
+                'AI nhận diện từng thành phần',
+              ),
+              _option(
+                ctx,
+                LogMealMethod.barcode,
+                Icons.qr_code_scanner,
+                'Quét mã vạch',
+                'Sản phẩm đóng gói',
+              ),
+              _option(
+                ctx,
+                LogMealMethod.voice,
+                Icons.mic,
+                'Nói',
+                'Kể bữa ăn, máy tự tách thành phần',
+              ),
+              _option(
+                ctx,
+                LogMealMethod.manual,
+                Icons.edit_note,
+                'Nhập tay',
+                'Tìm món có sẵn hoặc tự điền số',
+              ),
               const Divider(height: 1, color: RetroTokens.paperSunk),
-              _option(ctx, LogMealMethod.water, Icons.local_drink, 'Nước',
-                  'Thêm lượng nước đã uống hôm nay',
-                  color: RetroTokens.water),
+              _option(
+                ctx,
+                LogMealMethod.water,
+                Icons.local_drink,
+                'Nước',
+                'Thêm lượng nước đã uống hôm nay',
+                color: RetroTokens.water,
+              ),
               const SizedBox(height: 8),
             ],
           ),
@@ -56,13 +81,19 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
       ),
     );
 
-Widget _option(BuildContext context, LogMealMethod method, IconData icon,
-        String title, String subtitle,
-        {Color color = RetroTokens.ink}) =>
-    ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(subtitle,
-          style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft)),
-      onTap: () => Navigator.pop(context, method),
-    );
+Widget _option(
+  BuildContext context,
+  LogMealMethod method,
+  IconData icon,
+  String title,
+  String subtitle, {
+  Color color = RetroTokens.ink,
+}) => ListTile(
+  leading: Icon(icon, color: color),
+  title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+  subtitle: Text(
+    subtitle,
+    style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+  ),
+  onTap: () => Navigator.pop(context, method),
+);

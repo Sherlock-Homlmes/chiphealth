@@ -19,10 +19,12 @@ class Env {
   }
 
   /// Google OAuth client ids. iOS needs its own; Android reads from google-services.
-  static const googleServerClientId =
-      String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
-  static const googleIosClientId =
-      String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+  static const googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+  );
+  static const googleIosClientId = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+  );
 
   /// Debug-only shortcut for testing without a Google OAuth client: a refresh
   /// token minted by `backend/npm run dev:session` is seeded into the token

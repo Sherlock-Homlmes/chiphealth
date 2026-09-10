@@ -25,26 +25,35 @@ class ProfileRepository {
 
   /// `limit` maxes out at 200 server-side; the default page of 50 is too short
   /// for a year of weigh-ins on the progress screen.
-  Future<List<BodyMetric>> bodyMetrics(
-      {String? from, String? to, int? limit}) async {
-    final data = await _api.get<dynamic>('/v1/me/body-metrics',
-        query: {'from': from, 'to': to, 'limit': limit?.toString()});
+  Future<List<BodyMetric>> bodyMetrics({
+    String? from,
+    String? to,
+    int? limit,
+  }) async {
+    final data = await _api.get<dynamic>(
+      '/v1/me/body-metrics',
+      query: {'from': from, 'to': to, 'limit': limit?.toString()},
+    );
     return _items(data).map(BodyMetric.fromJson).toList();
   }
 
-  Future<void> addBodyMetric(
-          {double? weightKg, double? heightCm, double? bodyFatPercent}) =>
-      _api.post<dynamic>('/v1/me/body-metrics', body: {
-        'recordedAt': DateTime.now().millisecondsSinceEpoch,
-        'weightKg': weightKg,
-        'heightCm': heightCm,
-        'bodyFatPercent': bodyFatPercent,
-      });
+  Future<void> addBodyMetric({
+    double? weightKg,
+    double? heightCm,
+    double? bodyFatPercent,
+  }) => _api.post<dynamic>(
+    '/v1/me/body-metrics',
+    body: {
+      'recordedAt': DateTime.now().millisecondsSinceEpoch,
+      'weightKg': weightKg,
+      'heightCm': heightCm,
+      'bodyFatPercent': bodyFatPercent,
+    },
+  );
 
-  Future<List<Goal>> goals() async =>
-      _items(await _api.get<dynamic>('/v1/me/goals'))
-          .map(Goal.fromJson)
-          .toList();
+  Future<List<Goal>> goals() async => _items(
+    await _api.get<dynamic>('/v1/me/goals'),
+  ).map(Goal.fromJson).toList();
 
   Future<Goal> addGoal({
     required String goalType,
@@ -52,34 +61,39 @@ class ProfileRepository {
     String? targetUnit,
     String? deadline,
   }) async {
-    final data = await _api.post<dynamic>('/v1/me/goals', body: {
-      'goalType': goalType,
-      'targetValue': targetValue,
-      'targetUnit': targetUnit,
-      'deadline': deadline,
-    });
+    final data = await _api.post<dynamic>(
+      '/v1/me/goals',
+      body: {
+        'goalType': goalType,
+        'targetValue': targetValue,
+        'targetUnit': targetUnit,
+        'deadline': deadline,
+      },
+    );
     return Goal.fromJson((data as Map).cast<String, dynamic>());
   }
 
   Future<void> deleteGoal(String id) =>
       _api.delete<dynamic>('/v1/me/goals/$id');
 
-  Future<List<ChronicCondition>> conditions() async =>
-      _items(await _api.get<dynamic>('/v1/me/conditions'))
-          .map(ChronicCondition.fromJson)
-          .toList();
+  Future<List<ChronicCondition>> conditions() async => _items(
+    await _api.get<dynamic>('/v1/me/conditions'),
+  ).map(ChronicCondition.fromJson).toList();
 
-  Future<void> addCondition(String description) => _api
-      .post<dynamic>('/v1/me/conditions', body: {'description': description});
+  Future<void> addCondition(String description) => _api.post<dynamic>(
+    '/v1/me/conditions',
+    body: {'description': description},
+  );
 
   Future<void> deleteCondition(String id) =>
       _api.delete<dynamic>('/v1/me/conditions/$id');
 
-  Future<List<ActivityType>> activityTypes(String locale) async =>
-      _items(await _api.get<dynamic>('/v1/catalog/activity-types',
-              query: {'locale': locale}))
-          .map(ActivityType.fromJson)
-          .toList();
+  Future<List<ActivityType>> activityTypes(String locale) async => _items(
+    await _api.get<dynamic>(
+      '/v1/catalog/activity-types',
+      query: {'locale': locale},
+    ),
+  ).map(ActivityType.fromJson).toList();
 }
 
 /* ---------------------------------------------------------------- media/R2 */
@@ -99,11 +113,15 @@ class MediaRepository {
     required String mimeType,
   }) async {
     final reservation =
-        (await _api.post<dynamic>('/v1/media/upload-url', body: {
-      'kind': kind,
-      'mimeType': mimeType,
-      'byteSize': bytes.length,
-    }) as Map)
+        (await _api.post<dynamic>(
+                  '/v1/media/upload-url',
+                  body: {
+                    'kind': kind,
+                    'mimeType': mimeType,
+                    'byteSize': bytes.length,
+                  },
+                )
+                as Map)
             .cast<String, dynamic>();
 
     final assetId = reservation['assetId'] as String;
@@ -112,8 +130,11 @@ class MediaRepository {
     // leave it pointing at an object that never arrived. Drop it so a retry
     // starts clean instead of adding one more orphan for the sweeper.
     try {
-      await _api.putBytes<dynamic>('/v1/media/$assetId/content', bytes,
-          contentType: mimeType);
+      await _api.putBytes<dynamic>(
+        '/v1/media/$assetId/content',
+        bytes,
+        contentType: mimeType,
+      );
       await _api.post<dynamic>('/v1/media/$assetId/complete');
     } catch (_) {
       try {
@@ -181,14 +202,17 @@ class NutritionRepository {
     String? note,
     String? id,
   }) async {
-    final data = await _api.post<dynamic>('/v1/meals', body: {
-      // Client-minted so the meal survives being logged with no connection.
-      'id': id ?? uuidV7(),
-      'mealType': mealType,
-      'photoAssetId': photoAssetId,
-      'loggedAt': DateTime.now().millisecondsSinceEpoch,
-      'note': note,
-    });
+    final data = await _api.post<dynamic>(
+      '/v1/meals',
+      body: {
+        // Client-minted so the meal survives being logged with no connection.
+        'id': id ?? uuidV7(),
+        'mealType': mealType,
+        'photoAssetId': photoAssetId,
+        'loggedAt': DateTime.now().millisecondsSinceEpoch,
+        'note': note,
+      },
+    );
     return MealLog.fromJson((data as Map).cast<String, dynamic>());
   }
 
@@ -197,28 +221,41 @@ class NutritionRepository {
 
   /// Spoken or typed meal. The clip is not stored anywhere: the server
   /// transcribes it, extracts the components and throws the audio away.
-  Future<void> logSpoken(String mealId,
-          {Uint8List? audio, String? mimeType, String? transcript}) =>
-      audio != null
-          ? _api.postBytes<dynamic>('/v1/meals/$mealId/voice', audio,
-              contentType: mimeType ?? 'audio/mp4')
-          : _api.post<dynamic>('/v1/meals/$mealId/voice',
-              body: {'transcript': transcript});
+  Future<void> logSpoken(
+    String mealId, {
+    Uint8List? audio,
+    String? mimeType,
+    String? transcript,
+  }) => audio != null
+      ? _api.postBytes<dynamic>(
+          '/v1/meals/$mealId/voice',
+          audio,
+          contentType: mimeType ?? 'audio/mp4',
+        )
+      : _api.post<dynamic>(
+          '/v1/meals/$mealId/voice',
+          body: {'transcript': transcript},
+        );
 
   /// A meal the user threw away, or one whose analysis failed and was discarded.
   Future<void> deleteMeal(String mealId) =>
       _api.delete<dynamic>('/v1/meals/$mealId');
 
-  Future<MealLog> meal(String id) async =>
-      MealLog.fromJson((await _api.get<dynamic>('/v1/meals/$id') as Map)
-          .cast<String, dynamic>());
+  Future<MealLog> meal(String id) async => MealLog.fromJson(
+    (await _api.get<dynamic>('/v1/meals/$id') as Map).cast<String, dynamic>(),
+  );
 
   /// Correcting an item keeps the original AI values server-side; `learn` also
   /// teaches the caller's personal food base so the same dish matches next time.
-  Future<void> correctItem(String mealId, int itemId, MealItem item,
-          {bool learn = true}) =>
-      _api.patch<dynamic>('/v1/meals/$mealId/items/$itemId?learn=$learn',
-          body: item.toJson());
+  Future<void> correctItem(
+    String mealId,
+    int itemId,
+    MealItem item, {
+    bool learn = true,
+  }) => _api.patch<dynamic>(
+    '/v1/meals/$mealId/items/$itemId?learn=$learn',
+    body: item.toJson(),
+  );
 
   Future<void> addItem(String mealId, MealItem item) =>
       _api.post<dynamic>('/v1/meals/$mealId/items', body: item.toJson());
@@ -236,12 +273,15 @@ class NutritionRepository {
     String? note,
     int? loggedAt,
   }) async {
-    final data = await _api.patch<dynamic>('/v1/meals/$mealId', body: {
-      if (mealType != null) 'mealType': mealType,
-      if (dishName != null) 'dishName': dishName,
-      if (note != null) 'note': note,
-      if (loggedAt != null) 'loggedAt': loggedAt,
-    });
+    final data = await _api.patch<dynamic>(
+      '/v1/meals/$mealId',
+      body: {
+        if (mealType != null) 'mealType': mealType,
+        if (dishName != null) 'dishName': dishName,
+        if (note != null) 'note': note,
+        if (loggedAt != null) 'loggedAt': loggedAt,
+      },
+    );
     return MealLog.fromJson((data as Map).cast<String, dynamic>());
   }
 
@@ -254,11 +294,10 @@ class NutritionRepository {
   /// a date window (the screen opens on the last week); every page after it is
   /// pure cursor paging, so scrolling back never refetches what is on screen.
   Future<MealPage> meals({String? from, String? cursor, int limit = 30}) async {
-    final data = await _api.get<dynamic>('/v1/meals', query: {
-      'from': from,
-      'cursor': cursor,
-      'limit': '$limit',
-    });
+    final data = await _api.get<dynamic>(
+      '/v1/meals',
+      query: {'from': from, 'cursor': cursor, 'limit': '$limit'},
+    );
     return MealPage(
       items: _items(data).map(MealLog.fromJson).toList(),
       nextCursor: (data as Map)['nextCursor'] as String?,
@@ -266,17 +305,23 @@ class NutritionRepository {
   }
 
   Future<DailyNutrition> daily([String? date]) async {
-    final data =
-        await _api.get<dynamic>('/v1/nutrition/daily', query: {'date': date});
+    final data = await _api.get<dynamic>(
+      '/v1/nutrition/daily',
+      query: {'date': date},
+    );
     return DailyNutrition.fromJson((data as Map).cast<String, dynamic>());
   }
 
   Future<List<DailyNutrition>> range(String from, String to) async {
-    final data = await _api
-        .get<dynamic>('/v1/nutrition/range', query: {'from': from, 'to': to});
+    final data = await _api.get<dynamic>(
+      '/v1/nutrition/range',
+      query: {'from': from, 'to': to},
+    );
     return _items(data)
-        .map((e) =>
-            DailyNutrition.fromJson({'summary': e, 'date': e['localDate']}))
+        .map(
+          (e) =>
+              DailyNutrition.fromJson({'summary': e, 'date': e['localDate']}),
+        )
         .toList();
   }
 
@@ -299,35 +344,37 @@ class NutritionRepository {
     String code, {
     String? productNameHint,
     String? photoAssetId,
-  }) =>
-      _api.post<dynamic>('/v1/foods/barcode/$code/report', body: {
-        'productNameHint': productNameHint,
-        'photoAssetId': photoAssetId,
-      });
+  }) => _api.post<dynamic>(
+    '/v1/foods/barcode/$code/report',
+    body: {'productNameHint': productNameHint, 'photoAssetId': photoAssetId},
+  );
 
   Future<List<FoodHit>> search(String query) async {
-    final data = (await _api
-            .get<dynamic>('/v1/foods/search', query: {'q': query}) as Map)
-        .cast<String, dynamic>();
+    final data =
+        (await _api.get<dynamic>('/v1/foods/search', query: {'q': query})
+                as Map)
+            .cast<String, dynamic>();
     final personal = (data['personal'] as List? ?? const [])
         .whereType<Map>()
         .map(
-            (e) => FoodHit.fromJson(e.cast<String, dynamic>(), personal: true));
-    final global = (data['global'] as List? ?? const [])
-        .whereType<Map>()
-        .map((e) => FoodHit.fromJson(e.cast<String, dynamic>()));
+          (e) => FoodHit.fromJson(e.cast<String, dynamic>(), personal: true),
+        );
+    final global = (data['global'] as List? ?? const []).whereType<Map>().map(
+      (e) => FoodHit.fromJson(e.cast<String, dynamic>()),
+    );
     // Personal rows first: the same dish differs between households.
     return [...personal, ...global];
   }
 
-  Future<List<MealPlan>> plans([String? date]) async =>
-      _items(await _api.get<dynamic>('/v1/meal-plans', query: {'date': date}))
-          .map(MealPlan.fromJson)
-          .toList();
+  Future<List<MealPlan>> plans([String? date]) async => _items(
+    await _api.get<dynamic>('/v1/meal-plans', query: {'date': date}),
+  ).map(MealPlan.fromJson).toList();
 
   Future<List<MealPlan>> generatePlan(String date) async {
-    final data = await _api
-        .post<dynamic>('/v1/meal-plans/generate', body: {'date': date});
+    final data = await _api.post<dynamic>(
+      '/v1/meal-plans/generate',
+      body: {'date': date},
+    );
     return _items(data).map(MealPlan.fromJson).toList();
   }
 
@@ -354,41 +401,48 @@ class TrainingRepository {
     int? maxHeartRate,
     String? notes,
   }) async {
-    final data = await _api.post<dynamic>('/v1/workouts', body: {
-      'id': id,
-      'activityTypeId': activityTypeId,
-      'source': 'in_app',
-      'startedAt': startedAt,
-      'endedAt': endedAt,
-      'durationSeconds': durationSeconds,
-      'movingSeconds': movingSeconds,
-      'distanceM': distanceM,
-      'elevationGainM': elevationGainM,
-      'avgHeartRate': avgHeartRate,
-      'maxHeartRate': maxHeartRate,
-      'notes': notes,
-    });
+    final data = await _api.post<dynamic>(
+      '/v1/workouts',
+      body: {
+        'id': id,
+        'activityTypeId': activityTypeId,
+        'source': 'in_app',
+        'startedAt': startedAt,
+        'endedAt': endedAt,
+        'durationSeconds': durationSeconds,
+        'movingSeconds': movingSeconds,
+        'distanceM': distanceM,
+        'elevationGainM': elevationGainM,
+        'avgHeartRate': avgHeartRate,
+        'maxHeartRate': maxHeartRate,
+        'notes': notes,
+      },
+    );
     return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
   /// Uploads the raw sample stream; the server derives polyline, splits,
   /// time-in-zone and PRs from it, so no per-point rows are ever sent.
   Future<List<PersonalRecord>> uploadStream(
-      String sessionId, String assetId) async {
-    final data = (await _api.put<dynamic>('/v1/workouts/$sessionId/stream',
-            body: {'assetId': assetId}) as Map)
-        .cast<String, dynamic>();
+    String sessionId,
+    String assetId,
+  ) async {
+    final data =
+        (await _api.put<dynamic>(
+                  '/v1/workouts/$sessionId/stream',
+                  body: {'assetId': assetId},
+                )
+                as Map)
+            .cast<String, dynamic>();
     return (data['newRecords'] as List? ?? const [])
         .whereType<Map>()
         .map((e) => PersonalRecord.fromJson(e.cast<String, dynamic>()))
         .toList();
   }
 
-  Future<List<WorkoutSession>> feed({String? from, String? to}) async =>
-      _items(await _api
-              .get<dynamic>('/v1/workouts', query: {'from': from, 'to': to}))
-          .map(WorkoutSession.fromJson)
-          .toList();
+  Future<List<WorkoutSession>> feed({String? from, String? to}) async => _items(
+    await _api.get<dynamic>('/v1/workouts', query: {'from': from, 'to': to}),
+  ).map(WorkoutSession.fromJson).toList();
 
   Future<Map<String, dynamic>> detail(String id) async =>
       (await _api.get<dynamic>('/v1/workouts/$id') as Map)
@@ -397,10 +451,9 @@ class TrainingRepository {
   Future<void> saveSets(String sessionId, List<Map<String, dynamic>> sets) =>
       _api.put<dynamic>('/v1/workouts/$sessionId/sets', body: {'sets': sets});
 
-  Future<List<PersonalRecord>> records() async =>
-      _items(await _api.get<dynamic>('/v1/training/records'))
-          .map(PersonalRecord.fromJson)
-          .toList();
+  Future<List<PersonalRecord>> records() async => _items(
+    await _api.get<dynamic>('/v1/training/records'),
+  ).map(PersonalRecord.fromJson).toList();
 
   Future<List<HrZone>> zones() async {
     final data = (await _api.get<dynamic>('/v1/training/zones') as Map)
@@ -426,38 +479,47 @@ class SleepRepository {
     List<Map<String, dynamic>> events = const [],
     bool audioRecordingEnabled = false,
   }) async {
-    final data = await _api.post<dynamic>('/v1/sleep/sessions', body: {
-      'id': uuidV7(),
-      'source': source,
-      'startedAt': startedAt,
-      'endedAt': endedAt,
-      'stages': stages.map((s) => s.toJson()).toList(),
-      'events': events,
-      'audioRecordingEnabled': audioRecordingEnabled,
-    });
+    final data = await _api.post<dynamic>(
+      '/v1/sleep/sessions',
+      body: {
+        'id': uuidV7(),
+        'source': source,
+        'startedAt': startedAt,
+        'endedAt': endedAt,
+        'stages': stages.map((s) => s.toJson()).toList(),
+        'events': events,
+        'audioRecordingEnabled': audioRecordingEnabled,
+      },
+    );
     return SleepSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
   Future<List<SleepSession>> sessions({String? from, String? to}) async =>
-      _items(await _api.get<dynamic>('/v1/sleep/sessions',
-              query: {'from': from, 'to': to}))
-          .map(SleepSession.fromJson)
-          .toList();
+      _items(
+        await _api.get<dynamic>(
+          '/v1/sleep/sessions',
+          query: {'from': from, 'to': to},
+        ),
+      ).map(SleepSession.fromJson).toList();
 
   Future<SleepSession> session(String id) async => SleepSession.fromJson(
-      (await _api.get<dynamic>('/v1/sleep/sessions/$id') as Map)
-          .cast<String, dynamic>());
+    (await _api.get<dynamic>('/v1/sleep/sessions/$id') as Map)
+        .cast<String, dynamic>(),
+  );
 
   Future<SleepDebt> debt([String? date]) async {
-    final data =
-        await _api.get<dynamic>('/v1/sleep/debt', query: {'date': date});
+    final data = await _api.get<dynamic>(
+      '/v1/sleep/debt',
+      query: {'date': date},
+    );
     return SleepDebt.fromJson((data as Map).cast<String, dynamic>());
   }
 
   Future<String> transcribe(int eventId) async {
-    final data = (await _api
-            .post<dynamic>('/v1/sleep/events/$eventId/transcribe') as Map)
-        .cast<String, dynamic>();
+    final data =
+        (await _api.post<dynamic>('/v1/sleep/events/$eventId/transcribe')
+                as Map)
+            .cast<String, dynamic>();
     return data['transcript'] as String? ?? '';
   }
 
@@ -468,12 +530,14 @@ class SleepRepository {
     required String type,
     required String remindAtLocal,
     required String daysOfWeek,
-  }) =>
-      _api.post<dynamic>('/v1/sleep/reminders', body: {
-        'reminderType': type,
-        'remindAtLocal': remindAtLocal,
-        'daysOfWeek': daysOfWeek,
-      });
+  }) => _api.post<dynamic>(
+    '/v1/sleep/reminders',
+    body: {
+      'reminderType': type,
+      'remindAtLocal': remindAtLocal,
+      'daysOfWeek': daysOfWeek,
+    },
+  );
 }
 
 /* -------------------------------------------------------------------- coach */
@@ -491,26 +555,28 @@ class CoachRepository {
   Future<List<Map<String, dynamic>>> conversations() async =>
       _items(await _api.get<dynamic>('/v1/coach/conversations'));
 
-  Future<List<CoachMessage>> messages(String conversationId) async =>
-      _items(await _api
-              .get<dynamic>('/v1/coach/conversations/$conversationId/messages'))
-          .map(CoachMessage.fromJson)
-          .toList();
+  Future<List<CoachMessage>> messages(String conversationId) async => _items(
+    await _api.get<dynamic>('/v1/coach/conversations/$conversationId/messages'),
+  ).map(CoachMessage.fromJson).toList();
 
   Future<CoachMessage> send(String conversationId, String content) async {
-    final data = (await _api.post<dynamic>(
-      '/v1/coach/conversations/$conversationId/messages',
-      body: {'content': content},
-    ) as Map)
-        .cast<String, dynamic>();
+    final data =
+        (await _api.post<dynamic>(
+                  '/v1/coach/conversations/$conversationId/messages',
+                  body: {'content': content},
+                )
+                as Map)
+            .cast<String, dynamic>();
     return CoachMessage.fromJson(data);
   }
 
   Future<List<CoachInsight>> insights({String? from, String? to}) async =>
-      _items(await _api.get<dynamic>('/v1/coach/insights',
-              query: {'from': from, 'to': to}))
-          .map(CoachInsight.fromJson)
-          .toList();
+      _items(
+        await _api.get<dynamic>(
+          '/v1/coach/insights',
+          query: {'from': from, 'to': to},
+        ),
+      ).map(CoachInsight.fromJson).toList();
 
   Future<void> markRead(String id) =>
       _api.post<dynamic>('/v1/coach/insights/$id/read');
@@ -522,10 +588,9 @@ class MomentsRepository {
   MomentsRepository(this._api);
   final ApiClient _api;
 
-  Future<List<Friend>> friends() async =>
-      _items(await _api.get<dynamic>('/v1/friends'))
-          .map(Friend.fromJson)
-          .toList();
+  Future<List<Friend>> friends() async => _items(
+    await _api.get<dynamic>('/v1/friends'),
+  ).map(Friend.fromJson).toList();
 
   Future<void> requestFriend(String email) =>
       _api.post<dynamic>('/v1/friends/requests', body: {'email': email});
@@ -537,25 +602,29 @@ class MomentsRepository {
   Future<void> acceptRequest(String id) =>
       _api.post<dynamic>('/v1/friends/requests/$id/accept');
 
-  Future<Moment> post(
-      {required String photoAssetId,
-      String? caption,
-      String visibility = 'friends',
-      String? linkedMealLogId}) async {
-    final data = await _api.post<dynamic>('/v1/moments', body: {
-      'photoAssetId': photoAssetId,
-      'caption': caption,
-      'visibility': visibility,
-      'linkedMealLogId': linkedMealLogId,
-    });
+  Future<Moment> post({
+    required String photoAssetId,
+    String? caption,
+    String visibility = 'friends',
+    String? linkedMealLogId,
+  }) async {
+    final data = await _api.post<dynamic>(
+      '/v1/moments',
+      body: {
+        'photoAssetId': photoAssetId,
+        'caption': caption,
+        'visibility': visibility,
+        'linkedMealLogId': linkedMealLogId,
+      },
+    );
     return Moment.fromJson((data as Map).cast<String, dynamic>());
   }
 
   Future<MomentPage> feed({String? cursor, int limit = 30}) async {
-    final data = await _api.get<dynamic>('/v1/moments/feed', query: {
-      'cursor': cursor,
-      'limit': '$limit',
-    });
+    final data = await _api.get<dynamic>(
+      '/v1/moments/feed',
+      query: {'cursor': cursor, 'limit': '$limit'},
+    );
     return MomentPage(
       items: _items(data).map(Moment.fromJson).toList(),
       nextCursor: (data as Map)['nextCursor'] as String?,
@@ -563,10 +632,9 @@ class MomentsRepository {
   }
 
   /// Payload for the home-screen widget: newest unseen moment per friend.
-  Future<List<Moment>> widget() async =>
-      _items(await _api.get<dynamic>('/v1/moments/widget'))
-          .map(Moment.fromJson)
-          .toList();
+  Future<List<Moment>> widget() async => _items(
+    await _api.get<dynamic>('/v1/moments/widget'),
+  ).map(Moment.fromJson).toList();
 
   Future<void> markViewed(String id) =>
       _api.post<dynamic>('/v1/moments/$id/view');
@@ -577,30 +645,42 @@ class MomentsRepository {
   /// Answering a photo: a direct message that pins the moment it answers.
   Future<DirectMessage> replyToMoment(String momentId, String body) async =>
       DirectMessage.fromJson(
-          (await _api.post<dynamic>('/v1/moments/$momentId/messages',
-                  body: {'body': body}) as Map)
-              .cast<String, dynamic>());
+        (await _api.post<dynamic>(
+                  '/v1/moments/$momentId/messages',
+                  body: {'body': body},
+                )
+                as Map)
+            .cast<String, dynamic>(),
+      );
 
   /// The messages list: one row per friend, newest activity first.
-  Future<List<Conversation>> conversations() async =>
-      _items(await _api.get<dynamic>('/v1/messages'))
-          .map(Conversation.fromJson)
-          .toList();
+  Future<List<Conversation>> conversations() async => _items(
+    await _api.get<dynamic>('/v1/messages'),
+  ).map(Conversation.fromJson).toList();
 
   /// One conversation, oldest first.
-  Future<List<DirectMessage>> messages(String userId, {int limit = 100}) async =>
-      _items(await _api
-              .get<dynamic>('/v1/messages/$userId', query: {'limit': '$limit'}))
-          .map(DirectMessage.fromJson)
-          .toList();
+  Future<List<DirectMessage>> messages(
+    String userId, {
+    int limit = 100,
+  }) async => _items(
+    await _api.get<dynamic>('/v1/messages/$userId', query: {'limit': '$limit'}),
+  ).map(DirectMessage.fromJson).toList();
 
-  Future<DirectMessage> sendMessage(String userId, String body,
-          {String? momentPostId}) async =>
-      DirectMessage.fromJson((await _api.post<dynamic>('/v1/messages/$userId',
-              body: {'body': body, 'momentPostId': momentPostId}) as Map)
-          .cast<String, dynamic>());
+  Future<DirectMessage> sendMessage(
+    String userId,
+    String body, {
+    String? momentPostId,
+  }) async => DirectMessage.fromJson(
+    (await _api.post<dynamic>(
+              '/v1/messages/$userId',
+              body: {'body': body, 'momentPostId': momentPostId},
+            )
+            as Map)
+        .cast<String, dynamic>(),
+  );
 
-  Future<void> deleteMoment(String id) => _api.delete<dynamic>('/v1/moments/$id');
+  Future<void> deleteMoment(String id) =>
+      _api.delete<dynamic>('/v1/moments/$id');
 
   Future<void> markConversationRead(String userId) =>
       _api.post<dynamic>('/v1/messages/$userId/read');

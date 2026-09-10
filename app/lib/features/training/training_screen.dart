@@ -78,9 +78,12 @@ class TrainingScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(session.title ?? 'Buổi tập',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
+                              Text(
+                                session.title ?? 'Buổi tập',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 '${session.localDate} · '
@@ -88,7 +91,9 @@ class TrainingScreen extends ConsumerWidget {
                                 '${Units.duration(session.durationSeconds)} · '
                                 '${units.pace(session.avgPaceSecPerKm)}',
                                 style: const TextStyle(
-                                    fontSize: 12, color: RetroTokens.inkSoft),
+                                  fontSize: 12,
+                                  color: RetroTokens.inkSoft,
+                                ),
                               ),
                             ],
                           ),
@@ -107,21 +112,21 @@ class TrainingScreen extends ConsumerWidget {
 }
 
 String _prValue(String metric, double value, Units units) => switch (metric) {
-      'fastest_distance' || 'longest_duration' => Units.duration(value.round()),
-      'longest_distance' => units.distance(value),
-      'max_weight' => units.weight(value),
-      'best_pace' => units.pace(value),
-      _ => value.toStringAsFixed(0),
-    };
+  'fastest_distance' || 'longest_duration' => Units.duration(value.round()),
+  'longest_distance' => units.distance(value),
+  'max_weight' => units.weight(value),
+  'best_pace' => units.pace(value),
+  _ => value.toStringAsFixed(0),
+};
 
 String _prLabel(String metric, double? distanceM) => switch (metric) {
-      'fastest_distance' =>
-        'nhanh nhất ${((distanceM ?? 0) / 1000).toStringAsFixed(distanceM == 21097 || distanceM == 42195 ? 1 : 0)} km',
-      'longest_distance' => 'quãng đường dài nhất',
-      'longest_duration' => 'buổi dài nhất',
-      'max_weight' => 'tạ nặng nhất',
-      'max_reps' => 'số rep nhiều nhất',
-      'max_volume' => 'khối lượng lớn nhất',
-      'best_pace' => 'pace tốt nhất',
-      _ => metric,
-    };
+  'fastest_distance' =>
+    'nhanh nhất ${((distanceM ?? 0) / 1000).toStringAsFixed(distanceM == 21097 || distanceM == 42195 ? 1 : 0)} km',
+  'longest_distance' => 'quãng đường dài nhất',
+  'longest_duration' => 'buổi dài nhất',
+  'max_weight' => 'tạ nặng nhất',
+  'max_reps' => 'số rep nhiều nhất',
+  'max_volume' => 'khối lượng lớn nhất',
+  'best_pace' => 'pace tốt nhất',
+  _ => metric,
+};

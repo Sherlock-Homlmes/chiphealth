@@ -41,10 +41,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             WorkoutDetailScreen(sessionId: state.pathParameters['id']!),
       ),
-      GoRoute(
-        path: '/meals/voice',
-        builder: (_, __) => const VoiceLogScreen(),
-      ),
+      GoRoute(path: '/meals/voice', builder: (_, __) => const VoiceLogScreen()),
       GoRoute(
         path: '/meals/manual',
         builder: (_, __) => const VoiceLogScreen(typedOnly: true),
@@ -60,20 +57,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
           GoRoute(
-              path: '/nutrition', builder: (_, __) => const NutritionScreen()),
+            path: '/nutrition',
+            builder: (_, __) => const NutritionScreen(),
+          ),
           GoRoute(
-              path: '/training', builder: (_, __) => const TrainingScreen()),
+            path: '/training',
+            builder: (_, __) => const TrainingScreen(),
+          ),
           GoRoute(path: '/sleep', builder: (_, __) => const SleepScreen()),
           GoRoute(
-              path: '/progress', builder: (_, __) => const ProgressScreen()),
+            path: '/progress',
+            builder: (_, __) => const ProgressScreen(),
+          ),
           GoRoute(path: '/coach', builder: (_, __) => const CoachScreen()),
           GoRoute(path: '/moments', builder: (_, __) => const MomentsScreen()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
         ],
       ),
     ],
-    errorBuilder: (_, state) => Scaffold(
-      body: Center(child: Text('Không có màn hình ${state.uri}')),
-    ),
+    errorBuilder: (_, state) =>
+        Scaffold(body: Center(child: Text('Không có màn hình ${state.uri}'))),
   );
 });

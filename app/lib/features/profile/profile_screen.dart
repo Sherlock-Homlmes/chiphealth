@@ -9,10 +9,12 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 
 final meProvider = FutureProvider<Map<String, dynamic>>(
-    (ref) => ref.watch(profileRepositoryProvider).me());
+  (ref) => ref.watch(profileRepositoryProvider).me(),
+);
 
 final bodyMetricsProvider = FutureProvider<List<BodyMetric>>(
-    (ref) => ref.watch(profileRepositoryProvider).bodyMetrics());
+  (ref) => ref.watch(profileRepositoryProvider).bodyMetrics(),
+);
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -50,11 +52,12 @@ class ProfileScreen extends ConsumerWidget {
                   .toList();
               final conditions = (data['conditions'] as List? ?? const [])
                   .whereType<Map>()
-                  .map((e) =>
-                      ChronicCondition.fromJson(e.cast<String, dynamic>()))
+                  .map(
+                    (e) => ChronicCondition.fromJson(e.cast<String, dynamic>()),
+                  )
                   .toList();
-              final latest =
-                  (data['latestBodyMetric'] as Map?)?.cast<String, dynamic>();
+              final latest = (data['latestBodyMetric'] as Map?)
+                  ?.cast<String, dynamic>();
 
               return ListView(
                 children: [
@@ -64,18 +67,22 @@ class ProfileScreen extends ConsumerWidget {
                     child: Row(
                       children: [
                         Expanded(
-                            child: StatTile(
-                          value: units.weight(
-                              (latest?['weightKg'] as num?)?.toDouble()),
-                          label: 'cân nặng',
-                        )),
+                          child: StatTile(
+                            value: units.weight(
+                              (latest?['weightKg'] as num?)?.toDouble(),
+                            ),
+                            label: 'cân nặng',
+                          ),
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
-                            child: StatTile(
-                          value: units.height(
-                              (latest?['heightCm'] as num?)?.toDouble()),
-                          label: 'chiều cao',
-                        )),
+                          child: StatTile(
+                            value: units.height(
+                              (latest?['heightCm'] as num?)?.toDouble(),
+                            ),
+                            label: 'chiều cao',
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -94,8 +101,10 @@ class ProfileScreen extends ConsumerWidget {
                   if (goals.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('Chưa đặt mục tiêu nào.',
-                          style: TextStyle(color: RetroTokens.inkFaint)),
+                      child: Text(
+                        'Chưa đặt mục tiêu nào.',
+                        style: TextStyle(color: RetroTokens.inkFaint),
+                      ),
                     ),
                   for (final goal in goals)
                     Padding(
@@ -104,20 +113,26 @@ class ProfileScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_goalLabel(goal.goalType),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700)),
+                            Text(
+                              _goalLabel(goal.goalType),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             Text(
                               'từ ${goal.startValue.toStringAsFixed(1)} → '
                               '${goal.targetValue?.toStringAsFixed(1) ?? '—'} ${goal.targetUnit ?? ''}'
                               '${goal.deadline != null ? ' · hạn ${goal.deadline}' : ''}',
                               style: const TextStyle(
-                                  fontSize: 12, color: RetroTokens.inkSoft),
+                                fontSize: 12,
+                                color: RetroTokens.inkSoft,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             LinearProgressIndicator(
                               value: goal.progress(
-                                  (latest?['weightKg'] as num?)?.toDouble()),
+                                (latest?['weightKg'] as num?)?.toDouble(),
+                              ),
                               backgroundColor: RetroTokens.paperSunk,
                               color: RetroTokens.accent,
                               minHeight: 8,
@@ -130,8 +145,10 @@ class ProfileScreen extends ConsumerWidget {
                   if (conditions.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('Không khai báo bệnh nền.',
-                          style: TextStyle(color: RetroTokens.inkFaint)),
+                      child: Text(
+                        'Không khai báo bệnh nền.',
+                        style: TextStyle(color: RetroTokens.inkFaint),
+                      ),
                     ),
                   for (final condition in conditions)
                     Padding(
@@ -150,15 +167,15 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 String _goalLabel(String type) => switch (type) {
-      'lose_weight' => 'Giảm cân',
-      'gain_weight' => 'Tăng cân',
-      'gain_muscle' => 'Tăng cơ',
-      'reduce_body_fat' => 'Giảm mỡ',
-      'improve_endurance' => 'Tăng sức bền',
-      'improve_strength' => 'Tăng sức mạnh',
-      'sleep_better' => 'Ngủ tốt hơn',
-      _ => 'Kiểm soát bệnh nền',
-    };
+  'lose_weight' => 'Giảm cân',
+  'gain_weight' => 'Tăng cân',
+  'gain_muscle' => 'Tăng cơ',
+  'reduce_body_fat' => 'Giảm mỡ',
+  'improve_endurance' => 'Tăng sức bền',
+  'improve_strength' => 'Tăng sức mạnh',
+  'sleep_better' => 'Ngủ tốt hơn',
+  _ => 'Kiểm soát bệnh nền',
+};
 
 /// Weight over time. A sparkline rather than a full chart: the trend is the
 /// message, and the exact numbers are one tap away.

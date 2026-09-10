@@ -13,5 +13,7 @@ Future<void> saveImage(List<int> bytes, {required String filename}) async {
     mimeType: 'image/jpeg',
     name: filename,
   );
-  await SharePlus.instance.share(ShareParams(files: [file], fileNameOverrides: [filename]));
+  await SharePlus.instance.share(
+    ShareParams(files: [file], fileNameOverrides: [filename]),
+  );
 }

@@ -64,8 +64,9 @@ class _YamnetClassifier implements SleepAudioClassifier {
 /// the classifier-less path instead of killing the recorder screen.
 Future<SleepAudioClassifier?> createSleepAudioClassifier() async {
   try {
-    final interpreter =
-        await Interpreter.fromAsset('assets/models/yamnet.tflite');
+    final interpreter = await Interpreter.fromAsset(
+      'assets/models/yamnet.tflite',
+    );
     return _YamnetClassifier(interpreter);
   } catch (_) {
     return null;

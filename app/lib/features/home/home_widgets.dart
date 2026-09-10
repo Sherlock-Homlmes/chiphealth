@@ -20,17 +20,17 @@ class HomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
-          border: Border.all(color: RetroTokens.ink, width: RetroTokens.border),
-          boxShadow: const [
-            BoxShadow(color: RetroTokens.ink, offset: Offset(3, 3)),
-          ],
-        ),
-        child: child,
-      );
+    padding: padding,
+    decoration: BoxDecoration(
+      color: color,
+      borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
+      border: Border.all(color: RetroTokens.ink, width: RetroTokens.border),
+      boxShadow: const [
+        BoxShadow(color: RetroTokens.ink, offset: Offset(3, 3)),
+      ],
+    ),
+    child: child,
+  );
 }
 
 /// The mascot. There is no image in assets/images yet, and an emoji is not an
@@ -44,15 +44,15 @@ class Mascot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: const BoxDecoration(
-          color: RetroTokens.paperSunk,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(Icons.pets, size: size * 0.45, color: RetroTokens.inkSoft),
-      );
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: const BoxDecoration(
+      color: RetroTokens.paperSunk,
+      shape: BoxShape.circle,
+    ),
+    child: Icon(Icons.pets, size: size * 0.45, color: RetroTokens.inkSoft),
+  );
 }
 
 /// One day in the week strip: label above, number in a circle. The selected day
@@ -230,23 +230,23 @@ class PageDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (var i = 0; i < count; i++)
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: const EdgeInsets.symmetric(horizontal: 3),
-              width: i == index ? 16 : 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: i == index
-                    ? RetroTokens.ink
-                    : RetroTokens.inkFaint.withAlpha(102),
-                borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
-              ),
-            ),
-        ],
-      );
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      for (var i = 0; i < count; i++)
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: i == index ? 16 : 6,
+          height: 6,
+          decoration: BoxDecoration(
+            color: i == index
+                ? RetroTokens.ink
+                : RetroTokens.inkFaint.withAlpha(102),
+            borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
+          ),
+        ),
+    ],
+  );
 }
 
 /// The big round action button that every card and the nav bar share.
@@ -271,26 +271,25 @@ class AddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: 'Thêm',
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              border:
-                  Border.all(color: RetroTokens.ink, width: RetroTokens.border),
-              boxShadow: const [
-                BoxShadow(color: RetroTokens.ink, offset: Offset(2, 2)),
-              ],
-            ),
-            child: Icon(icon, color: iconColor, size: size * 0.55),
-          ),
+    button: true,
+    label: 'Thêm',
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: RetroTokens.ink, width: RetroTokens.border),
+          boxShadow: const [
+            BoxShadow(color: RetroTokens.ink, offset: Offset(2, 2)),
+          ],
         ),
-      );
+        child: Icon(icon, color: iconColor, size: size * 0.55),
+      ),
+    ),
+  );
 }
 
 /// "Ghi lại bữa đầu tiên!" plus a hand-drawn arrow curving up to the "+".
@@ -303,27 +302,25 @@ class EmptyHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-        height: 76,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 4,
-              bottom: 8,
-              child: Text(
-                text,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: RetroTokens.inkFaint,
-                ),
-              ),
+    height: 76,
+    child: Stack(
+      children: [
+        Positioned(
+          left: 4,
+          bottom: 8,
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: RetroTokens.inkFaint,
             ),
-            Positioned.fill(
-              child: CustomPaint(painter: _HandArrowPainter()),
-            ),
-          ],
+          ),
         ),
-      );
+        Positioned.fill(child: CustomPaint(painter: _HandArrowPainter())),
+      ],
+    ),
+  );
 }
 
 class _HandArrowPainter extends CustomPainter {
@@ -354,8 +351,10 @@ class _HandArrowPainter extends CustomPainter {
 
     // Arrowhead: two short strokes off the tip, angled back down the curve.
     const head = 10.0;
-    final dir =
-        math.atan2(end.dy - size.height * 0.25, end.dx - size.width * 0.72);
+    final dir = math.atan2(
+      end.dy - size.height * 0.25,
+      end.dx - size.width * 0.72,
+    );
     for (final spread in [0.5, -0.9]) {
       final a = dir + math.pi + spread;
       canvas.drawLine(
