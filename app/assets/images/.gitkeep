@@ -1,0 +1,2 @@
+# Keeps this otherwise-empty directory in git so pubspec's
+# `assets/images/` declaration stays valid after a fresh clone.
