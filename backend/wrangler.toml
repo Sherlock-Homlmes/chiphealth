@@ -1,0 +1,53 @@
+name = "chiphealth-api"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- D1 -------------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "chiphealth"
+database_id = "00000000-0000-0000-0000-000000000000"   # wrangler d1 create chiphealth
+migrations_dir = "migrations"
+
+# --- R2: photos, sleep audio clips, workout streams -----------------------
+[[r2_buckets]]
+binding = "MEDIA"
+# Must be a bucket that exists in the account. `preview_bucket_name` is what
+# `wrangler dev --remote` uses, so dev writes never touch production objects.
+bucket_name = "localtest"
+preview_bucket_name = "localtest"
+
+# --- Workers AI -----------------------------------------------------------
+[ai]
+binding = "AI"
+
+# --- Vectorize: food RAG index (dims must match AI_EMBEDDING_DIMENSIONS) ---
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "chiphealth-food"
+
+# --- Cron: nightly rollups (sleep debt, nutrition summaries, insights) ----
+[triggers]
+crons = ["*/15 * * * *", "0 19 * * *"]
+
+# Non-secret vars for production. Local dev reads .dev.vars instead.
+[vars]
+ENVIRONMENT = "production"
+# Model choices and the benchmark behind them: see backend/.dev.vars.example.
+AI_VISION_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+AI_VISION_MAX_TOKENS = "4096"
+AI_MIN_ITEM_CONFIDENCE = "0.5"
+AI_CHAT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
+AI_CHAT_MAX_TOKENS = "4096"
+AI_EMBEDDING_MODEL = "@cf/baai/bge-m3"
+AI_EMBEDDING_DIMENSIONS = "1024"
+AI_ASR_MODEL = "@cf/openai/whisper-large-v3-turbo"
+AI_RERANK_MODEL = "@cf/baai/bge-reranker-base"
+RERANK_ENABLED = "false"
+SEARCH_BM25_TOP_K = "20"
+SEARCH_VECTOR_TOP_K = "20"
+SEARCH_RRF_K = "60"
+SEARCH_FINAL_TOP_K = "8"
+SLEEP_DEBT_WINDOW_DAYS = "14"
+PROMPT_VERSION = "meal-v1"

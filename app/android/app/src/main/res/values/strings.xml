@@ -1,0 +1,5 @@
+<resources>
+    <string name="widget_moment_photo">Khoảnh khắc của bạn bè</string>
+    <string name="widget_name">ChipHealth Moments</string>
+    <string name="widget_empty">Chưa có khoảnh khắc nào</string>
+</resources>

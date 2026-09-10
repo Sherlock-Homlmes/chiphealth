@@ -1,0 +1,73 @@
+name: iOS sideload IPA
+
+# Builds an UNSIGNED ipa meant for sideloading with a free Apple ID via
+# Sideloadly / AltStore / SideStore. TestFlight/direct distribution still
+# requires an Apple Developer Program membership.
+#
+# Notes:
+# - The repo's app/ios folder only contains Info.plist + entitlements (no
+#   Runner.xcodeproj), so we regenerate the Xcode project here first.
+# - The regenerated project does not include the MomentsWidget extension
+#   target; the widget will NOT be in this build. Re-add the target in Xcode
+#   on a Mac to ship it.
+# - `aps-environment` (push) is stripped: free Apple IDs cannot provision
+#   push, and signing would fail with it present.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["app/**"]
+
+concurrency:
+  group: ios-sideload-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unsigned-ipa:
+    name: Unsigned IPA (for Sideloadly)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Regenerate iOS Xcode project
+        run: |
+          flutter create --platforms=ios --org vn.chiphealth .
+          # flutter create derives <org>.<name> = vn.chiphealth.chiphealth;
+          # the app group is group.vn.chiphealth.app, so use vn.chiphealth.app.
+          sed -i '' 's/vn\.chiphealth\.chiphealth/vn.chiphealth.app/g' \
+            ios/Runner.xcodeproj/project.pbxproj
+          # The fresh template does not reference the committed entitlements.
+          for cfg in Debug Release Profile; do
+            printf '\nCODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements\n' \
+              >> "ios/Flutter/$cfg.xcconfig"
+          done
+          # Free Apple ID cannot provision push — drop it or signing fails.
+          /usr/libexec/PlistBuddy -c 'Delete :aps-environment' \
+            ios/Runner/Runner.entitlements || true
+
+      - run: flutter pub get
+
+      - name: Build unsigned release
+        run: flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -r ChipHealth-unsigned.ipa Payload
+          ls -lh ChipHealth-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChipHealth-unsigned-ipa
+          path: app/ChipHealth-unsigned.ipa
+          retention-days: 14

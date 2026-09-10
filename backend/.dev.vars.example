@@ -1,0 +1,146 @@
+# ============================================================================
+# ChipHealth backend — Cloudflare Worker env
+# ----------------------------------------------------------------------------
+# Local dev:  copy to `.dev.vars` (git-ignored), `wrangler dev` loads it.
+# Production: non-secret values go in wrangler.toml [vars]; secrets go through
+#             `wrangler secret put <NAME>`.
+# Bindings (D1 / R2 / AI / VECTORIZE) are NOT env vars — see wrangler.toml.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Core
+# ---------------------------------------------------------------------------
+ENVIRONMENT=development
+API_BASE_URL=http://localhost:8787
+# Comma-separated list of allowed browser origins for the admin panel.
+ADMIN_ORIGIN=http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174
+
+# ---------------------------------------------------------------------------
+# Auth — Google OAuth is the only sign-in method (mobile app + admin panel)
+# ---------------------------------------------------------------------------
+# One OAuth client per platform; all of them are accepted audiences for the
+# id_token, comma separated.
+GOOGLE_CLIENT_IDS=xxxxx-web.apps.googleusercontent.com,xxxxx-ios.apps.googleusercontent.com,xxxxx-android.apps.googleusercontent.com
+# secret — HS256 key for our own access tokens. Generate: openssl rand -base64 48
+JWT_SECRET=change-me
+ACCESS_TOKEN_TTL_SECONDS=3600
+REFRESH_TOKEN_TTL_SECONDS=2592000
+# Comma-separated emails auto-promoted to role=admin on first login.
+BOOTSTRAP_ADMIN_EMAILS=2seniorbedev@gmail.com
+
+# ---------------------------------------------------------------------------
+# Workers AI models
+# Every slot has a working default. Alternatives are listed underneath — swap
+# the value, redeploy, no code change. Model ids are Workers AI catalog names.
+# ---------------------------------------------------------------------------
+
+# --- Meal photo analysis (image -> per-ingredient nutrition) ---------------
+# Needs vision + strict-JSON instruction following. The photo goes in as a data
+# URI inside a chat message, so the model must accept `messages` + `image_url`;
+# llama-3.2-11b-vision only takes the older `image:` byte array and no longer
+# works here.
+#
+# Measured on one real meal photo (bún riêu, 1600x1066, 335 KB), 3 runs each,
+# max_tokens=4096, 2026-09-09. "OK" = reply parses into the requested array.
+#
+#   model                                    OK     latency   $/M in-out
+#   @cf/google/gemma-4-26b-a4b-it            3/3    ~33 s     0.10 / 0.30
+#   @cf/meta/llama-4-scout-17b-16e-instruct  3/3    ~5.7 s    0.27 / 0.85
+#   @cf/meta/llama-3.2-11b-vision-instruct   ~1/3   9-15 s    —
+#   @cf/zai-org/glm-5.3-flash                403 — not on the Workers Free plan
+#   @cf/moonshotai/kimi-k2.6                 403 — not on the Workers Free plan
+#   @cf/qwen/qwen3.8-27b                     2/3    ~87 s     0.45 / 3.20
+#                                            (third run died with a 408 timeout)
+#
+# gemma is the most detailed (splits broth, noodles, tomato, enoki, herbs) and
+# the cheapest per token, but it is a reasoning model: it thinks for ~30 s and
+# burns most of max_tokens before the answer starts. Scout is ~6x faster and
+# coarser — it lumps the bowl into one "bún riêu cua" and has hallucinated a
+# stray item. Swap the value below if photo latency matters more than detail.
+AI_VISION_MODEL=@cf/google/gemma-4-26b-a4b-it
+# Reasoning models spend most of the budget before the first answer token.
+AI_VISION_MAX_TOKENS=4096
+# Drop a detected component whose food-base match scores below this. 0.95 = the
+# caller's own corrected food, 0.9 = an admin-verified global food, 0.7 and down
+# = a weaker text match, 0.5 = nothing matched and the numbers came from the chat
+# model. Raising this trades missing calories for invented ones: on the bún riêu
+# test photo, 0.5 keeps all 9 components (587 kcal) and 0.7 keeps 3 (399 kcal).
+AI_MIN_ITEM_CONFIDENCE=0.5
+
+# --- AI coach chat + meal planning + daily insights ------------------------
+AI_CHAT_MODEL=@cf/google/gemma-4-26b-a4b-it
+# options:
+#   @cf/meta/llama-3.3-70b-instruct-fp8-fast  # previous default, no vision, fast
+#   @cf/meta/llama-4-scout-17b-16e-instruct   # one model for chat + vision, not a reasoning model
+#   @cf/qwen/qwen2.5-14b-instruct             # noticeably better Vietnamese, smaller
+#   @cf/meta/llama-3.1-8b-instruct-fast       # cheapest, use for cron-generated insights
+# Raised from 1024: a reasoning model returns an empty message if it runs out of
+# budget mid-thought (finish_reason=length).
+AI_CHAT_MAX_TOKENS=4096
+AI_CHAT_TEMPERATURE=0.4
+
+# --- Embeddings (food RAG). MUST match the Vectorize index dimensions ------
+# bge-m3 = 1024 dims, multilingual, handles Vietnamese well.
+AI_EMBEDDING_MODEL=@cf/baai/bge-m3
+AI_EMBEDDING_DIMENSIONS=1024
+# options (changing this REQUIRES recreating the Vectorize index + full reindex):
+#   @cf/baai/bge-large-en-v1.5   # 1024 dims, English-only
+#   @cf/baai/bge-base-en-v1.5    # 768  dims, English-only, cheaper
+
+# --- Speech to text (sleep-talk transcripts) -------------------------------
+AI_ASR_MODEL=@cf/openai/whisper-large-v3-turbo
+# options:
+#   @cf/openai/whisper           # older, cheaper, lower accuracy on Vietnamese
+
+# --- Reranker: OFF in v1. RRF fusion only, no cross-encoder ----------------
+RERANK_ENABLED=false
+AI_RERANK_MODEL=@cf/baai/bge-reranker-base
+
+# ---------------------------------------------------------------------------
+# Hybrid food retrieval (BM25 via FTS5  +  ANN via Vectorize  ->  RRF)
+# ---------------------------------------------------------------------------
+SEARCH_BM25_TOP_K=20
+SEARCH_VECTOR_TOP_K=20
+SEARCH_RRF_K=60          # RRF constant: score = sum(1 / (RRF_K + rank))
+SEARCH_FINAL_TOP_K=8     # how many candidates reach the LLM prompt
+SEARCH_MIN_SCORE=0.0     # drop fused candidates below this before prompting
+
+# ---------------------------------------------------------------------------
+# Web search fallback (used only when barcode + RAG both miss)
+# ---------------------------------------------------------------------------
+WEB_SEARCH_ENABLED=true
+WEB_SEARCH_PROVIDER=brave        # brave | serper | tavily
+WEB_SEARCH_API_KEY=              # secret
+WEB_SEARCH_MAX_RESULTS=5
+
+# ---------------------------------------------------------------------------
+# Media / R2
+# ---------------------------------------------------------------------------
+# Public base URL of the bucket (r2.dev URL or your custom domain).
+R2_PUBLIC_URL=https://media.chiphealth.app
+# Bucket name; must match wrangler.toml's [[r2_buckets]] bucket_name.
+R2_BUCKET_NAME=chiphealth-media
+# S3-compatible credentials — only needed by scripts/r2-smoke.mjs. The Worker
+# itself uses the MEDIA binding and needs no keys.
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+UPLOAD_URL_TTL_SECONDS=900
+MAX_MEAL_PHOTO_BYTES=8388608      # 8 MB
+MAX_SLEEP_CLIP_BYTES=2097152      # 2 MB per event clip
+# Sleep audio clips are retained indefinitely — no lifecycle expiry by design.
+ORPHAN_ASSET_TTL_HOURS=24         # unreferenced uploads swept after this
+FAILED_MEAL_TTL_HOURS=6           # meals whose analysis failed and got no items
+
+# ---------------------------------------------------------------------------
+# Push notifications (sleep reminders, coach nudges, friend moments)
+# ---------------------------------------------------------------------------
+FCM_PROJECT_ID=
+FCM_SERVICE_ACCOUNT_JSON=         # secret, full service-account JSON
+
+# ---------------------------------------------------------------------------
+# Health / domain constants
+# ---------------------------------------------------------------------------
+SLEEP_DEBT_WINDOW_DAYS=14
+DEFAULT_TARGET_SLEEP_MINUTES=480
+PROMPT_VERSION=meal-v1            # bumped whenever the analysis prompt changes

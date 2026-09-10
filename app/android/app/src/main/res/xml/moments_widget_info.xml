@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home-screen widget metadata. Mirrors GET /v1/moments/widget: the newest
+     unseen moment per friend, refreshed every 30 min by the OS plus on demand
+     from Dart via HomeWidget.updateWidget(). -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="150dp"
+    android:minHeight="150dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/moments_widget"
+    android:previewLayout="@layout/moments_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />

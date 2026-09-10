@@ -1,0 +1,69 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_migrations:
+        description: Skip applying D1 migrations
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Worker + D1 + admin panel
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      # Migrations run before the Worker so the new code never meets an old
+      # schema. D1 migrations are append-only, so this is safe to re-run.
+      - name: Apply D1 migrations
+        if: ${{ !inputs.skip_migrations }}
+        working-directory: backend
+        run: npx wrangler d1 migrations apply chiphealth --remote
+
+      - name: Deploy Worker
+        working-directory: backend
+        run: npx wrangler deploy
+
+      - name: Build admin panel
+        working-directory: admin
+        env:
+          VITE_API_BASE_URL: ${{ vars.ADMIN_API_BASE_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          VITE_USE_MSW: 'false'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy admin panel to Cloudflare Pages
+        working-directory: admin
+        run: npx wrangler pages deploy dist --project-name chiphealth-admin --branch main
+
+      - name: Smoke test the deployment
+        run: |
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.API_BASE_URL }}/health") && \
+              [ "$code" = "200" ] && echo "health OK" && exit 0
+            sleep 5
+          done
+          echo "health check never returned 200"; exit 1

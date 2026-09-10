@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>vi</string>
+	<key>CFBundleDisplayName</key>
+	<string>ChipHealth</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleName</key>
+	<string>chiphealth</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+
+	<!-- Default + supported locales; Vietnamese is the app default. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>vi</string>
+		<string>en</string>
+	</array>
+
+	<!-- ===== Permission usage strings (Vietnamese: the default locale) ===== -->
+	<key>NSCameraUsageDescription</key>
+	<string>ChipHealth dùng camera để chụp món ăn, quét mã vạch và đăng khoảnh khắc cho bạn bè.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Chọn ảnh món ăn có sẵn trong thư viện để ghi nhật ký bữa ăn.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Lưu ảnh khoảnh khắc bạn vừa chụp vào thư viện.</string>
+
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ChipHealth dùng micro để ghi lại tiếng ngáy và tiếng nói mơ trong đêm, giúp phân tích giấc ngủ khi bạn không đeo thiết bị.</string>
+
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ghi lại quãng đường, tốc độ và bản đồ buổi tập của bạn.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Tiếp tục ghi lại buổi tập ngay cả khi bạn tắt màn hình hoặc chuyển sang ứng dụng khác.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Dùng cảm biến chuyển động để ước lượng bước chân, tự động tạm dừng buổi tập và phân loại giai đoạn ngủ.</string>
+
+	<key>NSHealthShareUsageDescription</key>
+	<string>Đọc dữ liệu bước chân, nhịp tim, giấc ngủ, cân nặng và buổi tập từ Apple Health để đồng bộ với ChipHealth.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Ghi buổi tập và số liệu cơ thể bạn nhập trong ChipHealth trở lại Apple Health.</string>
+
+	<key>NSUserTrackingUsageDescription</key>
+	<string>ChipHealth không theo dõi bạn giữa các ứng dụng khác.</string>
+
+	<!-- ===== Background execution ===== -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<!-- GPS workout recording with the screen off -->
+		<string>location</string>
+		<!-- Night mic recording for sleep analysis -->
+		<string>audio</string>
+		<!-- Silent pushes + widget refresh -->
+		<string>remote-notification</string>
+		<string>processing</string>
+		<string>fetch</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>vn.chiphealth.app.outboxSync</string>
+		<string>vn.chiphealth.app.widgetRefresh</string>
+	</array>
+
+	<!-- ===== Google Sign-In ===== -->
+	<!-- TODO: replace REVERSED_CLIENT_ID with the value from GoogleService-Info.plist -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.REVERSED_CLIENT_ID</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>vn.chiphealth.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>chiphealth</string>
+			</array>
+		</dict>
+	</array>
+	<key>GIDClientID</key>
+	<string>REPLACE_WITH_IOS_OAUTH_CLIENT_ID.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>REPLACE_WITH_WEB_OAUTH_CLIENT_ID.apps.googleusercontent.com</string>
+
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

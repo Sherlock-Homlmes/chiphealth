@@ -1,0 +1,90 @@
+name: chiphealth
+description: ChipHealth — personal health tracking (nutrition, training, sleep, coach, moments).
+publish_to: "none"
+version: 0.1.0+1
+
+# NOTE: every version below is a best-effort pin written WITHOUT a Dart/Flutter SDK on the
+# machine. Run `flutter pub get` and then `flutter pub upgrade --major-versions` on a real
+# machine and reconcile. See README.md § "Unverified".
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # --- UI ---------------------------------------------------------------
+  shadcn_ui: ^0.56.3          # component kit; themed in lib/core/theme
+  google_fonts: ^6.2.1        # retro display + mono faces
+  fl_chart: ^0.69.2           # weight / macro / sleep-debt charts
+  flutter_map: ^7.0.2         # workout route map (OSM tiles, no API key)
+  latlong2: ^0.9.1
+  cached_network_image: ^3.4.1
+
+  # --- State / navigation ----------------------------------------------
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
+
+  # --- Network ----------------------------------------------------------
+  dio: ^5.7.0
+
+  # --- Persistence (plain files + secure storage; no codegen) -----------
+  # path_provider dropped: the outbox uses shared_preferences and the workout
+  # stream is encoded in memory, so nothing needs a filesystem path any more.
+  path: ^1.9.0
+  flutter_secure_storage: ^10.3.2  # 9.x forced win32 ^5, which clashed with
+                             # share_plus >=13 (win32 ^6); 11.0.0 needs the
+                             # android-37 preview SDK. 10.3.2 solves both.
+                             # TokenStore only uses read/write/delete — stable
+                             # across the major bump.
+  shared_preferences: ^2.3.3
+
+  # --- Auth -------------------------------------------------------------
+  google_sign_in: ^6.2.2      # NOTE: 7.x has a breaking API (GoogleSignIn.instance)
+
+  # --- Device capabilities ---------------------------------------------
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+  mobile_scanner: ^5.2.3      # barcode
+  geolocator: ^13.0.1         # GPS + auto-pause
+  record: ^6.1.2             # sleep night recording (mic); 5.x pulls a broken record_linux
+  tflite_flutter: ^0.11.0    # YAMNet sleep classifier (FFI): Android/iOS/desktop only.
+                             # Web has no dart:ffi — the recorder falls back to the
+                             # one-light-block upload there (see sleep_classifier_stub).
+                             # Pinned to 0.11, NOT 0.12: 0.12 pulls package:jni whose
+                             # CMake build hard-requires a ~2.5 GB Android NDK that this
+                             # repo's Docker build image does not ship; 0.11 ships the
+                             # prebuilt .so and needs no native toolchain.
+  just_audio: ^0.9.42         # per-event clip playback
+  permission_handler: ^11.3.1
+  flutter_local_notifications: ^17.2.4
+  timezone: ^0.9.4
+  home_widget: ^0.7.0         # Dart <-> WidgetKit / AppWidgetProvider bridge
+
+  # --- Misc -------------------------------------------------------------
+  share_plus: ^13.3.0         # platform share sheet (meal -> FB/IG/Zalo/…)
+  intl: ^0.20.2
+  collection: ^1.18.0
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+# path_provider_android 2.3+ switched to package:jni, whose CMake build
+# hard-requires the Android NDK this project's Docker build image does not
+# ship. 2.2.22 is the last jni-free line; drop the override once the build
+# environment installs an NDK.
+dependency_overrides:
+  path_provider_android: 2.2.22
+
+flutter:
+  uses-material-design: true
+  generate: true            # enables flutter gen-l10n via l10n.yaml
+  assets:
+    - assets/images/
+    - assets/models/yamnet.tflite   # 4.1 MB, LiteRT-verified (sha256 10c95ea3…317de)

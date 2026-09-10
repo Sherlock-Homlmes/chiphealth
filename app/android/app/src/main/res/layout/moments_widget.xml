@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Retro framing: chunky border + hard offset shadow drawn as a stacked
+     FrameLayout (RemoteViews cannot use custom Views). -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="6dp">
+
+    <!-- hard shadow -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="5dp"
+        android:layout_marginStart="5dp"
+        android:background="@drawable/widget_shadow" />
+
+    <LinearLayout
+        android:id="@+id/moments_widget_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginEnd="5dp"
+        android:layout_marginBottom="5dp"
+        android:orientation="vertical"
+        android:background="@drawable/widget_frame">
+
+        <ImageView
+            android:id="@+id/moment_image"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/widget_moment_photo" />
+
+        <TextView
+            android:id="@+id/moment_caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="6dp"
+            android:textSize="12sp"
+            android:textColor="@color/retro_ink" />
+
+        <TextView
+            android:id="@+id/moment_author"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="8dp"
+            android:textSize="10sp"
+            android:textAllCaps="true"
+            android:textColor="@color/retro_ink_muted" />
+    </LinearLayout>
+</FrameLayout>

@@ -1,0 +1,34 @@
+{
+  "name": "chiphealth-backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply chiphealth --local",
+    "db:migrate:remote": "wrangler d1 migrations apply chiphealth --remote",
+    "db:seed:local": "wrangler d1 execute chiphealth --local --file=./seeds/seed.sql",
+    "vectorize:create": "wrangler vectorize create chiphealth-food --dimensions=1024 --metric=cosine",
+    "test": "esbuild test/unit.test.ts --bundle --platform=node --format=esm --outfile=.wrangler/tmp/unit.mjs --log-level=error && node .wrangler/tmp/unit.mjs",
+    "db:seed:remote": "wrangler d1 execute chiphealth --remote --file=./seeds/seed.sql",
+    "dev:session": "node scripts/dev-session.mjs",
+    "r2:smoke": "node scripts/r2-smoke.mjs",
+    "ai:smoke": "node scripts/ai-smoke.mjs",
+    "dev:demo": "node scripts/dev-demo-data.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.38.2",
+    "hono": "^4.6.0",
+    "uuid": "^11.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250109.0",
+    "drizzle-kit": "^0.30.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.6.0",
+    "wrangler": "^3.99.0"
+  }
+}

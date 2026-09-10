@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Keep in sync with lib/core/theme/retro_colors.dart -->
+<resources>
+    <color name="retro_paper">#FBF3E4</color>
+    <color name="retro_paper_raised">#FFF9EE</color>
+    <color name="retro_ink">#2B2118</color>
+    <color name="retro_ink_muted">#7A6A57</color>
+    <color name="retro_tomato">#D9563F</color>
+    <color name="retro_mustard">#E0A526</color>
+</resources>

@@ -1,0 +1,16 @@
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+*.g.dart
+*.freezed.dart
+lib/core/l10n/gen/
+ios/Pods/
+ios/.symlinks/
+android/.gradle/
+android/local.properties
+.env
+tools/certs/
+*.bak

@@ -1,0 +1,1206 @@
+Project chiphealth {
+  database_type: 'SQLite'
+  Note: '''
+  ChipHealth — comprehensive personal health tracking (Cloudflare D1 / SQLite).
+
+  Domains: Identity, Nutrition, Training, Sleep, Coach (AI), Social (Locket moments), Media.
+
+  ## D1 / SQLite conventions
+  - `id` is `text` holding a UUIDv7 (time-sortable, client-generatable for offline-first
+    logging). Because UUIDv7 sorts lexicographically in creation order, `ORDER BY id DESC`
+    is a newest-first scan on the PK index — no separate `created_at` index is needed for
+    listing screens.
+  - High-volume child tables that are never referenced cross-domain use `integer` rowid PKs.
+  - Timestamps are `integer` = Unix epoch **milliseconds** (UTC). Local wall-clock values
+    that must survive a timezone change are `text` (`HH:MM`, `YYYY-MM-DD`).
+  - Booleans are `integer` 0/1.
+  - `enum` blocks below are documentation only. SQLite has no ENUM type: every enum column
+    compiles to `TEXT NOT NULL CHECK (col IN (...))`.
+  - JSON payloads are `text` containing a JSON document (query with json_extract()).
+  - Decimals are `real`. Canonical units are always metric (kg, cm, m, kcal, g, mg, seconds).
+    `users.unit_system` is a display-layer concern only — never stored data.
+  - Every FK is declared; enable `PRAGMA foreign_keys = ON` per D1 connection.
+
+  ## Index policy
+  Only indexes backing a query that actually exists are declared. Rules applied:
+  - PK and UNIQUE already create an index — never duplicate their leftmost prefix.
+  - A composite `(user_id, local_date)` also serves `WHERE user_id = ?` and date ranges,
+    so no extra single-column index is added.
+  - FK columns are indexed only when a query or cascade traverses them.
+
+  ## Why no per-point GPS/HR tables
+  A 1-hour run at 1 Hz is ~3600 GPS rows + ~3600 HR rows. On D1 that is billed rows, the
+  10 GB cap, and slow reads. Instead `workout_streams` keeps **one row per session** with
+  the full sample stream as an R2 object, plus an encoded polyline for map preview and a
+  downsampled series for charts. Only queryable derivatives (splits, zone summaries, PRs)
+  live in D1 as rows.
+
+  ## Food search = hybrid retrieval (BM25 + Vectorize, fused with RRF)
+  DBML cannot express SQLite virtual tables, so the FTS5 indexes are documented here and
+  created by migration:
+
+    CREATE VIRTUAL TABLE foods_fts USING fts5(
+      name, brand, category,
+      content = 'foods', content_rowid = 'rowid',
+      tokenize = "unicode61 remove_diacritics 2"
+    );
+    CREATE VIRTUAL TABLE food_kb_fts USING fts5(
+      title, content,
+      content = 'food_kb_documents', content_rowid = 'rowid',
+      tokenize = "unicode61 remove_diacritics 2"
+    );
+
+  `remove_diacritics 2` lets "com ga" match "cơm gà". Both FTS tables are kept in sync by
+  AFTER INSERT/UPDATE/DELETE triggers on their content tables.
+
+  Retrieval pipeline for one detected ingredient:
+    1. exact barcode hit  -> return immediately (trusted admin data)
+    2. BM25 top-K from foods_fts + food_kb_fts
+    3. ANN top-K from Cloudflare Vectorize (embeddings of foods.name and kb chunks)
+    4. fuse both lists with Reciprocal Rank Fusion, score = sum(1 / (k + rank)), k = 60
+    5. no cross-encoder rerank in v1 (RERANK_ENABLED=false; model slot exists in env)
+    6. still nothing -> web search grounding -> AI estimate
+
+  ## Media
+  All binaries (meal photos, moment photos, avatars, sleep audio clips) live in R2 and are
+  referenced through `media_assets`, so orphan cleanup is one query. Sleep audio clips are
+  retained **indefinitely** — no R2 lifecycle expiry — and are only removed when the user
+  deletes them.
+  '''
+}
+
+//
+// ============ ENUMS (compiled as TEXT + CHECK) ============
+//
+
+enum user_role_enum {
+  user
+  admin
+}
+
+enum unit_system_enum {
+  metric   [note: 'kg / cm / km']
+  imperial [note: 'lbs / inch / mile']
+}
+
+enum biological_sex_enum {
+  male
+  female
+}
+
+enum activity_level_enum {
+  sedentary   [note: 'TDEE x1.2']
+  light       [note: 'x1.375']
+  moderate    [note: 'x1.55']
+  active      [note: 'x1.725']
+  very_active [note: 'x1.9']
+}
+
+enum goal_type_enum {
+  lose_weight
+  gain_weight
+  gain_muscle
+  reduce_body_fat
+  improve_endurance
+  improve_strength
+  sleep_better
+  manage_condition
+}
+
+enum goal_status_enum {
+  active
+  completed
+  abandoned
+}
+
+enum body_metric_source_enum {
+  manual
+  health_sync [note: 'Apple Health / Health Connect']
+  estimated   [note: 'interpolated when the user did not weigh in']
+}
+
+enum health_platform_enum {
+  apple_health
+  health_connect [note: 'Android / Google Health Connect']
+}
+
+enum media_kind_enum {
+  meal_photo
+  moment_photo
+  avatar
+  sleep_audio_clip
+  workout_stream [note: 'raw GPS/HR sample file']
+}
+
+enum food_source_enum {
+  admin_barcode [note: 'admin-entered, barcode-scannable, trusted']
+  admin_manual  [note: 'admin-curated local dish, trusted']
+  rag_matched   [note: 'matched against the admin RAG corpus (FTS5 + Vectorize + RRF)']
+  web_search    [note: 'pulled from web search grounding']
+  ai_estimated  [note: 'model guess, lowest trust']
+}
+
+enum meal_type_enum {
+  breakfast
+  lunch
+  dinner
+  snack
+}
+
+enum ai_job_status_enum {
+  pending
+  running
+  completed
+  failed
+}
+
+enum meal_plan_status_enum {
+  suggested
+  accepted
+  skipped
+  expired
+}
+
+enum barcode_miss_status_enum {
+  pending  [note: 'waiting for an admin to enter the product'  ]
+  resolved [note: 'admin created the food row'  ]
+  rejected [note: 'not a food product / unreadable code']
+}
+
+enum workout_source_enum {
+  in_app      [note: 'recorded with the in-app start button']
+  health_sync [note: 'imported from Apple Health / Health Connect']
+  manual_entry
+}
+
+enum activity_category_enum {
+  cardio_gps    [note: 'run, ride, hike — has a route']
+  cardio_indoor [note: 'treadmill, rower, indoor bike']
+  strength      [note: 'sets / reps / weight']
+  sport         [note: 'badminton, football, tennis']
+  mind_body     [note: 'yoga, stretching']
+  other
+}
+
+enum hr_zone_method_enum {
+  auto_age_based   [note: 'max HR = 220 - age']
+  manual_max_hr    [note: 'user-provided max HR']
+  manual_threshold [note: 'user-provided LTHR']
+}
+
+enum pr_metric_enum {
+  fastest_distance [note: 'best time over a fixed distance: 1k/5k/10k/half/full']
+  longest_distance
+  longest_duration
+  max_elevation_gain
+  best_pace
+  max_weight       [note: 'heaviest set for an exercise']
+  max_reps
+  max_volume       [note: 'sets x reps x weight in one session']
+}
+
+enum sleep_source_enum {
+  health_sync [note: 'wearable via Apple Health / Health Connect']
+  phone_mic   [note: 'on-device mic + AI classification']
+  manual
+}
+
+enum sleep_stage_enum {
+  awake
+  light
+  deep
+  rem
+}
+
+enum sleep_audio_event_enum {
+  snore
+  sleep_talk
+  cough
+  movement
+  apnea_suspect
+  other
+}
+
+enum coach_role_enum {
+  user
+  assistant
+  system
+}
+
+enum coach_insight_domain_enum {
+  nutrition
+  training
+  sleep
+  body
+  overall
+}
+
+enum friendship_status_enum {
+  pending
+  accepted
+  blocked
+}
+
+enum moment_visibility_enum {
+  friends
+  public
+}
+
+//
+// ============ IDENTITY & PROFILE ============
+//
+
+Table users {
+  id text [pk, note: 'UUIDv7']
+  google_sub text [unique, not null, note: 'Google OAuth subject claim — the only auth method']
+  email text [unique, not null]
+  email_verified integer [not null, default: 1, note: 'trusted from the Google id_token']
+  display_name text
+  avatar_asset_id text [ref: > media_assets.id]
+  avatar_remote_url text [note: 'Google profile picture, used until the user uploads their own']
+  role user_role_enum [not null, default: 'user']
+  locale text [not null, default: 'vi', note: 'BCP-47: vi, en, ...']
+  unit_system unit_system_enum [not null, default: 'metric', note: 'display only']
+  timezone text [not null, default: 'Asia/Ho_Chi_Minh', note: 'IANA tz — decides which local day a log belongs to']
+  created_at integer [not null, note: 'epoch ms']
+  updated_at integer [not null]
+  deleted_at integer [note: 'soft delete']
+
+  Note: 'Indexes: google_sub and email uniques cover login. Admin listing uses ORDER BY id DESC on the UUIDv7 PK.'
+}
+
+Table auth_sessions {
+  id text [pk, note: 'UUIDv7 = refresh token id (jti)']
+  user_id text [not null, ref: > users.id]
+  refresh_token_hash text [unique, not null, note: 'SHA-256 of the opaque refresh token; plaintext is never stored']
+  device_name text
+  platform text [note: 'ios / android / web-admin']
+  app_version text
+  ip_address text
+  expires_at integer [not null]
+  revoked_at integer
+  last_used_at integer
+  created_at integer [not null]
+
+  indexes {
+    user_id [note: 'revoke-all-sessions, and cascade on account delete']
+  }
+
+  Note: 'Access tokens are stateless JWTs signed by the Worker; only refresh tokens are persisted. Refresh lookup goes through the refresh_token_hash unique index.'
+}
+
+Table push_tokens {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  token text [unique, not null, note: 'FCM registration token / APNs device token']
+  platform text [not null, note: 'ios / android']
+  is_active integer [not null, default: 1]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, is_active) [note: 'fan out a push to every live device of one user']
+  }
+}
+
+Table user_profiles {
+  user_id text [pk, ref: - users.id]
+  date_of_birth text [note: 'YYYY-MM-DD; age drives BMR and the default max HR']
+  biological_sex biological_sex_enum [note: 'required by Mifflin-St Jeor']
+  activity_level activity_level_enum [not null, default: 'moderate']
+  max_heart_rate_override integer [note: 'if set, overrides 220-age for HR zones']
+  resting_heart_rate integer
+  lactate_threshold_hr integer [note: 'optional, enables the threshold-based zone model']
+  target_sleep_minutes integer [not null, default: 480, note: 'fixed personal target; input to the 14-day rolling debt window']
+  bedtime_target text [note: 'HH:MM local']
+  waketime_target text [note: 'HH:MM local']
+  onboarding_completed_at integer
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  Note: 'Current weight/height are NOT stored here — they are the latest row in body_metrics_logs.'
+}
+
+Table chronic_conditions {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  description text [not null, note: 'free text by design — no coded vocabulary (ICD) in v1']
+  diagnosed_on text [note: 'YYYY-MM-DD']
+  notes text
+  is_active integer [not null, default: 1]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, is_active) [note: 'active conditions are loaded into every coach / meal-plan prompt']
+  }
+}
+
+Table body_metrics_logs {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  recorded_at integer [not null, note: 'epoch ms']
+  local_date text [not null, note: 'YYYY-MM-DD in the user tz']
+  weight_kg real
+  height_cm real
+  body_fat_percent real
+  muscle_mass_kg real
+  waist_cm real
+  source body_metric_source_enum [not null, default: 'manual']
+  created_at integer [not null]
+
+  indexes {
+    (user_id, recorded_at) [note: 'weight chart range scan, and latest-value lookup via DESC LIMIT 1']
+  }
+}
+
+Table goals {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  goal_type goal_type_enum [not null]
+  target_value real [note: 'e.g. 65 (kg), 10 (km), 480 (sleep minutes)']
+  target_unit text [note: 'kg, percent, km, minutes, kcal']
+  start_value real [not null, note: 'baseline at creation, so progress % is computable']
+  deadline text [note: 'YYYY-MM-DD, optional']
+  priority integer [not null, default: 0, note: 'ordering when several goals run in parallel']
+  status goal_status_enum [not null, default: 'active']
+  completed_at integer
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, status) [note: 'load active goals']
+  }
+
+  Note: 'Multiple concurrent goals are allowed (lose_weight + gain_muscle). Conflicts are resolved by the coach at plan time using `priority`.'
+}
+
+Table activity_types {
+  id integer [pk, increment]
+  code text [unique, not null, note: 'running, trail_running, cycling, swimming, badminton, gym_strength, yoga, ...']
+  category activity_category_enum [not null]
+  default_met real [not null, note: 'MET value for calorie estimation when no HR data exists']
+  supports_gps integer [not null, default: 0]
+  supports_sets integer [not null, default: 0]
+  supports_heart_rate integer [not null, default: 1]
+  icon_name text
+  sort_order integer [not null, default: 0]
+  is_active integer [not null, default: 1]
+
+  Note: 'Fixed app-defined catalog (~50 rows, seeded by migration); users cannot add types. Display names come from `translations`. Too small to index beyond the code unique.'
+}
+
+Table user_activity_preferences {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  activity_type_id integer [not null, ref: > activity_types.id]
+  skill_level text [note: 'beginner / intermediate / advanced']
+  weekly_target_sessions integer
+  created_at integer [not null]
+
+  indexes {
+    (user_id, activity_type_id) [unique, note: 'also serves the "sports this user plays" lookup']
+  }
+}
+
+Table translations {
+  id integer [pk, increment]
+  entity_type text [not null, note: 'activity_types, workout_exercises, foods, goal_type, ...']
+  entity_id text [not null]
+  locale text [not null, note: 'vi, en']
+  field text [not null, note: 'name, description']
+  value text [not null]
+
+  indexes {
+    (entity_type, entity_id, locale, field) [unique, note: 'also the lookup path: entity_type + entity_id prefix']
+  }
+}
+
+//
+// ============ MEDIA (R2) ============
+//
+
+Table media_assets {
+  id text [pk]
+  user_id text [ref: > users.id, note: 'null for admin/global assets']
+  kind media_kind_enum [not null]
+  r2_bucket text [not null]
+  r2_key text [unique, not null, note: 'e.g. meals/{user_id}/{uuid}.jpg']
+  mime_type text [not null]
+  byte_size integer
+  width integer
+  height integer
+  duration_ms integer [note: 'audio only']
+  checksum_sha256 text
+  is_orphan integer [not null, default: 1, note: 'flipped to 0 once a domain row references it']
+  created_at integer [not null]
+
+  indexes {
+    (is_orphan, created_at) [note: 'orphan sweeper: is_orphan = 1 AND created_at < now - 24h']
+  }
+
+  Note: 'Single registry of every R2 object. Upload is direct-to-R2 via presigned URL: the row is created first with is_orphan = 1, then flipped to 0 when a meal/moment/event references it. Sleep audio clips are never expired automatically.'
+}
+
+//
+// ============ HEALTH PLATFORM SYNC ============
+//
+
+Table health_connections {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  platform health_platform_enum [not null]
+  is_enabled integer [not null, default: 1]
+  granted_scopes text [note: 'JSON array: steps, heart_rate, sleep, workouts, body']
+  last_synced_at integer
+  last_sync_error text
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, platform) [unique]
+  }
+
+  Note: '''
+  Apple Health / Health Connect are read on-device by the Flutter app — no server-side OAuth
+  tokens exist. This table records only that access was granted and how far the client has
+  synced, so the server can tell a "wearable user" from an "estimate-only" one. With no
+  connection: steps/calories come from MET x duration, sleep from the phone mic, HR is omitted.
+  '''
+}
+
+Table health_sync_cursors {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  data_type text [not null, note: 'workouts, sleep, body_mass, heart_rate, steps']
+  last_record_at integer [not null, note: 'high-water mark, epoch ms']
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, data_type) [unique]
+  }
+}
+
+Table daily_activity_summaries {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  local_date text [not null, note: 'YYYY-MM-DD in the user tz']
+  steps integer
+  active_calories_kcal real
+  resting_calories_kcal real
+  exercise_minutes integer
+  avg_resting_hr integer
+  is_estimated integer [not null, default: 0, note: '1 when derived without a wearable']
+  source health_platform_enum
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, local_date) [unique, note: 'upsert key and the range scan for activity charts']
+  }
+}
+
+//
+// ============ NUTRITION ============
+//
+
+Table foods {
+  id text [pk]
+  barcode text [unique, note: 'EAN/UPC — admin-entered only; users scan, they cannot create']
+  name text [not null, note: 'canonical name; localized names live in `translations`']
+  brand text
+  category text [note: 'rice_dish, noodle, meat, vegetable, beverage, ...']
+  serving_size_g real [not null, default: 100, note: 'every nutrient column is per this amount']
+  serving_label text [note: 'e.g. "1 tô", "1 lon 330ml"']
+  calories_kcal real [not null]
+  protein_g real
+  carbs_g real
+  fat_g real
+  saturated_fat_g real
+  fiber_g real
+  sugar_g real
+  sodium_mg real
+  cholesterol_mg real
+  potassium_mg real
+  calcium_mg real
+  iron_mg real
+  micronutrients_json text [note: 'JSON bag for anything beyond the fixed columns']
+  source food_source_enum [not null]
+  source_url text [note: 'set when source = web_search']
+  is_verified integer [not null, default: 0, note: '1 = admin-reviewed; wins over AI guesses at match time']
+  embedding_status text [note: 'pending / indexed / failed — Vectorize sync state for this row']
+  created_by text [ref: > users.id, note: 'admin user for barcode/manual entries']
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    name [note: 'exact / prefix dedup check before insert; fuzzy search goes through foods_fts + Vectorize']
+  }
+
+  Note: 'Global food database. Resolution order: barcode -> hybrid RAG (FTS5 BM25 + Vectorize, RRF) -> user_foods -> web search -> AI estimate.'
+}
+
+Table barcode_scan_misses {
+  id text [pk]
+  barcode text [unique, not null, note: 'one row per unknown barcode; repeat scans bump scan_count']
+  scan_count integer [not null, default: 1, note: 'demand signal — admin works the most-scanned first']
+  first_scanned_by text [ref: > users.id]
+  product_name_hint text [note: 'optional text the user typed when telling us what it was']
+  photo_asset_id text [ref: > media_assets.id, note: 'optional packaging photo to help the admin enter it']
+  status barcode_miss_status_enum [not null, default: 'pending']
+  resolved_food_id text [ref: > foods.id]
+  resolved_by text [ref: > users.id]
+  resolved_at integer
+  admin_note text
+  first_scanned_at integer [not null]
+  last_scanned_at integer [not null]
+
+  indexes {
+    (status, scan_count) [note: 'admin queue: pending, most-requested first']
+  }
+
+  Note: 'A user scanning an unknown barcode gets "chưa có dữ liệu" in the app, and the code lands here so an admin can add the product later. Scans are aggregated by barcode, never one row per scan.'
+}
+
+Table food_kb_documents {
+  id text [pk]
+  title text [not null]
+  content text [not null, note: 'chunk text; mirrored into food_kb_fts and embedded into Vectorize']
+  food_id text [ref: > foods.id, note: 'set when the chunk describes one specific food']
+  locale text [not null, default: 'vi']
+  vectorize_id text [unique, note: 'id of the vector in the Cloudflare Vectorize index']
+  embedding_model text [note: 'model that produced the vector — reindex when this changes']
+  embedding_status text [note: 'pending / indexed / failed']
+  uploaded_by text [not null, ref: > users.id, note: 'admin']
+  is_active integer [not null, default: 1]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  Note: 'Admin-managed RAG corpus (Vietnamese dish compositions, portion conventions, nutrition tables). D1 holds text + metadata; the vector lives in Vectorize; BM25 comes from the food_kb_fts virtual table. Retrieval never scans this table directly, so it carries no extra index.'
+}
+
+Table user_foods {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  based_on_food_id text [ref: > foods.id, note: 'set when this is a personal override of a global food']
+  name text [not null]
+  serving_size_g real [not null, default: 100]
+  serving_label text
+  calories_kcal real [not null]
+  protein_g real
+  carbs_g real
+  fat_g real
+  saturated_fat_g real
+  fiber_g real
+  sugar_g real
+  sodium_mg real
+  cholesterol_mg real
+  micronutrients_json text
+  is_recipe integer [not null, default: 0]
+  usage_count integer [not null, default: 0, note: 'bumped on each log; ranking signal at match time']
+  last_used_at integer
+  notes text
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, name) [note: 'per-user match by dish name — the personal food base lookup']
+  }
+
+  Note: 'The same dish differs between people, so every correction a user makes is learned here and preferred over the global row on future matches.'
+}
+
+Table user_food_ingredients {
+  id integer [pk, increment]
+  user_food_id text [not null, ref: > user_foods.id]
+  food_id text [ref: > foods.id]
+  ingredient_name text [not null]
+  quantity_g real [not null]
+  created_at integer [not null]
+
+  indexes {
+    user_food_id [note: 'load the components of a recipe']
+  }
+}
+
+Table meal_logs {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  meal_type meal_type_enum [not null]
+  photo_asset_id text [ref: > media_assets.id, note: 'null for manually typed meals']
+  logged_at integer [not null]
+  local_date text [not null, note: 'YYYY-MM-DD in the user tz — the daily grouping key']
+  dish_name text [note: 'what the vision model called the dish as a whole; null for hand-typed meals and while analysis runs']
+  note text
+  total_calories_kcal real [not null, default: 0, note: 'denormalized sum of meal_items, recomputed on item change']
+  total_protein_g real [not null, default: 0]
+  total_carbs_g real [not null, default: 0]
+  total_fat_g real [not null, default: 0]
+  total_fiber_g real
+  total_sugar_g real
+  total_sodium_mg real
+  from_meal_plan_id text [ref: > meal_plans.id, note: 'set when the user ate what the coach suggested']
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, local_date) [note: 'day view, and date-range history — local_date sorts lexicographically']
+  }
+}
+
+Table meal_ai_analyses {
+  id text [pk]
+  meal_log_id text [not null, ref: > meal_logs.id]
+  status ai_job_status_enum [not null, default: 'pending']
+  model text [not null, note: 'e.g. @cf/meta/llama-3.2-11b-vision-instruct']
+  prompt_version text [not null, note: 'bump when the prompt changes, so old outputs stay interpretable']
+  raw_response_json text [note: 'verbatim model output — the fine-tuning corpus']
+  retrieval_json text [note: 'JSON: {bm25:[...], vector:[...], fused:[...]} with ids and RRF scores']
+  web_sources_json text [note: 'JSON array of URLs used when falling back to search']
+  overall_confidence real
+  latency_ms integer
+  error_message text
+  created_at integer [not null]
+  completed_at integer
+
+  indexes {
+    meal_log_id [note: 'show the analysis(es) of one meal']
+  }
+
+  Note: 'One row per analysis attempt; re-analysis inserts a new row. Never mutated after completion — the immutable AI record, kept separate from user-corrected values.'
+}
+
+Table meal_items {
+  id integer [pk, increment]
+  meal_log_id text [not null, ref: > meal_logs.id]
+  food_id text [ref: > foods.id]
+  user_food_id text [ref: > user_foods.id]
+  ingredient_name text [not null, note: 'kept even when nothing matched, e.g. "rau muống xào"']
+  quantity_g real [not null]
+  quantity_label text [note: 'as stated by the model: "1 chén", "nửa đĩa"']
+  calories_kcal real [not null]
+  protein_g real
+  carbs_g real
+  fat_g real
+  saturated_fat_g real
+  fiber_g real
+  sugar_g real
+  sodium_mg real
+  cholesterol_mg real
+  source food_source_enum [not null, note: 'how this row was resolved']
+  confidence real
+  ai_predicted_json text [note: 'immutable snapshot of the original AI values for THIS item']
+  is_user_corrected integer [not null, default: 0]
+  corrected_at integer
+  created_at integer [not null]
+
+  indexes {
+    meal_log_id [note: 'load the components of a meal']
+  }
+
+  Note: '''
+  One row per detected component (rice, chicken, greens...) with its own macro + salt/sugar
+  breakdown. Live columns hold the current (possibly corrected) values; ai_predicted_json
+  preserves the original guess, so a corrected row is a (prediction, ground truth) training
+  pair without a second table.
+  '''
+}
+
+Table meal_plans {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  plan_date text [not null, note: 'YYYY-MM-DD']
+  meal_type meal_type_enum [not null]
+  title text [not null, note: 'e.g. "Cơm gà áp chảo + salad"']
+  description text
+  target_calories_kcal real
+  target_protein_g real
+  target_carbs_g real
+  target_fat_g real
+  suggested_food_id text [ref: > foods.id]
+  suggested_user_food_id text [ref: > user_foods.id]
+  rationale text [note: 'why the coach picked this — shown in the UI']
+  generated_by_model text
+  status meal_plan_status_enum [not null, default: 'suggested']
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, plan_date) [note: 'today/tomorrow plan lookup']
+  }
+
+  Note: 'Generated from personal info + goals + chronic conditions + training load + eating history.'
+}
+
+Table daily_nutrition_summaries {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  local_date text [not null, note: 'YYYY-MM-DD']
+  calories_consumed_kcal real [not null, default: 0]
+  protein_g real
+  carbs_g real
+  fat_g real
+  fiber_g real
+  sugar_g real
+  sodium_mg real
+  bmr_kcal real [note: 'Mifflin-St Jeor from profile + latest body metrics']
+  tdee_kcal real [note: 'bmr x activity multiplier + that day workout calories']
+  calories_burned_workout_kcal real [not null, default: 0]
+  calorie_balance_kcal real [note: 'consumed - tdee; negative = deficit']
+  meals_logged integer [not null, default: 0]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, local_date) [unique, note: 'upsert key and the deficit-chart range scan']
+  }
+}
+
+//
+// ============ TRAINING ============
+//
+
+Table workout_sessions {
+  id text [pk, note: 'UUIDv7 generated on-device so recording works offline']
+  user_id text [not null, ref: > users.id]
+  activity_type_id integer [not null, ref: > activity_types.id]
+  source workout_source_enum [not null, default: 'in_app']
+  external_id text [note: 'HealthKit / Health Connect record uuid, for sync dedup']
+  title text
+  started_at integer [not null]
+  ended_at integer
+  local_date text [not null, note: 'YYYY-MM-DD in the user tz']
+  duration_seconds integer [note: 'wall clock']
+  moving_seconds integer [note: 'excludes auto-pause']
+  distance_m real
+  avg_heart_rate integer
+  max_heart_rate integer
+  avg_pace_sec_per_km real
+  best_pace_sec_per_km real
+  avg_cadence integer
+  avg_power_w real [note: 'cycling, when a power meter is present']
+  elevation_gain_m real
+  calories_burned_kcal real
+  calories_are_estimated integer [not null, default: 1, note: '0 when taken from the wearable']
+  perceived_exertion integer [note: 'RPE 1-10, user input']
+  notes text
+  is_deleted integer [not null, default: 0]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, started_at) [note: 'training feed and calendar range']
+    (source, external_id) [unique, note: 'sync dedup; NULL external_id repeats freely in SQLite']
+  }
+}
+
+Table workout_streams {
+  workout_session_id text [pk, ref: - workout_sessions.id]
+  r2_asset_id text [ref: > media_assets.id, note: 'full-resolution sample stream (gzipped NDJSON) in R2']
+  sample_count integer
+  sample_interval_s real
+  encoded_polyline text [note: 'Google encoded polyline of the route, for map preview without touching R2']
+  downsampled_json text [note: 'JSON arrays (~200 points) of {t, hr, pace, ele} for in-app charts']
+  start_latitude real
+  start_longitude real
+  bounds_json text [note: '{minLat,minLng,maxLat,maxLng} for map fitting']
+  has_gps integer [not null, default: 0]
+  has_heart_rate integer [not null, default: 0]
+  created_at integer [not null]
+
+  Note: 'One row per session instead of thousands of point rows — the D1-friendly shape. Always read by session id, so the PK is the only index needed.'
+}
+
+Table workout_splits {
+  id integer [pk, increment]
+  workout_session_id text [not null, ref: > workout_sessions.id]
+  split_index integer [not null, note: '1-based']
+  split_distance_m real [not null, default: 1000, note: 'usually 1 km']
+  elapsed_seconds integer [not null]
+  moving_seconds integer
+  avg_heart_rate integer
+  elevation_gain_m real
+  avg_pace_sec_per_km real
+
+  indexes {
+    (workout_session_id, split_index) [unique, note: 'split table view; also the input to fastest-5k/10k PR detection']
+  }
+}
+
+Table workout_exercises {
+  id integer [pk, increment]
+  code text [unique, not null, note: 'bench_press, back_squat, deadlift, ...']
+  muscle_group text [not null, note: 'chest, back, legs, shoulders, arms, core']
+  equipment text [note: 'barbell, dumbbell, machine, bodyweight']
+  is_unilateral integer [not null, default: 0]
+  sort_order integer [not null, default: 0]
+
+  Note: 'Fixed strength-exercise catalog; names localized via `translations`. Small enough that the code unique is the only index.'
+}
+
+Table workout_strength_sets {
+  id integer [pk, increment]
+  workout_session_id text [not null, ref: > workout_sessions.id]
+  exercise_id integer [not null, ref: > workout_exercises.id]
+  set_index integer [not null, note: '1-based within the exercise']
+  reps integer
+  weight_kg real
+  duration_seconds integer [note: 'for planks / timed holds']
+  distance_m real [note: 'for loaded carries']
+  rpe real
+  is_warmup integer [not null, default: 0]
+  rest_seconds integer
+  created_at integer [not null]
+
+  indexes {
+    (workout_session_id, exercise_id, set_index) [unique, note: 'load a session grouped by exercise, in set order']
+  }
+}
+
+Table heart_rate_zones {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  zone_number integer [not null, note: '1-5']
+  min_bpm integer [not null]
+  max_bpm integer [not null]
+  method hr_zone_method_enum [not null, default: 'auto_age_based']
+  max_heart_rate_used integer [not null]
+  effective_from integer [not null, note: 'epoch ms; a new set is inserted when age or max HR changes']
+  created_at integer [not null]
+
+  indexes {
+    (user_id, effective_from, zone_number) [unique, note: 'current zones = highest effective_from <= session start']
+  }
+
+  Note: 'Thresholds are auto-computed from age (220-age) unless the user overrides max HR / LTHR. History is kept so old workouts keep the zones they were scored with. Zone names are localized via `translations` on zone_number.'
+}
+
+Table workout_zone_summaries {
+  id integer [pk, increment]
+  workout_session_id text [not null, ref: > workout_sessions.id]
+  zone_number integer [not null]
+  seconds_in_zone integer [not null]
+  percent_of_session real
+
+  indexes {
+    (workout_session_id, zone_number) [unique, note: 'time-in-zone chart, one indexed read per session']
+  }
+
+  Note: 'Computed once from the stream at ingest, so the training-zone analysis never re-parses R2.'
+}
+
+Table personal_records {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  activity_type_id integer [ref: > activity_types.id, note: 'null for exercise-scoped strength PRs']
+  exercise_id integer [ref: > workout_exercises.id, note: 'set for strength PRs']
+  metric pr_metric_enum [not null]
+  distance_m real [note: 'set for fastest_distance: 1000/5000/10000/21097/42195']
+  value real [not null, note: 'seconds for time-based, kg for weight, m for distance']
+  unit text [not null]
+  achieved_at integer [not null]
+  workout_session_id text [ref: > workout_sessions.id]
+  strength_set_id integer [ref: > workout_strength_sets.id]
+  previous_value real [note: 'so the app can show "-12s vs old PR"']
+  is_current integer [not null, default: 1, note: '0 once beaten; history is kept for the PR progression chart']
+  created_at integer [not null]
+
+  indexes {
+    (user_id, is_current) [note: 'PR board, and the detection lookup — a user has few PR rows, so metric/distance filter in memory']
+  }
+
+  Note: 'Auto-detected after each session by comparing splits/sets against the current PRs. Exactly one of workout_session_id / strength_set_id is set.'
+}
+
+//
+// ============ SLEEP ============
+//
+
+Table sleep_sessions {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  source sleep_source_enum [not null]
+  external_id text [note: 'HealthKit / Health Connect record id, for dedup']
+  started_at integer [not null, note: 'sleep onset']
+  ended_at integer
+  local_date text [not null, note: 'YYYY-MM-DD of the WAKE-UP day — the debt accounting key']
+  in_bed_seconds integer
+  total_sleep_seconds integer
+  awake_seconds integer
+  light_seconds integer
+  deep_seconds integer
+  rem_seconds integer
+  sleep_latency_seconds integer [note: 'in-bed to onset']
+  sleep_efficiency real [note: 'total_sleep / in_bed']
+  sleep_score integer [note: '0-100, computed']
+  avg_heart_rate integer
+  stages_are_estimated integer [not null, default: 0, note: '1 when derived from phone mic/motion instead of a wearable']
+  audio_recording_enabled integer [not null, default: 0]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, local_date) [unique, note: 'one night per wake-up day; also the history range scan']
+    (source, external_id) [unique, note: 'wearable sync dedup']
+  }
+}
+
+Table sleep_stage_segments {
+  id integer [pk, increment]
+  sleep_session_id text [not null, ref: > sleep_sessions.id]
+  stage sleep_stage_enum [not null]
+  started_at integer [not null]
+  ended_at integer [not null]
+  confidence real [note: 'lower for phone-mic inference than for wearable data']
+
+  indexes {
+    (sleep_session_id, started_at) [note: 'hypnogram, in time order']
+  }
+
+  Note: 'Full-night timeline in standard stages (awake/light/deep/rem). ~40-80 rows per night — safe as rows in D1.'
+}
+
+Table sleep_audio_events {
+  id integer [pk, increment]
+  sleep_session_id text [not null, ref: > sleep_sessions.id]
+  event_type sleep_audio_event_enum [not null]
+  occurred_at integer [not null]
+  duration_ms integer
+  peak_db real
+  confidence real
+  audio_asset_id text [ref: > media_assets.id, note: 'the clip for THIS event, in R2 — retained indefinitely']
+  transcript text [note: 'for sleep_talk, when ASR produced text']
+  stage_at_event sleep_stage_enum [note: 'denormalized from the hypnogram for quick filtering']
+  created_at integer [not null]
+
+  indexes {
+    (sleep_session_id, occurred_at) [note: 'event timeline overlaid on the hypnogram']
+  }
+
+  Note: 'One short clip per detected snore/sleep-talk moment (never the whole night). Clips are kept forever and only deleted when the user deletes them.'
+}
+
+Table sleep_debt_daily {
+  id integer [pk, increment]
+  user_id text [not null, ref: > users.id]
+  local_date text [not null, note: 'YYYY-MM-DD']
+  target_sleep_seconds integer [not null, note: 'the personal fixed target in force on that date']
+  actual_sleep_seconds integer [not null, default: 0]
+  daily_diff_seconds integer [not null, note: 'actual - target; negative = shortfall']
+  rolling_14d_debt_seconds integer [not null, note: 'sum of negative diffs over the trailing 14 days ending on local_date']
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, local_date) [unique, note: 'upsert key; the 14-day window is a range scan on this index']
+  }
+
+  Note: 'Fixed personal target, accumulated over a 14-day rolling window. Recomputed nightly by cron and after any sleep edit.'
+}
+
+Table sleep_reminders {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  reminder_type text [not null, note: 'bedtime / wakeup / wind_down']
+  remind_at_local text [not null, note: 'HH:MM in the user tz']
+  days_of_week text [not null, note: 'CSV: mon,tue,wed,...']
+  is_enabled integer [not null, default: 1]
+  last_fired_at integer
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, is_enabled) [note: 'settings screen, and the per-user cron evaluation']
+  }
+}
+
+//
+// ============ AI COACH ============
+//
+
+Table coach_conversations {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  title text [note: 'auto-summarized from the first message']
+  last_message_at integer
+  message_count integer [not null, default: 0]
+  is_archived integer [not null, default: 0]
+  created_at integer [not null]
+  updated_at integer [not null]
+
+  indexes {
+    (user_id, last_message_at) [note: 'conversation list, most recent first']
+  }
+}
+
+Table coach_messages {
+  id integer [pk, increment]
+  conversation_id text [not null, ref: > coach_conversations.id]
+  role coach_role_enum [not null]
+  content text [not null]
+  context_json text [note: 'snapshot of the health data injected into this turn — makes past answers reproducible']
+  model text
+  prompt_tokens integer
+  completion_tokens integer
+  latency_ms integer
+  created_at integer [not null]
+
+  indexes {
+    conversation_id [note: 'thread load; rowid order inside the index is already chronological']
+  }
+}
+
+Table coach_insights {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  domain coach_insight_domain_enum [not null]
+  local_date text [not null, note: 'the day the insight is about']
+  period text [not null, note: 'daily / weekly']
+  title text [not null]
+  body text [not null]
+  severity text [note: 'info / warning / alert — e.g. sleep debt over 10h']
+  action_json text [note: 'optional deep link: {type:"open_meal_plan", id:"..."}']
+  model text
+  is_read integer [not null, default: 0]
+  created_at integer [not null]
+
+  indexes {
+    (user_id, local_date) [note: 'insight feed by day; the unread badge filters this same user prefix']
+  }
+
+  Note: 'Proactively generated by cron: calorie deficit trends, sleep debt, training load, goal progress.'
+}
+
+//
+// ============ SOCIAL / MOMENTS (Locket-style widget) ============
+//
+
+Table friendships {
+  id text [pk]
+  requester_id text [not null, ref: > users.id]
+  addressee_id text [not null, ref: > users.id]
+  status friendship_status_enum [not null, default: 'pending']
+  requested_at integer [not null]
+  responded_at integer
+
+  indexes {
+    (requester_id, addressee_id) [unique, note: 'dedup, and the outgoing direction']
+    (addressee_id, status) [note: 'incoming requests, and the reverse direction of the friend list']
+  }
+
+  Note: 'Request/accept model. The friend list is a UNION of both directions where status = accepted.'
+}
+
+Table moment_posts {
+  id text [pk]
+  user_id text [not null, ref: > users.id]
+  photo_asset_id text [not null, ref: > media_assets.id]
+  caption text [note: 'short overlay text, Locket-style']
+  visibility moment_visibility_enum [not null, default: 'friends']
+  linked_meal_log_id text [ref: > meal_logs.id, note: 'optional — share what you ate']
+  linked_workout_session_id text [ref: > workout_sessions.id, note: 'optional — share a workout']
+  expires_at integer [note: 'optional ephemerality; null = permanent']
+  created_at integer [not null]
+  deleted_at integer
+
+  indexes {
+    (user_id, created_at) [note: 'widget/feed: newest post per friend id']
+  }
+
+  Note: 'Free-form photo; the meal/workout links are optional. Widget query = latest non-deleted post from accepted friends.'
+}
+
+Table moment_reactions {
+  id integer [pk, increment]
+  moment_post_id text [not null, ref: > moment_posts.id]
+  user_id text [not null, ref: > users.id]
+  emoji text [not null]
+  created_at integer [not null]
+
+  indexes {
+    (moment_post_id, user_id) [unique, note: 'one reaction per user per post; also lists a post reactions']
+  }
+}
+
+Table moment_views {
+  id integer [pk, increment]
+  moment_post_id text [not null, ref: > moment_posts.id]
+  viewer_id text [not null, ref: > users.id]
+  viewed_at integer [not null]
+
+  indexes {
+    (moment_post_id, viewer_id) [unique, note: '"seen by" list, and the unseen-moments anti-join for the widget']
+  }
+}
+
+//
+// ============ TABLE GROUPS ============
+//
+
+TableGroup Identity {
+  users
+  auth_sessions
+  push_tokens
+  user_profiles
+  chronic_conditions
+  body_metrics_logs
+  goals
+  activity_types
+  user_activity_preferences
+  translations
+}
+
+TableGroup Media {
+  media_assets
+}
+
+TableGroup HealthSync {
+  health_connections
+  health_sync_cursors
+  daily_activity_summaries
+}
+
+TableGroup Nutrition {
+  foods
+  barcode_scan_misses
+  food_kb_documents
+  user_foods
+  user_food_ingredients
+  meal_logs
+  meal_ai_analyses
+  meal_items
+  meal_plans
+  daily_nutrition_summaries
+}
+
+TableGroup Training {
+  workout_sessions
+  workout_streams
+  workout_splits
+  workout_exercises
+  workout_strength_sets
+  heart_rate_zones
+  workout_zone_summaries
+  personal_records
+}
+
+TableGroup Sleep {
+  sleep_sessions
+  sleep_stage_segments
+  sleep_audio_events
+  sleep_debt_daily
+  sleep_reminders
+}
+
+TableGroup Coach {
+  coach_conversations
+  coach_messages
+  coach_insights
+}
+
+TableGroup Social {
+  friendships
+  moment_posts
+  moment_reactions
+  moment_views
+}

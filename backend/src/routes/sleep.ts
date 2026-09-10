@@ -1,0 +1,349 @@
+import { Hono } from 'hono';
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { z } from 'zod';
+import {
+  sleepSessions, sleepStageSegments, sleepAudioEvents, sleepReminders, mediaAssets,
+} from '../db/schema';
+import { parseBody, parseQuery, paginationSchema, page, isoDateSchema } from '../lib/http';
+import { ApiError, notFound } from '../lib/errors';
+import { newId } from '../lib/ids';
+import { localDate } from '../lib/time';
+import { recomputeSleepDebt, sleepDebtFor } from '../services/sleepDebt';
+import { modelConfig } from '../config/models';
+import { insertMany } from '../db/client';
+import type { AppEnv } from '../env';
+
+const app = new Hono<AppEnv>();
+
+const STAGES = ['awake', 'light', 'deep', 'rem'] as const;
+const EVENT_TYPES = ['snore', 'sleep_talk', 'cough', 'movement', 'apnea_suspect', 'other'] as const;
+
+const sessionSchema = z.object({
+  id: z.string().uuid().optional(),
+  source: z.enum(['health_sync', 'phone_mic', 'manual']),
+  externalId: z.string().max(200).nullish(),
+  startedAt: z.number().int().positive(),
+  endedAt: z.number().int().positive(),
+  inBedSeconds: z.number().int().nonnegative().nullish(),
+  sleepLatencySeconds: z.number().int().nonnegative().nullish(),
+  avgHeartRate: z.number().int().nullish(),
+  audioRecordingEnabled: z.boolean().default(false),
+  stages: z.array(z.object({
+    stage: z.enum(STAGES),
+    startedAt: z.number().int().positive(),
+    endedAt: z.number().int().positive(),
+    confidence: z.number().min(0).max(1).nullish(),
+  })).default([]),
+  events: z.array(z.object({
+    eventType: z.enum(EVENT_TYPES),
+    occurredAt: z.number().int().positive(),
+    durationMs: z.number().int().nonnegative().nullish(),
+    peakDb: z.number().nullish(),
+    confidence: z.number().min(0).max(1).nullish(),
+    audioAssetId: z.string().uuid().nullish(),
+    transcript: z.string().max(2000).nullish(),
+  })).default([]),
+});
+
+/** Stage seconds are derived from the segments, never trusted from the client. */
+function stageTotals(stages: z.infer<typeof sessionSchema>['stages']) {
+  const totals = { awake: 0, light: 0, deep: 0, rem: 0 };
+  for (const s of stages) {
+    const seconds = Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000));
+    totals[s.stage] += seconds;
+  }
+  const asleep = totals.light + totals.deep + totals.rem;
+  return { ...totals, asleep };
+}
+
+/** Which stage covers an instant — denormalized onto each audio event. */
+function stageAt(
+  stages: z.infer<typeof sessionSchema>['stages'], at: number,
+): typeof STAGES[number] | null {
+  return stages.find((s) => at >= s.startedAt && at < s.endedAt)?.stage ?? null;
+}
+
+/**
+ * A whole night arrives in one request. `local_date` is the WAKE-UP day and is
+ * unique per user, so a re-upload of the same night is an upsert.
+ */
+app.post('/sessions', async (c) => {
+  const body = await parseBody(c, sessionSchema);
+  const user = c.get('user');
+  const db = c.get('db');
+
+  if (body.endedAt <= body.startedAt) {
+    throw new ApiError('VALIDATION_ERROR', 'endedAt must be after startedAt');
+  }
+
+  const day = localDate(body.endedAt, user.timezone);
+  const totals = stageTotals(body.stages);
+  const inBed = body.inBedSeconds ?? Math.round((body.endedAt - body.startedAt) / 1000);
+  const totalSleep = totals.asleep > 0
+    ? totals.asleep
+    : Math.max(0, inBed - (body.sleepLatencySeconds ?? 0));
+
+  const existing = await db.select({ id: sleepSessions.id }).from(sleepSessions)
+    .where(and(eq(sleepSessions.userId, user.id), eq(sleepSessions.localDate, day)))
+    .limit(1);
+
+  const id = existing[0]?.id ?? body.id ?? newId();
+  const now = Date.now();
+  const efficiency = inBed > 0 ? Math.round((totalSleep / inBed) * 1000) / 1000 : null;
+
+  const values = {
+    userId: user.id,
+    source: body.source,
+    externalId: body.externalId ?? null,
+    startedAt: body.startedAt,
+    endedAt: body.endedAt,
+    localDate: day,
+    inBedSeconds: inBed,
+    totalSleepSeconds: totalSleep,
+    awakeSeconds: totals.awake,
+    lightSeconds: totals.light,
+    deepSeconds: totals.deep,
+    remSeconds: totals.rem,
+    sleepLatencySeconds: body.sleepLatencySeconds ?? null,
+    sleepEfficiency: efficiency,
+    sleepScore: sleepScore(totals, totalSleep, efficiency),
+    avgHeartRate: body.avgHeartRate ?? null,
+    // Phone-mic nights infer stages from audio + motion, so flag them as estimates.
+    stagesAreEstimated: body.source === 'phone_mic',
+    audioRecordingEnabled: body.audioRecordingEnabled,
+    updatedAt: now,
+  };
+
+  await db.insert(sleepSessions).values({ id, createdAt: now, ...values })
+    .onConflictDoUpdate({ target: sleepSessions.id, set: values });
+
+  await db.delete(sleepStageSegments).where(eq(sleepStageSegments.sleepSessionId, id));
+  if (body.stages.length > 0) {
+    await insertMany(
+      (chunk) => db.insert(sleepStageSegments).values(chunk),
+      body.stages.map((s) => ({
+        sleepSessionId: id,
+        stage: s.stage,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        confidence: s.confidence ?? null,
+      })),
+    );
+  }
+
+  await db.delete(sleepAudioEvents).where(eq(sleepAudioEvents.sleepSessionId, id));
+  if (body.events.length > 0) {
+    const assetIds = body.events.map((e) => e.audioAssetId).filter((x): x is string => Boolean(x));
+    if (assetIds.length > 0) {
+      await db.update(mediaAssets).set({ isOrphan: false })
+        .where(sql`${mediaAssets.id} in ${assetIds}`);
+    }
+    await insertMany(
+      (chunk) => db.insert(sleepAudioEvents).values(chunk),
+      body.events.map((e) => ({
+        sleepSessionId: id,
+        eventType: e.eventType,
+        occurredAt: e.occurredAt,
+        durationMs: e.durationMs ?? null,
+        peakDb: e.peakDb ?? null,
+        confidence: e.confidence ?? null,
+        audioAssetId: e.audioAssetId ?? null,
+        transcript: e.transcript ?? null,
+        stageAtEvent: stageAt(body.stages, e.occurredAt),
+        createdAt: now,
+      })),
+    );
+  }
+
+  await recomputeSleepDebt(db, c.env, user.id, day);
+
+  const rows = await db.select().from(sleepSessions).where(eq(sleepSessions.id, id)).limit(1);
+  return c.json(rows[0], 201);
+});
+
+/** 0-100: duration against target dominates, efficiency and deep+REM share adjust. */
+function sleepScore(
+  totals: { deep: number; rem: number },
+  totalSleep: number,
+  efficiency: number | null,
+): number {
+  const durationScore = Math.min(1, totalSleep / (8 * 3600)) * 60;
+  const efficiencyScore = (efficiency ?? 0.85) * 20;
+  const restorative = totalSleep > 0 ? (totals.deep + totals.rem) / totalSleep : 0;
+  // 45% deep+REM is the top of the normal adult range; treat that as full marks.
+  const qualityScore = Math.min(1, restorative / 0.45) * 20;
+  return Math.round(durationScore + efficiencyScore + qualityScore);
+}
+
+app.get('/sessions', async (c) => {
+  const q = parseQuery(c, paginationSchema.extend({
+    from: isoDateSchema.optional(),
+    to: isoDateSchema.optional(),
+  }));
+  const filters = [eq(sleepSessions.userId, c.get('user').id)];
+  if (q.from) filters.push(gte(sleepSessions.localDate, q.from));
+  if (q.to) filters.push(lte(sleepSessions.localDate, q.to));
+  if (q.cursor) filters.push(sql`${sleepSessions.id} < ${q.cursor}`);
+
+  const rows = await c.get('db').select().from(sleepSessions)
+    .where(and(...filters)).orderBy(desc(sleepSessions.id)).limit(q.limit + 1);
+  return c.json(page(rows, q.limit));
+});
+
+async function ownedSession(db: AppEnv['Variables']['db'], userId: string, id: string) {
+  const rows = await db.select().from(sleepSessions)
+    .where(and(eq(sleepSessions.id, id), eq(sleepSessions.userId, userId))).limit(1);
+  const session = rows[0];
+  if (!session) throw notFound('Sleep session');
+  return session;
+}
+
+app.get('/sessions/:id', async (c) => {
+  const db = c.get('db');
+  const session = await ownedSession(db, c.get('user').id, c.req.param('id'));
+
+  const [stages, events] = await Promise.all([
+    db.select().from(sleepStageSegments)
+      .where(eq(sleepStageSegments.sleepSessionId, session.id))
+      .orderBy(asc(sleepStageSegments.startedAt)),
+    db.select().from(sleepAudioEvents)
+      .where(eq(sleepAudioEvents.sleepSessionId, session.id))
+      .orderBy(asc(sleepAudioEvents.occurredAt)),
+  ]);
+
+  return c.json({ ...session, stages, events });
+});
+
+app.patch('/sessions/:id', async (c) => {
+  const body = await parseBody(c, z.object({
+    startedAt: z.number().int().positive().optional(),
+    endedAt: z.number().int().positive().optional(),
+  }));
+  const db = c.get('db');
+  const user = c.get('user');
+  const session = await ownedSession(db, user.id, c.req.param('id'));
+
+  const startedAt = body.startedAt ?? session.startedAt;
+  const endedAt = body.endedAt ?? session.endedAt ?? startedAt;
+  if (endedAt <= startedAt) {
+    throw new ApiError('VALIDATION_ERROR', 'endedAt must be after startedAt');
+  }
+
+  const inBed = Math.round((endedAt - startedAt) / 1000);
+  await db.update(sleepSessions).set({
+    startedAt,
+    endedAt,
+    inBedSeconds: inBed,
+    localDate: localDate(endedAt, user.timezone),
+    updatedAt: Date.now(),
+  }).where(eq(sleepSessions.id, session.id));
+
+  await recomputeSleepDebt(db, c.env, user.id, localDate(endedAt, user.timezone));
+
+  const rows = await db.select().from(sleepSessions)
+    .where(eq(sleepSessions.id, session.id)).limit(1);
+  return c.json(rows[0]);
+});
+
+app.get('/debt', async (c) => {
+  const q = parseQuery(c, z.object({ date: isoDateSchema.optional() }));
+  const user = c.get('user');
+  const day = q.date ?? localDate(Date.now(), user.timezone);
+  return c.json(await sleepDebtFor(c.get('db'), c.env, user.id, day));
+});
+
+/** Sleep-talk clips only; the clip itself is kept forever either way. */
+app.post('/events/:id/transcribe', async (c) => {
+  const db = c.get('db');
+  const eventId = Number(c.req.param('id'));
+
+  const rows = await db.select({
+    event: sleepAudioEvents,
+    session: sleepSessions,
+    asset: mediaAssets,
+  }).from(sleepAudioEvents)
+    .innerJoin(sleepSessions, eq(sleepAudioEvents.sleepSessionId, sleepSessions.id))
+    .leftJoin(mediaAssets, eq(sleepAudioEvents.audioAssetId, mediaAssets.id))
+    .where(and(eq(sleepAudioEvents.id, eventId), eq(sleepSessions.userId, c.get('user').id)))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) throw notFound('Sleep event');
+  if (!row.asset) throw new ApiError('VALIDATION_ERROR', 'Event has no audio clip');
+
+  const object = await c.env.MEDIA.get(row.asset.r2Key);
+  if (!object) throw notFound('Audio object');
+
+  const audio = [...new Uint8Array(await object.arrayBuffer())];
+  const result = (await c.env.AI.run(modelConfig(c.env).asr as never, { audio } as never)) as
+    unknown as { text?: string };
+
+  const transcript = result.text ?? '';
+  await db.update(sleepAudioEvents).set({ transcript })
+    .where(eq(sleepAudioEvents.id, eventId));
+
+  return c.json({ eventId, transcript });
+});
+
+// ------------------------------------------------------------ reminders
+
+const reminderSchema = z.object({
+  reminderType: z.enum(['bedtime', 'wakeup', 'wind_down']),
+  remindAtLocal: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM'),
+  daysOfWeek: z.string().min(3),
+  isEnabled: z.boolean().default(true),
+});
+
+app.get('/reminders', async (c) => {
+  const rows = await c.get('db').select().from(sleepReminders)
+    .where(eq(sleepReminders.userId, c.get('user').id));
+  return c.json({ items: rows });
+});
+
+app.post('/reminders', async (c) => {
+  const body = await parseBody(c, reminderSchema);
+  const id = newId();
+  const now = Date.now();
+
+  await c.get('db').insert(sleepReminders).values({
+    id,
+    userId: c.get('user').id,
+    reminderType: body.reminderType,
+    remindAtLocal: body.remindAtLocal,
+    daysOfWeek: body.daysOfWeek,
+    isEnabled: body.isEnabled,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  const rows = await c.get('db').select().from(sleepReminders)
+    .where(eq(sleepReminders.id, id)).limit(1);
+  return c.json(rows[0], 201);
+});
+
+app.patch('/reminders/:id', async (c) => {
+  const body = await parseBody(c, reminderSchema.partial());
+  const db = c.get('db');
+
+  await db.update(sleepReminders)
+    .set({ ...body, updatedAt: Date.now() })
+    .where(and(
+      eq(sleepReminders.id, c.req.param('id')),
+      eq(sleepReminders.userId, c.get('user').id),
+    ));
+
+  const rows = await db.select().from(sleepReminders)
+    .where(eq(sleepReminders.id, c.req.param('id'))).limit(1);
+  if (!rows[0]) throw notFound('Reminder');
+  return c.json(rows[0]);
+});
+
+app.delete('/reminders/:id', async (c) => {
+  await c.get('db').delete(sleepReminders).where(and(
+    eq(sleepReminders.id, c.req.param('id')),
+    eq(sleepReminders.userId, c.get('user').id),
+  ));
+  return c.body(null, 204);
+});
+
+export default app;
