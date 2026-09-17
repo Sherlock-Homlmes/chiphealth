@@ -15,9 +15,14 @@ name: Deploy (manual)
 #   variable GOOGLE_CLIENT_IDS         required, "web,ios,android" (web first)
 #   variable BOOTSTRAP_ADMIN_EMAILS    required to be able to log into admin
 #   variable GOOGLE_WEB_CLIENT_ID      optional, defaults to the first GOOGLE_CLIENT_IDS entry
+#   variable GOOGLE_IOS_CLIENT_ID      optional, defaults to the second GOOGLE_CLIENT_IDS entry
 #   variable API_BASE_URL              optional, custom domain for the Worker
 #   variable ADMIN_ORIGIN              optional, custom domain for the admin panel
 #   variable R2_PUBLIC_URL             optional, public URL of the media bucket
+#
+# target=ios (or all) also builds an UNSIGNED ipa on macOS for sideloading with
+# a free Apple ID (Sideloadly / AltStore / SideStore); download it from the
+# run's artifacts. It points at the same Worker URL the backend job deploys.
 
 on:
   workflow_dispatch:
@@ -25,7 +30,7 @@ on:
       target:
         description: What to deploy
         type: choice
-        options: [all, backend, admin]
+        options: [all, backend, admin, ios]
         default: all
       run_migrations:
         description: Apply D1 migrations + seed before deploying the Worker
@@ -71,7 +76,7 @@ jobs:
   backend:
     name: Backend (Worker + D1)
     needs: provision
-    if: ${{ inputs.target != 'admin' }}
+    if: ${{ inputs.target == 'all' || inputs.target == 'backend' }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -158,8 +163,8 @@ jobs:
   admin:
     name: Admin panel (Pages)
     needs: [provision, backend]
-    # Runs after the backend when deploying both; runs alone for target=admin.
-    if: ${{ !cancelled() && needs.provision.result == 'success' && inputs.target != 'backend' && needs.backend.result != 'failure' }}
+    # Runs after the backend for target=all; runs alone for target=admin.
+    if: ${{ !cancelled() && needs.provision.result == 'success' && (inputs.target == 'all' || inputs.target == 'admin') && needs.backend.result != 'failure' }}
     runs-on: ubuntu-latest
     environment: production
     defaults:
@@ -191,3 +196,106 @@ jobs:
         env:
           PAGES_PROJECT: ${{ needs.provision.outputs.pages_project }}
         run: npx --yes wrangler@3 pages deploy dist --project-name "$PAGES_PROJECT" --branch main --commit-dirty=true
+
+  ios:
+    name: iOS unsigned IPA (sideload)
+    needs: [provision, backend]
+    if: ${{ !cancelled() && needs.provision.result == 'success' && (inputs.target == 'all' || inputs.target == 'ios') && needs.backend.result != 'failure' }}
+    # macos-14 image is retired; the label reroutes to a newer image whose
+    # default Xcode SDK breaks camera_avfoundation 0.9.x
+    # (AVCaptureSession.wasInterruptedNotification is not exposed there).
+    # flutter/packages CI builds the same code on Mac 15.x + Xcode 26.x, so
+    # pin macos-15 + latest-stable Xcode to match the known-good combo.
+    runs-on: macos-15
+    environment: production
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show toolchain
+        run: xcodebuild -version && sw_vers
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.0"
+          cache: true
+
+      # app/ios only holds Info.plist + entitlements (no Runner.xcodeproj), so
+      # regenerate the Xcode project. It lacks the MomentsWidget extension
+      # target: the widget is NOT in this build (re-add it in Xcode on a Mac).
+      - name: Regenerate iOS Xcode project
+        run: |
+          flutter create --platforms=ios --org vn.chiphealth .
+          # flutter create derives <org>.<name> = vn.chiphealth.chiphealth;
+          # the app group is group.vn.chiphealth.app, so use vn.chiphealth.app.
+          sed -i '' 's/vn\.chiphealth\.chiphealth/vn.chiphealth.app/g' \
+            ios/Runner.xcodeproj/project.pbxproj
+          # The fresh template does not reference the committed entitlements.
+          for cfg in Debug Release Profile; do
+            printf '\nCODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements\n' \
+              >> "ios/Flutter/$cfg.xcconfig"
+          done
+          # Free Apple ID cannot provision push — drop it or signing fails.
+          /usr/libexec/PlistBuddy -c 'Delete :aps-environment' \
+            ios/Runner/Runner.entitlements || true
+
+      - name: Configure Google Sign-In
+        env:
+          # "web,ios,android": web first, iOS second, unless overridden.
+          GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS || secrets.GOOGLE_CLIENT_IDS }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
+        run: |
+          pick() { echo "$GOOGLE_CLIENT_IDS" | cut -s -d, -f"$1" | tr -d '[:space:]'; }
+          web="${GOOGLE_WEB_CLIENT_ID:-$(pick 1)}"
+          ios="${GOOGLE_IOS_CLIENT_ID:-$(pick 2)}"
+          if [ -z "$web" ] || [ -z "$ios" ]; then
+            echo "::warning::GOOGLE_CLIENT_IDS needs \"web,ios,...\"; Google Sign-In will not work in this build"
+            exit 0
+          fi
+          echo "Google web client: $web"
+          echo "Google iOS client: $ios"
+          echo "GOOGLE_SERVER_CLIENT_ID=$web" >> "$GITHUB_ENV"
+          echo "GOOGLE_IOS_CLIENT_ID=$ios" >> "$GITHUB_ENV"
+          # <id>.apps.googleusercontent.com -> com.googleusercontent.apps.<id>
+          reversed="com.googleusercontent.apps.${ios%.apps.googleusercontent.com}"
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $reversed" \
+            -c "Set :GIDClientID $ios" \
+            -c "Set :GIDServerClientID $web" \
+            ios/Runner/Info.plist
+
+      - run: flutter pub get
+
+      - name: Build unsigned release
+        env:
+          API_BASE_URL: ${{ needs.provision.outputs.api_base_url }}
+        run: |
+          # Without this the app falls back to http://10.0.2.2:8787, which only
+          # exists for the Android emulator.
+          [ -n "$API_BASE_URL" ] || { echo "::error::Provision job did not output api_base_url"; exit 1; }
+          echo "API: $API_BASE_URL"
+          # GOOGLE_*_CLIENT_ID come from $GITHUB_ENV (empty if not configured).
+          flutter build ios --release --no-codesign \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=GOOGLE_IOS_CLIENT_ID="${GOOGLE_IOS_CLIENT_ID:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
+
+      - name: Package IPA
+        run: |
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -r ChipHealth-unsigned.ipa Payload
+          ls -lh ChipHealth-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ChipHealth-unsigned-ipa
+          path: app/ChipHealth-unsigned.ipa
+          retention-days: 14

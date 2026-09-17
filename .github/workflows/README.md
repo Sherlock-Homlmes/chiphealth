@@ -8,11 +8,18 @@
 | admin | `vue-tsc` clean, production build, `dist` uploaded as an artifact |
 | app | `flutter analyze` clean and `dart format` unchanged |
 
-## `deploy.yml` — push to main, or run manually
+## `deploy.yml` — manual only (Actions → Deploy (manual) → Run workflow)
+
+`target`: `all` (backend + admin + iOS), `backend`, `admin` or `ios`.
 
 D1 migrations apply **before** the Worker deploys, so new code never meets an old
 schema. Then the Worker ships, the admin panel builds against production values and
 goes to Cloudflare Pages, and `/health` is polled until it answers.
+
+The `ios` job builds an **unsigned** `.ipa` on macOS against the deployed Worker
+URL and uploads it as the `ChipHealth-unsigned-ipa` artifact, for sideloading
+with a free Apple ID (Sideloadly / AltStore). No push (`aps-environment` is
+stripped) and no MomentsWidget in that build.
 
 ### Required repository secrets
 
@@ -28,7 +35,7 @@ goes to Cloudflare Pages, and `/health` is polled until it answers.
 | `API_BASE_URL` | `https://chiphealth-api.<subdomain>.workers.dev` |
 | `ADMIN_API_BASE_URL` | same as above — what the admin panel calls |
 | `GOOGLE_WEB_CLIENT_ID` | the OAuth web client id, also listed in the Worker's `GOOGLE_CLIENT_IDS` |
-| `GOOGLE_IOS_CLIENT_ID` | optional — `ios-sideload.yml` otherwise takes the 2nd entry of `GOOGLE_CLIENT_IDS` (iOS client, bundle id `vn.chiphealth.app`) |
+| `GOOGLE_IOS_CLIENT_ID` | optional — the iOS job otherwise takes the 2nd entry of `GOOGLE_CLIENT_IDS` (iOS client, bundle id `vn.chiphealth.app`) |
 
 ### Worker secrets (set once with wrangler, not in CI)
 
