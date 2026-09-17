@@ -21,8 +21,10 @@ const ttl = (raw: string | undefined, fallback: number): number => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
+// Commas, semicolons and whitespace all separate entries, so a list pasted one
+// id per line into a GitHub variable still parses.
 const csv = (raw: string | undefined): string[] =>
-  (raw ?? '').split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+  (raw ?? '').split(/[\s,;]+/).filter((s) => s.length > 0);
 
 const deviceSchema = {
   deviceName: z.string().max(120).optional(),

@@ -197,7 +197,8 @@ jobs:
           GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS || secrets.GOOGLE_CLIENT_IDS }}
           VITE_USE_MSW: 'false'
         run: |
-          export VITE_GOOGLE_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-${GOOGLE_CLIENT_IDS%%,*}}"
+          first=$(printf '%s' "$GOOGLE_CLIENT_IDS" | tr ',; \t' '\n' | sed '/^$/d' | head -1)
+          export VITE_GOOGLE_CLIENT_ID="${GOOGLE_WEB_CLIENT_ID:-$first}"
           echo "API: $VITE_API_BASE_URL"
           echo "Google web client: $VITE_GOOGLE_CLIENT_ID"
           npm run build
@@ -262,7 +263,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID || secrets.GOOGLE_WEB_CLIENT_ID }}
           GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID || secrets.GOOGLE_IOS_CLIENT_ID }}
         run: |
-          pick() { echo "$GOOGLE_CLIENT_IDS" | cut -s -d, -f"$1" | tr -d '[:space:]'; }
+          pick() { printf '%s' "$GOOGLE_CLIENT_IDS" | tr ',; \t' '\n' | sed '/^$/d' | sed -n "$1p"; }
           web="${GOOGLE_WEB_CLIENT_ID:-$(pick 1)}"
           ios="${GOOGLE_IOS_CLIENT_ID:-$(pick 2)}"
           if [ -z "$web" ] || [ -z "$ios" ]; then
