@@ -28,6 +28,7 @@ goes to Cloudflare Pages, and `/health` is polled until it answers.
 | `API_BASE_URL` | `https://chiphealth-api.<subdomain>.workers.dev` |
 | `ADMIN_API_BASE_URL` | same as above — what the admin panel calls |
 | `GOOGLE_WEB_CLIENT_ID` | the OAuth web client id, also listed in the Worker's `GOOGLE_CLIENT_IDS` |
+| `GOOGLE_IOS_CLIENT_ID` | iOS OAuth client id (bundle id `vn.chiphealth.app`) — used by `ios-sideload.yml`; optional, Google Sign-In is off without it |
 
 ### Worker secrets (set once with wrangler, not in CI)
 

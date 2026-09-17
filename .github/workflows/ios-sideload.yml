@@ -66,10 +66,41 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Delete :aps-environment' \
             ios/Runner/Runner.entitlements || true
 
+      - name: Configure Google Sign-In
+        env:
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          if [ -z "$GOOGLE_IOS_CLIENT_ID" ] || [ -z "$GOOGLE_SERVER_CLIENT_ID" ]; then
+            echo "::warning::GOOGLE_IOS_CLIENT_ID / GOOGLE_WEB_CLIENT_ID not set; Google Sign-In will not work in this build"
+            exit 0
+          fi
+          plist=ios/Runner/Info.plist
+          # <id>.apps.googleusercontent.com -> com.googleusercontent.apps.<id>
+          reversed="com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+          /usr/libexec/PlistBuddy \
+            -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $reversed" \
+            -c "Set :GIDClientID $GOOGLE_IOS_CLIENT_ID" \
+            -c "Set :GIDServerClientID $GOOGLE_SERVER_CLIENT_ID" \
+            "$plist"
+
       - run: flutter pub get
 
       - name: Build unsigned release
-        run: flutter build ios --release --no-codesign
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
+          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          # Without this the app falls back to http://10.0.2.2:8787, which only
+          # exists for the Android emulator.
+          if [ -z "$API_BASE_URL" ]; then
+            echo "::error::Repo variable API_BASE_URL is not set"; exit 1
+          fi
+          flutter build ios --release --no-codesign \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=GOOGLE_IOS_CLIENT_ID="$GOOGLE_IOS_CLIENT_ID" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
 
       - name: Package IPA
         run: |
