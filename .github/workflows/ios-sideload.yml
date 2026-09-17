@@ -68,39 +68,47 @@ jobs:
 
       - name: Configure Google Sign-In
         env:
+          # Same convention as deploy.yml: "web,ios,android", web first.
+          # GOOGLE_WEB_CLIENT_ID / GOOGLE_IOS_CLIENT_ID override a position.
+          GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS || secrets.GOOGLE_CLIENT_IDS }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
           GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
-          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
         run: |
-          if [ -z "$GOOGLE_IOS_CLIENT_ID" ] || [ -z "$GOOGLE_SERVER_CLIENT_ID" ]; then
-            echo "::warning::GOOGLE_IOS_CLIENT_ID / GOOGLE_WEB_CLIENT_ID not set; Google Sign-In will not work in this build"
+          pick() { echo "$GOOGLE_CLIENT_IDS" | cut -s -d, -f"$1" | tr -d '[:space:]'; }
+          web="${GOOGLE_WEB_CLIENT_ID:-$(pick 1)}"
+          ios="${GOOGLE_IOS_CLIENT_ID:-$(pick 2)}"
+          if [ -z "$web" ] || [ -z "$ios" ]; then
+            echo "::warning::GOOGLE_CLIENT_IDS needs \"web,ios,...\"; Google Sign-In will not work in this build"
             exit 0
           fi
-          plist=ios/Runner/Info.plist
+          echo "Google web client: $web"
+          echo "Google iOS client: $ios"
+          echo "GOOGLE_SERVER_CLIENT_ID=$web" >> "$GITHUB_ENV"
+          echo "GOOGLE_IOS_CLIENT_ID=$ios" >> "$GITHUB_ENV"
           # <id>.apps.googleusercontent.com -> com.googleusercontent.apps.<id>
-          reversed="com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID%.apps.googleusercontent.com}"
+          reversed="com.googleusercontent.apps.${ios%.apps.googleusercontent.com}"
           /usr/libexec/PlistBuddy \
             -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $reversed" \
-            -c "Set :GIDClientID $GOOGLE_IOS_CLIENT_ID" \
-            -c "Set :GIDServerClientID $GOOGLE_SERVER_CLIENT_ID" \
-            "$plist"
+            -c "Set :GIDClientID $ios" \
+            -c "Set :GIDServerClientID $web" \
+            ios/Runner/Info.plist
 
       - run: flutter pub get
 
       - name: Build unsigned release
         env:
           API_BASE_URL: ${{ vars.API_BASE_URL }}
-          GOOGLE_IOS_CLIENT_ID: ${{ vars.GOOGLE_IOS_CLIENT_ID }}
-          GOOGLE_SERVER_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
         run: |
           # Without this the app falls back to http://10.0.2.2:8787, which only
           # exists for the Android emulator.
           if [ -z "$API_BASE_URL" ]; then
             echo "::error::Repo variable API_BASE_URL is not set"; exit 1
           fi
+          # GOOGLE_*_CLIENT_ID come from $GITHUB_ENV (empty if not configured).
           flutter build ios --release --no-codesign \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
-            --dart-define=GOOGLE_IOS_CLIENT_ID="$GOOGLE_IOS_CLIENT_ID" \
-            --dart-define=GOOGLE_SERVER_CLIENT_ID="$GOOGLE_SERVER_CLIENT_ID"
+            --dart-define=GOOGLE_IOS_CLIENT_ID="${GOOGLE_IOS_CLIENT_ID:-}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
 
       - name: Package IPA
         run: |
