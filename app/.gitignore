@@ -11,6 +11,11 @@ ios/Pods/
 ios/.symlinks/
 android/.gradle/
 android/local.properties
+# Signing key + its passwords; backed up outside the repo, never committed.
+android/key.properties
+*.jks
+*.p12
+*.keystore
 .env
 tools/certs/
 *.bak

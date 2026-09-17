@@ -2,10 +2,20 @@
 // the values that matter to ChipHealth are the applicationId, the SDK levels
 // required by the permissions in AndroidManifest.xml, and desugaring (needed by
 // flutter_local_notifications).
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// android/key.properties (git-ignored) points at the upload keystore. Google
+// Sign-In on Android matches the APK's SHA-1, so debug and release both use
+// this one key; without the file the build falls back to the throwaway debug key.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
 }
 
 android {
@@ -35,10 +45,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (!keystoreProperties.isEmpty) {
+            create("upload") {
+                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeType = "pkcs12"
+            }
+        }
+    }
+
     buildTypes {
+        val upload = signingConfigs.findByName("upload")
+        debug {
+            if (upload != null) signingConfig = upload
+        }
         release {
-            // TODO: replace with a real signing config before shipping.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = upload ?: signingConfigs.getByName("debug")
         }
     }
 }
