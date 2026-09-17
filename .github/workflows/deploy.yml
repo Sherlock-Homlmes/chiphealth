@@ -37,9 +37,10 @@ on:
         type: boolean
         default: true
 
-concurrency:
-  group: deploy-production
-  cancel-in-progress: false
+# Locks are per job, not per run: GitHub keeps only one pending run per
+# concurrency group and cancels the older one, so a run-wide lock made an iOS
+# build (which touches nothing in production) queue behind, and get dropped by,
+# unrelated deploys.
 
 env:
   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -48,6 +49,9 @@ env:
 jobs:
   provision:
     name: Provision Cloudflare resources
+    concurrency:
+      group: deploy-provision
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: production
     outputs:
@@ -75,6 +79,9 @@ jobs:
 
   backend:
     name: Backend (Worker + D1)
+    concurrency:
+      group: deploy-backend
+      cancel-in-progress: false
     needs: provision
     if: ${{ inputs.target == 'all' || inputs.target == 'backend' }}
     runs-on: ubuntu-latest
@@ -162,6 +169,9 @@ jobs:
 
   admin:
     name: Admin panel (Pages)
+    concurrency:
+      group: deploy-admin
+      cancel-in-progress: false
     needs: [provision, backend]
     # Runs after the backend for target=all; runs alone for target=admin.
     if: ${{ !cancelled() && needs.provision.result == 'success' && (inputs.target == 'all' || inputs.target == 'admin') && needs.backend.result != 'failure' }}
