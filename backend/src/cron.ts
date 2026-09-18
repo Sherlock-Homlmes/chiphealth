@@ -102,7 +102,7 @@ async function sweepOrphanMedia(db: Db, env: Bindings): Promise<number> {
 }
 
 /**
- * Closes out analyses whose run never came back — a hung model or a waitUntil
+ * Closes out analyses whose run never came back — a hung model or a queue consumer
  * the platform killed. Reads already fold the timeout in (effectiveAnalysis),
  * so this exists to persist the verdict: without it the row would sit
  * `running` forever, and a late answer could still write items.

@@ -1,3 +1,4 @@
+import type { MealAnalysisJob } from './queue';
 import type { Db } from './db/client';
 
 export interface Bindings {
@@ -5,6 +6,8 @@ export interface Bindings {
   MEDIA: R2Bucket;
   AI: Ai;
   VECTORIZE: VectorizeIndex;
+  /** Meal photo/speech analysis runs here — see src/queue.ts. */
+  MEAL_ANALYSIS: Queue<MealAnalysisJob>;
 
   ENVIRONMENT: string;
   API_BASE_URL: string;

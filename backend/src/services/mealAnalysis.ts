@@ -26,7 +26,7 @@ export interface DetectedComponent {
 }
 
 /**
- * How long one analysis attempt may run. A hung model or a killed waitUntil
+ * How long one analysis attempt may run. A hung model or a consumer that died
  * leaves the row `running` forever, so every reader applies the same clock:
  * past this point a still-active attempt is reported as failed (timed out).
  */
@@ -308,7 +308,7 @@ export interface AnalyzeResult {
 }
 
 /**
- * Full pipeline for one meal photo. Runs inside ctx.waitUntil, so it owns its own
+ * Full pipeline for one meal photo. Runs in the queue consumer (src/queue.ts), so it owns its own
  * error handling: every failure path must still close out the analysis row.
  */
 export async function analyzeMealPhoto(
@@ -395,7 +395,15 @@ async function runAnalysis(
   let rawText = '';
 
   try {
-    rawText = await detect();
+    // Workers AI fails transiently now and then ("8004: Internal server
+    // error"); one more attempt is cheaper than the user retrying by hand.
+    try {
+      rawText = await detect();
+    } catch (err) {
+      console.warn('meal analysis model call failed, retrying once', opts.analysisId, err);
+      await new Promise((r) => setTimeout(r, 1500));
+      rawText = await detect();
+    }
     const parsed = extractJson(rawText);
     const dishName = parseDishName(parsed);
     const detected = parseComponents(parsed);

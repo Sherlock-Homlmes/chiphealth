@@ -32,6 +32,17 @@ binding = "AI"
 binding = "VECTORIZE"
 index_name = "chiphealth-food"
 
+# --- Queues: meal analysis (vision/speech runs 30-60 s; waitUntil stops at 30) --
+[[queues.producers]]
+binding = "MEAL_ANALYSIS"
+queue = "chiphealth-meal-analysis"
+
+[[queues.consumers]]
+queue = "chiphealth-meal-analysis"
+max_batch_size = 1        # one meal per invocation, each gets the full time
+max_batch_timeout = 1     # seconds; the user is watching a spinner
+max_retries = 2           # redelivery after a consumer dies mid-run
+
 # --- Cron: nightly rollups (sleep debt, nutrition summaries, insights) ----
 [triggers]
 crons = ["*/15 * * * *", "0 19 * * *"]

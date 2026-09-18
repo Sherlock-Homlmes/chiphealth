@@ -2,7 +2,7 @@
 # Idempotent Cloudflare provisioning for the deploy workflow.
 #
 #   cloudflare.sh account    resolve CLOUDFLARE_ACCOUNT_ID (-> $GITHUB_ENV)
-#   cloudflare.sh provision  create D1 / R2 / Vectorize / workers.dev subdomain /
+#   cloudflare.sh provision  create D1 / R2 / Vectorize / Queue / workers.dev subdomain /
 #                            Pages project if missing (-> $GITHUB_OUTPUT)
 #   cloudflare.sh secrets    make sure the Worker has its secrets
 #
@@ -16,6 +16,8 @@ VECTORIZE_INDEX=${VECTORIZE_INDEX:-chiphealth-food}
 VECTORIZE_DIMENSIONS=${VECTORIZE_DIMENSIONS:-1024}
 WORKER_NAME=${WORKER_NAME:-chiphealth-api}
 PAGES_PROJECT=${PAGES_PROJECT:-chiphealth-admin}
+# Must match [[queues.*]] in backend/wrangler.toml.
+MEAL_QUEUE=${MEAL_QUEUE:-chiphealth-meal-analysis}
 # Most users are in Vietnam.
 LOCATION_HINT=${LOCATION_HINT:-apac}
 
@@ -100,6 +102,17 @@ ensure_vectorize() {
   echo "Vectorize $VECTORIZE_INDEX ready"
 }
 
+# Meal analysis runs on this queue: waitUntil stops 30 s after the response and
+# the vision model needs longer. `wrangler deploy` refuses a missing queue.
+ensure_queue() {
+  if ! cf_ok GET "$(acct)/queues?per_page=100" \
+      | jq -e --arg n "$MEAL_QUEUE" '.result // [] | any(.queue_name == $n)' >/dev/null; then
+    echo "Creating queue $MEAL_QUEUE"
+    cf_ok POST "$(acct)/queues" "$(jq -nc --arg n "$MEAL_QUEUE" '{queue_name: $n}')" >/dev/null
+  fi
+  echo "Queue $MEAL_QUEUE ready"
+}
+
 ensure_workers_subdomain() {
   local sub
   sub=$(cf GET "$(acct)/workers/subdomain" | jq -r '.result.subdomain // empty')
@@ -132,6 +145,7 @@ cmd_provision() {
   ensure_d1
   ensure_r2
   ensure_vectorize
+  ensure_queue
   ensure_workers_subdomain
   ensure_pages
 }

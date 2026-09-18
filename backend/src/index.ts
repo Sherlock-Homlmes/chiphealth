@@ -18,12 +18,18 @@ import coachRoutes from './routes/coach';
 import socialRoutes from './routes/social';
 import adminRoutes from './routes/admin';
 import { runScheduled } from './cron';
+import { requeueOrphanedAnalyses, runMealAnalysisBatch, type MealAnalysisJob } from './queue';
 
 const app = new Hono<AppEnv>();
 
 app.use('*', async (c, next) => {
   c.set('requestId', crypto.randomUUID());
   c.set('db', createDb(c.env.DB));
+  // No-op outside `wrangler dev`; see requeueOrphanedAnalyses.
+  c.executionCtx.waitUntil(
+    requeueOrphanedAnalyses(c.env, c.get('db'))
+      .catch((err) => console.error('orphaned analysis recovery failed', err)),
+  );
   await next();
 });
 
@@ -87,4 +93,5 @@ app.notFound((c) =>
 export default {
   fetch: app.fetch,
   scheduled: runScheduled,
-} satisfies ExportedHandler<AppEnv['Bindings']>;
+  queue: runMealAnalysisBatch,
+} satisfies ExportedHandler<AppEnv['Bindings'], MealAnalysisJob>;

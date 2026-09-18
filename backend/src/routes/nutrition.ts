@@ -10,7 +10,8 @@ import { ApiError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { localDate } from '../lib/time';
 import { hybridFoodSearch } from '../services/foodSearch';
-import { analyzeMealFromSpeech, analyzeMealPhoto, effectiveAnalysis, recomputeMealTotals } from '../services/mealAnalysis';
+import { effectiveAnalysis, recomputeMealTotals } from '../services/mealAnalysis';
+import type { MealAnalysisJob } from '../queue';
 import {
   loadTdeeInputs, computeBmrTdee, recomputeDailyNutritionSummary,
 } from '../services/nutritionMath';
@@ -293,8 +294,9 @@ app.delete('/meals/:id', async (c) => {
 });
 
 /**
- * Analysis is slow (vision model + retrieval), so the row is created synchronously
- * and the work runs in waitUntil. The client polls GET /meals/:id.
+ * Analysis is slow (vision model + retrieval, 30-60 s), so the row is created
+ * synchronously and the work runs on the meal-analysis queue — not waitUntil,
+ * which is cut off 30 s after the response. The client polls GET /meals/:id.
  */
 app.post('/meals/:id/analyze', async (c) => {
   const db = c.get('db');
@@ -317,14 +319,13 @@ app.post('/meals/:id/analyze', async (c) => {
     createdAt: Date.now(),
   });
 
-  c.executionCtx.waitUntil(
-    analyzeMealPhoto(db, c.env, {
-      mealLogId: meal.id,
-      userId: meal.userId,
-      photoR2Key: asset.r2Key,
-      analysisId,
-    }).catch((err) => console.error('meal analysis failed', analysisId, err)),
-  );
+  await enqueueAnalysis(db, c.env, {
+    kind: 'photo',
+    mealLogId: meal.id,
+    userId: meal.userId,
+    photoR2Key: asset.r2Key,
+    analysisId,
+  });
 
   return c.json({ analysisId, status: 'running' }, 202);
 });
@@ -336,8 +337,9 @@ app.post('/meals/:id/analyze', async (c) => {
  * folder and another orphan to sweep. Send `{"transcript": "..."}` as JSON
  * instead to skip ASR — that is what the typed "nhập tay" flow uses.
  *
- * Extraction is slow, so it runs in waitUntil behind the same polling contract
- * as the photo path: the client polls GET /meals/:id.
+ * Extraction is slow, so it goes through the same queue and polling contract as
+ * the photo path: the client polls GET /meals/:id. ASR runs here in the request
+ * instead — it takes seconds, and the clip is too big for a queue message.
  */
 app.post('/meals/:id/voice', async (c) => {
   const db = c.get('db');
@@ -373,29 +375,50 @@ app.post('/meals/:id/voice', async (c) => {
     createdAt: Date.now(),
   });
 
-  c.executionCtx.waitUntil((async () => {
-    const text = transcript ?? await transcribe(c.env, audio!);
-    await analyzeMealFromSpeech(db, c.env, {
-      mealLogId: meal.id,
-      userId: meal.userId,
-      transcript: text,
-      analysisId,
-    });
-  })().catch(async (err) => {
-    console.error('meal voice analysis failed', analysisId, err);
-    // analyzeMealFromSpeech closes its own row; a failure in ASR happens before
-    // it is ever called, so that case has to be closed out here.
-    await db.update(mealAiAnalyses)
-      .set({
-        status: 'failed',
-        errorMessage: err instanceof Error ? err.message : String(err),
-        completedAt: Date.now(),
-      })
-      .where(and(eq(mealAiAnalyses.id, analysisId), eq(mealAiAnalyses.status, 'running')));
-  }));
+  let text: string;
+  try {
+    text = transcript ?? await transcribe(c.env, audio!);
+  } catch (err) {
+    // The pipeline closes its own row; a failure in ASR happens before it is
+    // ever reached, so that case is closed out here.
+    await failAnalysis(db, analysisId, err);
+    throw err;
+  }
+
+  await enqueueAnalysis(db, c.env, {
+    kind: 'speech',
+    mealLogId: meal.id,
+    userId: meal.userId,
+    transcript: text,
+    analysisId,
+  });
 
   return c.json({ analysisId, status: 'running' }, 202);
 });
+
+async function failAnalysis(
+  db: AppEnv['Variables']['db'], analysisId: string, err: unknown,
+): Promise<void> {
+  await db.update(mealAiAnalyses)
+    .set({
+      status: 'failed',
+      errorMessage: err instanceof Error ? err.message : String(err),
+      completedAt: Date.now(),
+    })
+    .where(and(eq(mealAiAnalyses.id, analysisId), eq(mealAiAnalyses.status, 'running')));
+}
+
+/** A job that never reached the queue must not leave its row `running`. */
+async function enqueueAnalysis(
+  db: AppEnv['Variables']['db'], env: Bindings, job: MealAnalysisJob,
+): Promise<void> {
+  try {
+    await env.MEAL_ANALYSIS.send(job);
+  } catch (err) {
+    await failAnalysis(db, job.analysisId, err);
+    throw err;
+  }
+}
 
 /** Whisper on the raw clip. Same model the sleep-talk transcripts use. */
 async function transcribe(env: Bindings, audio: number[]): Promise<string> {
