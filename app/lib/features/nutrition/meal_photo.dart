@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -44,19 +42,21 @@ class MealPhotoThumb extends ConsumerWidget {
 
     if (assetId == null) return placeholder;
 
-    return FutureBuilder<Uint8List>(
-      future: ref.read(mediaRepositoryProvider).bytes(assetId!),
-      builder: (_, snap) => ClipRRect(
-        borderRadius: BorderRadius.circular(radius),
-        child: snap.hasData
-            ? Image.memory(
-                snap.data!,
-                height: size,
-                width: size,
-                fit: BoxFit.cover,
-              )
-            : placeholder,
-      ),
+    // Cached per asset id: the detail screen polls every 2 s while the analysis
+    // runs, and a fresh fetch on each rebuild dropped back to the placeholder
+    // every time — the photo blinked for the whole wait.
+    final bytes = ref.watch(mediaBytesProvider(assetId!)).valueOrNull;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: bytes != null
+          ? Image.memory(
+              bytes,
+              height: size,
+              width: size,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+            )
+          : placeholder,
     );
   }
 }

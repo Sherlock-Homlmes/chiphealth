@@ -130,7 +130,7 @@ MAX_MEAL_PHOTO_BYTES=8388608      # 8 MB
 MAX_SLEEP_CLIP_BYTES=2097152      # 2 MB per event clip
 # Sleep audio clips are retained indefinitely — no lifecycle expiry by design.
 ORPHAN_ASSET_TTL_HOURS=24         # unreferenced uploads swept after this
-FAILED_MEAL_TTL_HOURS=6           # meals whose analysis failed and got no items
+FAILED_MEAL_TTL_HOURS=6           # spoken/typed meals whose analysis failed and got no items (photo meals are kept for retry)
 
 # ---------------------------------------------------------------------------
 # Push notifications (sleep reminders, coach nudges, friend moments)

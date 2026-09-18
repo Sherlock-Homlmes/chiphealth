@@ -541,6 +541,24 @@ class _MealTile extends StatelessWidget {
                 width: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
+            // A failed photo analysis stays listed; the detail screen it opens
+            // carries the retry.
+            else if (meal.isFailedDraft)
+              const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh, size: 16, color: RetroTokens.accent),
+                  SizedBox(width: 4),
+                  Text(
+                    'Lỗi · thử lại',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: RetroTokens.accent,
+                    ),
+                  ),
+                ],
+              )
             else
               Text(
                 Units.kcal(meal.totalCaloriesKcal),

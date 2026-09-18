@@ -120,12 +120,13 @@ async function sweepStaleMealAnalyses(db: Db): Promise<number> {
 }
 
 /**
- * Throws away meals whose analysis failed and that never got any components.
+ * Throws away spoken or typed meals whose analysis failed and that never got
+ * any components: their clip is gone, so there is nothing left to retry.
  *
- * The detail screen already discards such a draft when the user walks away from
- * it, but a user who never opens it would otherwise leave a 0 kcal row sitting
- * in the day forever. Only meals with no items are eligible: a failed
- * re-analysis over real components is not a draft.
+ * A photo meal is never swept — the photo can be analysed again, and the user
+ * retries it from the list, where it stays until they discard it themselves.
+ * Only meals with no items are eligible: a failed re-analysis over real
+ * components is not a draft.
  */
 async function sweepFailedMealDrafts(db: Db, env: Bindings): Promise<number> {
   const ttlHours = Number(env.FAILED_MEAL_TTL_HOURS ?? 6);
@@ -138,6 +139,7 @@ async function sweepFailedMealDrafts(db: Db, env: Bindings): Promise<number> {
     .innerJoin(mealAiAnalyses, eq(mealAiAnalyses.mealLogId, mealLogs.id))
     .where(and(
       eq(mealAiAnalyses.status, 'failed'),
+      isNull(mealLogs.photoAssetId),
       lt(mealLogs.createdAt, cutoff),
       sql`not exists (select 1 from meal_items where meal_items.meal_log_id = ${mealLogs.id})`,
       sql`not exists (

@@ -60,10 +60,15 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   @override
   void dispose() {
     _poll?.cancel();
-    // Leaving a draft whose analysis failed discards it. Fire-and-forget: the
-    // screen is already gone, and a stale empty meal is worse than a lost call.
+    // Leaving a failed draft that cannot be re-run (a spoken meal, whose clip
+    // is gone) discards it. A photo meal is kept: it stays in the list so the
+    // user can come back and retry. Fire-and-forget: the screen is already gone.
     final meal = _meal;
-    if (!_kept && !_discarded && meal != null && meal.isFailedDraft) {
+    if (!_kept &&
+        !_discarded &&
+        meal != null &&
+        meal.isFailedDraft &&
+        meal.photoAssetId == null) {
       unawaited(_repo.deleteMeal(widget.mealId).catchError((_) {}));
     }
     super.dispose();

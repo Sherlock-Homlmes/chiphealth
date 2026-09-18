@@ -141,11 +141,11 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
     }
   }
 
-  /// A meal with no components and no analysis worth the name — one that failed,
-  /// or one whose analysis never started — holds nothing worth showing; it is a
-  /// draft the detail screen offers to retry or throws away.
+  /// A photo meal whose analysis failed stays in the list: the photo is still
+  /// there to run again, and the row is where the user finds the retry. Only a
+  /// failed draft with nothing to re-run — a spoken or typed meal — is hidden.
   List<MealLog> _visible(List<MealLog> page) =>
-      page.where((m) => !m.isFailedDraft).toList();
+      page.where((m) => !m.isFailedDraft || m.photoAssetId != null).toList();
 
   /// Where to continue when the opening window returned no cursor of its own:
   /// just before the oldest thing seen, or just before the window itself.
