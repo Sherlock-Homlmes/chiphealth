@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
+# --- Observability: Workers Logs (console output + invocation traces) -----
+[observability]
+enabled = true
+head_sampling_rate = 1   # log 100% of requests; lower if volume grows
+
 # --- D1 -------------------------------------------------------------------
 [[d1_databases]]
 binding = "DB"
