@@ -6,6 +6,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import 'manual_sleep_screen.dart';
 import 'night_recorder_screen.dart';
 
 final sleepSessionsProvider = FutureProvider<List<SleepSession>>(
@@ -21,7 +22,20 @@ class SleepScreen extends ConsumerWidget {
     final sessions = ref.watch(sleepSessionsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Giấc ngủ')),
+      appBar: AppBar(
+        title: const Text('Giấc ngủ'),
+        actions: [
+          IconButton(
+            tooltip: 'Nhập tay',
+            icon: const Icon(Icons.edit_note),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const ManualSleepScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const NightRecorderScreen()),

@@ -547,6 +547,7 @@ class SleepRepository {
     required List<SleepStageSegment> stages,
     List<Map<String, dynamic>> events = const [],
     bool audioRecordingEnabled = false,
+    int? sleepLatencySeconds,
   }) async {
     final data = await _api.post<dynamic>(
       '/v1/sleep/sessions',
@@ -558,6 +559,8 @@ class SleepRepository {
         'stages': stages.map((s) => s.toJson()).toList(),
         'events': events,
         'audioRecordingEnabled': audioRecordingEnabled,
+        if (sleepLatencySeconds != null)
+          'sleepLatencySeconds': sleepLatencySeconds,
       },
     );
     return SleepSession.fromJson((data as Map).cast<String, dynamic>());
