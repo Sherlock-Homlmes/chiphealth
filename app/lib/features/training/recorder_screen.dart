@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' hide ActivityType;
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../core/format/units.dart';
 import '../../core/models/models.dart';
@@ -13,6 +14,7 @@ import '../../core/providers.dart';
 import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import 'route_map.dart';
 
 /// Strava-style recorder. Samples are buffered on device and uploaded as ONE
 /// file when the session ends — the server derives polyline, splits, time-in-zone
@@ -45,6 +47,35 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   bool _running = false;
   bool _paused = false;
   bool _saving = false;
+
+  /// Route drawn on the live map, and the newest fix (known before the first
+  /// route point when location was already granted).
+  final _route = <LatLng>[];
+  LatLng? _here;
+
+  @override
+  void initState() {
+    super.initState();
+    _locateOnce();
+  }
+
+  /// Centres the map before Start, like Strava — but only if permission is
+  /// already there; asking happens on Start, not on opening the screen.
+  Future<void> _locateOnce() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition();
+      if (mounted && _here == null) {
+        setState(() => _here = LatLng(position.latitude, position.longitude));
+      }
+    } catch (_) {
+      // No fix yet; the map appears with the first GPS sample instead.
+    }
+  }
 
   @override
   void dispose() {
@@ -86,6 +117,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       _elapsedSeconds = 0;
       _movingSeconds = 0;
       _last = null;
+      _route.clear();
     });
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -132,9 +164,12 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       'speed': speed,
     });
 
+    final here = LatLng(position.latitude, position.longitude);
     setState(() {
       _last = position;
       _paused = !movingNow;
+      _here = here;
+      if (movingNow || _route.isEmpty) _route.add(here);
     });
   }
 
@@ -238,6 +273,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       }
     }
 
+    final showMap = _activity?.supportsGps ?? false;
+
     return Scaffold(
       appBar: AppBar(title: Text(_running ? 'Đang ghi' : 'Buổi tập mới')),
       body: SafeArea(
@@ -268,15 +305,38 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                                 setState(() => _activity = value),
                           ),
                   ),
-                const Spacer(),
+                if (showMap) ...[
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
+                      child: _here == null
+                          ? Container(
+                              color: RetroTokens.paperSunk,
+                              alignment: Alignment.center,
+                              child: Text(
+                                _running
+                                    ? 'Đang tìm tín hiệu GPS…'
+                                    : 'Bản đồ hiện khi bắt đầu ghi',
+                                style: const TextStyle(
+                                  color: RetroTokens.inkSoft,
+                                ),
+                              ),
+                            )
+                          : LiveRouteMap(points: _route, center: _here!),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else
+                  const Spacer(),
                 Center(
                   child: Column(
                     children: [
                       Text(
                         Units.duration(_elapsedSeconds),
-                        style: Theme.of(
-                          context,
-                        ).textTheme.titleLarge?.copyWith(fontSize: 56),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: showMap ? 44 : 56,
+                        ),
                       ),
                       Text(
                         _paused ? 'tạm dừng tự động' : 'thời gian',
@@ -319,7 +379,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                     ),
                   ],
                 ),
-                const Spacer(),
+                if (showMap) const SizedBox(height: 16) else const Spacer(),
                 if (!_running)
                   FilledButton(
                     onPressed: _activity == null ? null : _start,

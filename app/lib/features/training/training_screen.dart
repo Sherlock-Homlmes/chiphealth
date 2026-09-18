@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/auth/auth_controller.dart';
 import '../../core/format/units.dart';
+import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import 'activity_format.dart';
+import 'route_map.dart';
 
 class TrainingScreen extends ConsumerWidget {
   const TrainingScreen({super.key});
@@ -15,15 +19,20 @@ class TrainingScreen extends ConsumerWidget {
     final feed = ref.watch(workoutFeedProvider);
     final records = ref.watch(personalRecordsProvider);
     final units = Units(ref.watch(unitSystemProvider));
+    final user = ref.watch(authControllerProvider).user;
+    final types = {
+      for (final t in ref.watch(activityTypesProvider).valueOrNull ?? const <ActivityType>[])
+        t.id: t,
+    };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Luyện tập')),
-      floatingActionButton: FloatingActionButton.extended(
+      appBar: AppBar(title: const Text('Hoạt động')),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Ghi hoạt động mới',
         onPressed: () => context.push('/record'),
         backgroundColor: RetroTokens.accent,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Bắt đầu'),
+        child: const Icon(Icons.add),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -60,11 +69,12 @@ class TrainingScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SectionTitle('Buổi tập gần đây'),
+              const SectionTitle('Hoạt động'),
               asyncBody(
                 feed,
                 emptyWhen: (list) => list.isEmpty,
-                emptyText: 'Chưa có buổi tập nào.',
+                emptyText:
+                    'Chưa có hoạt động nào — bấm + để ghi buổi đầu tiên.',
                 onRetry: () => ref.invalidate(workoutFeedProvider),
                 data: (list) => Column(
                   // Without this the cards size to their text and the feed looks ragged.
@@ -72,31 +82,12 @@ class TrainingScreen extends ConsumerWidget {
                   children: [
                     for (final session in list)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        child: RetroBox(
-                          onTap: () => context.push('/workouts/${session.id}'),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                session.title ?? 'Buổi tập',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${session.localDate} · '
-                                '${units.distance(session.distanceM)} · '
-                                '${Units.duration(session.durationSeconds)} · '
-                                '${units.pace(session.avgPaceSecPerKm)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: RetroTokens.inkSoft,
-                                ),
-                              ),
-                            ],
-                          ),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: ActivityCard(
+                          session: session,
+                          type: types[session.activityTypeId],
+                          user: user,
+                          units: units,
                         ),
                       ),
                     const SizedBox(height: 96),
@@ -109,6 +100,154 @@ class TrainingScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// One feed entry, laid out like Strava's: who and when, title, three stats,
+/// then the route map edge to edge.
+class ActivityCard extends StatelessWidget {
+  const ActivityCard({
+    super.key,
+    required this.session,
+    required this.type,
+    required this.user,
+    required this.units,
+  });
+
+  final WorkoutSession session;
+  final ActivityType? type;
+  final AppUser? user;
+  final Units units;
+
+  @override
+  Widget build(BuildContext context) {
+    final route = decodePolyline(session.polyline);
+    final stats = workoutStats(session, type, units);
+    final name = user?.displayName ?? user?.email.split('@').first ?? 'Bạn';
+
+    return RetroBox(
+      padding: EdgeInsets.zero,
+      onTap: () => context.push('/workouts/${session.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    _Avatar(url: user?.avatarUrl, name: name),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Icon(
+                                activityIcon(type?.code),
+                                size: 14,
+                                color: RetroTokens.inkSoft,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  workoutWhen(session.startedAt),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: RetroTokens.inkSoft,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  session.title ?? defaultWorkoutTitle(session, type),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < stats.length; i++) ...[
+                        if (i > 0)
+                          const VerticalDivider(
+                            width: 24,
+                            thickness: 1,
+                            color: RetroTokens.paperSunk,
+                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              stats[i].label,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: RetroTokens.inkSoft,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              stats[i].value,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (route.isNotEmpty)
+            SizedBox(height: 200, child: RouteMap(points: route)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.url, required this.name});
+
+  final String? url;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => CircleAvatar(
+    radius: 18,
+    backgroundColor: RetroTokens.accentSoft,
+    foregroundImage: url == null ? null : NetworkImage(url!),
+    child: Text(
+      name.isEmpty ? '?' : name.characters.first.toUpperCase(),
+      style: const TextStyle(
+        color: RetroTokens.accent,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+  );
 }
 
 String _prValue(String metric, double value, Units units) => switch (metric) {

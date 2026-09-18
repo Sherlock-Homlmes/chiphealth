@@ -113,9 +113,14 @@ app.get('/workouts', async (c) => {
   if (q.activityTypeId) filters.push(eq(workoutSessions.activityTypeId, q.activityTypeId));
   if (q.cursor) filters.push(sql`${workoutSessions.id} < ${q.cursor}`);
 
-  const rows = await c.get('db').select().from(workoutSessions)
+  // The route polyline rides along so the feed can draw a map per card without
+  // one detail request each.
+  const rows = await c.get('db')
+    .select({ session: workoutSessions, polyline: workoutStreams.encodedPolyline })
+    .from(workoutSessions)
+    .leftJoin(workoutStreams, eq(workoutStreams.workoutSessionId, workoutSessions.id))
     .where(and(...filters)).orderBy(desc(workoutSessions.id)).limit(q.limit + 1);
-  return c.json(page(rows, q.limit));
+  return c.json(page(rows.map((r) => ({ ...r.session, polyline: r.polyline ?? null })), q.limit));
 });
 
 async function ownedWorkout(db: AppEnv['Variables']['db'], userId: string, id: string) {

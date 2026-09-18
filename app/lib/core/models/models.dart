@@ -598,6 +598,7 @@ class WorkoutSession {
     this.elevationGainM,
     this.caloriesBurnedKcal,
     this.source = 'in_app',
+    this.polyline,
   });
 
   final String id;
@@ -614,6 +615,9 @@ class WorkoutSession {
   final double? elevationGainM;
   final double? caloriesBurnedKcal;
   final String source;
+
+  /// Encoded route (Google polyline, precision 5); null when there is no GPS.
+  final String? polyline;
 
   double get distanceKm => (distanceM ?? 0) / 1000;
 
@@ -632,6 +636,7 @@ class WorkoutSession {
     elevationGainM: _dbl(json['elevationGainM']),
     caloriesBurnedKcal: _dbl(json['caloriesBurnedKcal']),
     source: json['source'] as String? ?? 'in_app',
+    polyline: json['polyline'] as String?,
   );
 }
 

@@ -6,6 +6,8 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import 'activity_format.dart';
+import 'route_map.dart';
 
 class WorkoutDetailScreen extends ConsumerWidget {
   const WorkoutDetailScreen({super.key, required this.sessionId});
@@ -16,6 +18,7 @@ class WorkoutDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final units = Units(ref.watch(unitSystemProvider));
     final detail = ref.watch(workoutDetailProvider(sessionId));
+    final types = ref.watch(activityTypesProvider).valueOrNull ?? const [];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Buổi tập')),
@@ -33,9 +36,54 @@ class WorkoutDetailScreen extends ConsumerWidget {
                 .whereType<Map>()
                 .map((e) => ZoneSummary.fromJson(e.cast<String, dynamic>()))
                 .toList();
+            final stream = data['stream'];
+            final route = decodePolyline(
+              stream is Map ? stream['encodedPolyline'] as String? : null,
+            );
+            final type = types
+                .where((t) => t.id == session.activityTypeId)
+                .firstOrNull;
 
             return ListView(
               children: [
+                if (route.isNotEmpty)
+                  SizedBox(
+                    height: 280,
+                    child: RouteMap(points: route, interactive: true),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            activityIcon(type?.code),
+                            size: 16,
+                            color: RetroTokens.inkSoft,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            workoutWhen(session.startedAt),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: RetroTokens.inkSoft,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        session.title ?? defaultWorkoutTitle(session, type),
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: RetroBox(

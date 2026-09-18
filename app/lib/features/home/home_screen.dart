@@ -854,28 +854,34 @@ class _ActivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final burned = nutrition.valueOrNull?.burnedKcal ?? 0;
 
-    return HomeCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CardHead(
-            label: 'Hoạt động',
-            value: '${burned.round()}',
-            unit: 'kcal',
-            // Full-screen route, not a tab: push so the recorder can be backed
-            // out of.
-            onAdd: () => context.push('/record'),
-          ),
-          if (burned <= 0)
-            const EmptyHint(text: 'Ghi lại hoạt động đầu tiên!')
-          else ...[
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => context.go('/training'),
-              child: const Text('Xem buổi tập hôm nay'),
+    // The card body opens the activity feed; only "+" jumps straight into a
+    // new recording.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => context.go('/training'),
+      child: HomeCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _CardHead(
+              label: 'Hoạt động',
+              value: '${burned.round()}',
+              unit: 'kcal',
+              // Full-screen route, not a tab: push so the recorder can be backed
+              // out of.
+              onAdd: () => context.push('/record'),
             ),
+            if (burned <= 0)
+              const EmptyHint(text: 'Ghi lại hoạt động đầu tiên!')
+            else ...[
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => context.go('/training'),
+                child: const Text('Xem buổi tập hôm nay'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
