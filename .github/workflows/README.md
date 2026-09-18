@@ -17,9 +17,10 @@ schema. Then the Worker ships, the admin panel builds against production values 
 goes to Cloudflare Pages, and `/health` is polled until it answers.
 
 The `ios` job builds an **unsigned** `.ipa` on macOS against the deployed Worker
-URL and uploads it as the `ChipHealth-unsigned-ipa` artifact, for sideloading
-with a free Apple ID (Sideloadly / AltStore). No push (`aps-environment` is
-stripped) and no MomentsWidget in that build.
+URL and uploads it as the `ChipHealth-v<version>-b<run>-<sha>-unsigned` artifact,
+for sideloading with a free Apple ID (Sideloadly / AltStore). The version name is
+read from `app/pubspec.yaml` and the build number is the workflow run number.
+No push (`aps-environment` is stripped) and no MomentsWidget in that build.
 
 ### Required repository secrets
 

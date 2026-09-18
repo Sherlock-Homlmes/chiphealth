@@ -305,6 +305,19 @@ jobs:
             app/ios/Podfile.lock
           key: pods-${{ steps.toolchain.outputs.xcode }}-${{ hashFiles('app/pubspec.lock') }}
 
+      # Version name comes from pubspec.yaml (bump it by hand for releases);
+      # the build number is the workflow run number, so every IPA is unique
+      # and sideload tools see it as an upgrade.
+      - name: Compute version
+        run: |
+          name=$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' pubspec.yaml)
+          [ -n "$name" ] || { echo "::error::No version in pubspec.yaml"; exit 1; }
+          build=${{ github.run_number }}
+          echo "BUILD_NAME=$name" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
+          echo "IPA_NAME=ChipHealth-v$name-b$build-${GITHUB_SHA::7}-unsigned" >> "$GITHUB_ENV"
+          echo "Version: $name ($build)"
+
       - name: Build unsigned release
         env:
           COCOAPODS_DISABLE_STATS: "true"
@@ -316,6 +329,7 @@ jobs:
           echo "API: $API_BASE_URL"
           # GOOGLE_*_CLIENT_ID come from $GITHUB_ENV (empty if not configured).
           flutter build ios --release --no-codesign \
+            --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER" \
             --dart-define=API_BASE_URL="$API_BASE_URL" \
             --dart-define=GOOGLE_IOS_CLIENT_ID="${GOOGLE_IOS_CLIENT_ID:-}" \
             --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID:-}"
@@ -324,11 +338,12 @@ jobs:
         run: |
           mkdir Payload
           cp -R build/ios/iphoneos/Runner.app Payload/
-          zip -r ChipHealth-unsigned.ipa Payload
-          ls -lh ChipHealth-unsigned.ipa
+          zip -qr "$IPA_NAME.ipa" Payload
+          ls -lh "$IPA_NAME.ipa"
+          echo "### iOS IPA \`$IPA_NAME.ipa\` — v$BUILD_NAME ($BUILD_NUMBER)" >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ChipHealth-unsigned-ipa
-          path: app/ChipHealth-unsigned.ipa
+          name: ${{ env.IPA_NAME }}
+          path: app/${{ env.IPA_NAME }}.ipa
           retention-days: 14
