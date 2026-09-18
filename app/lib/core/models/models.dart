@@ -65,6 +65,7 @@ class UserProfile {
     this.targetSleepMinutes = 480,
     this.bedtimeTarget,
     this.waketimeTarget,
+    this.dailyCalorieOverrideKcal,
   });
 
   final String? dateOfBirth;
@@ -76,6 +77,9 @@ class UserProfile {
   final String? bedtimeTarget;
   final String? waketimeTarget;
 
+  /// The user's own daily energy figure; null means the formula decides.
+  final double? dailyCalorieOverrideKcal;
+
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
     dateOfBirth: json['dateOfBirth'] as String?,
     biologicalSex: json['biologicalSex'] as String?,
@@ -85,6 +89,7 @@ class UserProfile {
     targetSleepMinutes: _int(json['targetSleepMinutes'], 480),
     bedtimeTarget: json['bedtimeTarget'] as String?,
     waketimeTarget: json['waketimeTarget'] as String?,
+    dailyCalorieOverrideKcal: _dbl(json['dailyCalorieOverrideKcal']),
   );
 
   Map<String, dynamic> toJson() => {
@@ -96,6 +101,7 @@ class UserProfile {
     'targetSleepMinutes': targetSleepMinutes,
     'bedtimeTarget': bedtimeTarget,
     'waketimeTarget': waketimeTarget,
+    'dailyCalorieOverrideKcal': dailyCalorieOverrideKcal,
   };
 }
 

@@ -11,6 +11,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import '../home/home_widgets.dart';
 import '../home/water_controller.dart';
+import '../profile/log_weight_sheet.dart';
 import 'progress_charts.dart';
 
 /// Which slice of time the whole screen is reading.
@@ -68,6 +69,28 @@ class ProgressScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 _ChartCard(
                   title: 'Tiến trình cân nặng (kg)',
+                  action: _AddButton(
+                    tooltip: 'Ghi cân nặng',
+                    onPressed: () async {
+                      final everything = _weightsByDate(
+                        allMetrics.valueOrNull ?? const [],
+                      );
+                      final kg = await logWeight(
+                        context,
+                        ref,
+                        current: everything.values.lastOrNull,
+                      );
+                      if (kg != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Đã ghi ${_WeightCard._kg.format(kg)} kg',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
                   child: _WeightChart(
                     range: range,
                     metrics: metrics,
@@ -353,23 +376,64 @@ Goal? _weightGoal(List<Goal> goals) {
 /* -------------------------------------------------------------------------- */
 
 class _ChartCard extends StatelessWidget {
-  const _ChartCard({required this.title, required this.child});
+  const _ChartCard({required this.title, required this.child, this.action});
 
   final String title;
   final Widget child;
+
+  /// Sits at the right end of the title row.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) => HomeCard(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            ?action,
+          ],
         ),
         const SizedBox(height: 14),
         child,
       ],
+    ),
+  );
+}
+
+/// The small round "+" in a card's title row.
+class _AddButton extends StatelessWidget {
+  const _AddButton({required this.tooltip, required this.onPressed});
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkResponse(
+      onTap: onPressed,
+      radius: 20,
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: RetroTokens.accent,
+          border: Border.all(color: RetroTokens.ink, width: RetroTokens.border),
+        ),
+        child: const Icon(Icons.add, size: 18, color: Colors.white),
+      ),
     ),
   );
 }

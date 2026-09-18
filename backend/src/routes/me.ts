@@ -194,6 +194,7 @@ const profileSchema = z.object({
   targetSleepMinutes: z.number().int().min(180).max(900).optional(),
   bedtimeTarget: hhmm.nullable().optional(),
   waketimeTarget: hhmm.nullable().optional(),
+  dailyCalorieOverrideKcal: z.number().min(800).max(6000).nullable().optional(),
   onboardingCompleted: z.boolean().optional(),
 }).strict();
 
@@ -234,9 +235,15 @@ me.put('/profile', async (c) => {
       ? { targetSleepMinutes: body.targetSleepMinutes } : {}),
     ...(body.bedtimeTarget !== undefined ? { bedtimeTarget: body.bedtimeTarget } : {}),
     ...(body.waketimeTarget !== undefined ? { waketimeTarget: body.waketimeTarget } : {}),
+    ...(body.dailyCalorieOverrideKcal !== undefined
+      ? { dailyCalorieOverrideKcal: body.dailyCalorieOverrideKcal } : {}),
     ...(body.onboardingCompleted === true ? { onboardingCompletedAt: now } : {}),
     updatedAt: now,
   }).where(eq(userProfiles.userId, userId));
+
+  // Sex, age, activity and the override all move today's TDEE.
+  await recomputeDailyNutritionSummary(db, c.env, userId, localDate(now, c.get('user').timezone))
+    .catch(() => undefined);
 
   return c.json(await ensureProfile(db, userId));
 });
@@ -724,6 +731,7 @@ me.get('/tdee', async (c) => {
       biologicalSex: inputs.sex,
       activityLevel: inputs.activityLevel,
       activityMultiplier: inputs.activityMultiplier,
+      dailyCalorieOverrideKcal: inputs.dailyCalorieOverrideKcal,
       workoutCaloriesKcal: workoutKcal,
     },
   });

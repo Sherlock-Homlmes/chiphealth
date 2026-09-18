@@ -79,6 +79,8 @@ export interface TdeeInputs {
   sex: BiologicalSex | null;
   activityLevel: ActivityLevel;
   activityMultiplier: number;
+  /** The user's own figure for BMR x activity; wins over the formula when set. */
+  dailyCalorieOverrideKcal: number | null;
 }
 
 /**
@@ -92,6 +94,7 @@ export async function loadTdeeInputs(db: Db, userId: string): Promise<TdeeInputs
       dateOfBirth: userProfiles.dateOfBirth,
       biologicalSex: userProfiles.biologicalSex,
       activityLevel: userProfiles.activityLevel,
+      dailyCalorieOverrideKcal: userProfiles.dailyCalorieOverrideKcal,
     }).from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1),
     db.select({ value: bodyMetricsLogs.weightKg, recordedAt: bodyMetricsLogs.recordedAt })
       .from(bodyMetricsLogs)
@@ -121,6 +124,7 @@ export async function loadTdeeInputs(db: Db, userId: string): Promise<TdeeInputs
     sex: (profile?.biologicalSex ?? null) as BiologicalSex | null,
     activityLevel,
     activityMultiplier: activityMultiplier(activityLevel),
+    dailyCalorieOverrideKcal: profile?.dailyCalorieOverrideKcal ?? null,
   };
 }
 
@@ -131,14 +135,26 @@ export interface BmrTdeeResult {
   missing: string[];
 }
 
-/** Null-safe wrapper: returns nulls (never NaN) when an input is unknown. */
+/**
+ * Null-safe wrapper: returns nulls (never NaN) when an input is unknown.
+ * A user override replaces BMR x activity (so it works even with inputs
+ * missing); the day's workouts are added on top either way.
+ */
 export function computeBmrTdee(inputs: TdeeInputs, workoutKcal = 0): BmrTdeeResult {
   const missing: string[] = [];
   if (inputs.weightKg == null) missing.push('weightKg');
   if (inputs.heightCm == null) missing.push('heightCm');
   if (inputs.age == null) missing.push('dateOfBirth');
   if (inputs.sex == null) missing.push('biologicalSex');
-  if (missing.length > 0) return { bmrKcal: null, tdeeKcal: null, missing };
+  const override = inputs.dailyCalorieOverrideKcal;
+  const workouts = Number.isFinite(workoutKcal) ? workoutKcal : 0;
+  if (missing.length > 0) {
+    return {
+      bmrKcal: null,
+      tdeeKcal: override == null ? null : round1(override + workouts),
+      missing,
+    };
+  }
 
   const bmrKcal = bmrMifflinStJeor({
     weightKg: inputs.weightKg as number,
@@ -148,7 +164,9 @@ export function computeBmrTdee(inputs: TdeeInputs, workoutKcal = 0): BmrTdeeResu
   });
   return {
     bmrKcal: round1(bmrKcal),
-    tdeeKcal: round1(tdee(bmrKcal, inputs.activityLevel, workoutKcal)),
+    tdeeKcal: round1(
+      override == null ? tdee(bmrKcal, inputs.activityLevel, workouts) : override + workouts,
+    ),
     missing,
   };
 }

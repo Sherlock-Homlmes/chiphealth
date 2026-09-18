@@ -34,7 +34,7 @@ jobs:
           # a deploy does — including the FTS5 triggers drizzle cannot express.
           sudo apt-get install -y --no-install-recommends sqlite3 >/dev/null
           DB=$(mktemp -d)/ci.db
-          for f in migrations/0000_init.sql migrations/0001_food_fts.sql seeds/seed.sql; do
+          for f in migrations/0*.sql seeds/seed.sql; do
             sed 's|--> statement-breakpoint||' "$f" | sqlite3 "$DB"
           done
           sqlite3 "$DB" "select count(*) from activity_types;" | grep -qv '^0$'

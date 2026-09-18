@@ -26,6 +26,8 @@ export const userProfiles = sqliteTable('user_profiles', {
   targetSleepMinutes: integer('target_sleep_minutes').notNull().default(480),
   bedtimeTarget: text('bedtime_target'),
   waketimeTarget: text('waketime_target'),
+  /** Replaces BMR x activity when set; workouts are still added on top. */
+  dailyCalorieOverrideKcal: real('daily_calorie_override_kcal'),
   onboardingCompletedAt: ts('onboarding_completed_at'),
   createdAt: tsNow('created_at'),
   updatedAt: tsNow('updated_at'),

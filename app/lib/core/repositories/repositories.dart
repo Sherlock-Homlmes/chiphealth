@@ -23,6 +23,14 @@ class ProfileRepository {
   Future<void> updateProfile(UserProfile profile) =>
       _api.put<dynamic>('/v1/me/profile', body: profile.toJson());
 
+  /// Writes only the given fields; the server leaves every other one alone.
+  Future<void> patchProfile(Map<String, dynamic> fields) =>
+      _api.put<dynamic>('/v1/me/profile', body: fields);
+
+  /// Today's BMR/TDEE together with every input behind them.
+  Future<Map<String, dynamic>> tdee() async =>
+      (await _api.get<dynamic>('/v1/me/tdee') as Map).cast<String, dynamic>();
+
   /// `limit` maxes out at 200 server-side; the default page of 50 is too short
   /// for a year of weigh-ins on the progress screen.
   Future<List<BodyMetric>> bodyMetrics({
