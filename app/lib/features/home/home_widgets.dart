@@ -76,7 +76,7 @@ class DayPip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ink = enabled ? RetroTokens.ink : RetroTokens.inkFaint;
-    return GestureDetector(
+    final pip = GestureDetector(
       onTap: enabled ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: Column(
@@ -115,6 +115,9 @@ class DayPip extends StatelessWidget {
         ],
       ),
     );
+    // Future days fade out as a whole — label, ring and number — so they
+    // read as "not yet" at a glance instead of as a slightly lighter grey.
+    return enabled ? pip : Opacity(opacity: 0.3, child: pip);
   }
 }
 
