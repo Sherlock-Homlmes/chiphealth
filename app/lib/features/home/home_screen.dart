@@ -649,8 +649,6 @@ class _WaterCard extends ConsumerWidget {
                       // Filled to the millilitre, not by whole glasses: 380 ml
                       // is one full glass and a second one just over half.
                       fill: cupFillRatio(i, drunk),
-                      // The first glass doubles as the quick-add affordance.
-                      showPlus: i == 0,
                       onTap: () => i == 0 && drunk == 0
                           ? addWater(
                               context,
@@ -705,10 +703,9 @@ class _WaterCard extends ConsumerWidget {
 
 /// A glass filled from the bottom to [fill] (0..1).
 class _Cup extends StatelessWidget {
-  const _Cup({required this.fill, required this.showPlus, required this.onTap});
+  const _Cup({required this.fill, required this.onTap});
 
   final double fill;
-  final bool showPlus;
   final VoidCallback onTap;
 
   @override
@@ -737,8 +734,6 @@ class _Cup extends StatelessWidget {
                 color: RetroTokens.water,
               ),
             ),
-          if (showPlus && fill <= 0)
-            const Icon(Icons.add, size: 11, color: RetroTokens.ink),
         ],
       ),
     ),
