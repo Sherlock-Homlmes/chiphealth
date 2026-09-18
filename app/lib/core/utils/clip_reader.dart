@@ -1,8 +1,7 @@
 /// Reads a recorded clip off the device.
 ///
 /// The recorder hands back a filesystem path on mobile and a blob URL on web;
-/// the microphone is mobile-only here (see the app README), so the web build
-/// only needs this to compile, not to work.
+/// both are read back into bytes here.
 library;
 
 export 'clip_reader_io.dart'

@@ -56,8 +56,9 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
       setState(() => _error = 'Chưa được cấp quyền micro.');
       return;
     }
+    // Browsers record Opus in WebM; AAC is what the phones encode natively.
     await _recorder.start(
-      const RecordConfig(encoder: AudioEncoder.aacLc),
+      RecordConfig(encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc),
       path: '',
     );
     setState(() {
@@ -78,7 +79,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
                   .read(nutritionRepositoryProvider)
                   .transcribeClip(
                     await readClip(audioPath),
-                    mimeType: 'audio/mp4',
+                    mimeType: kIsWeb ? 'audio/webm' : 'audio/mp4',
                   ))
               .trim();
       if (text.isEmpty || !mounted) return;
@@ -142,7 +143,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RetroTokens.paper,
-      appBar: AppBar(title: const Text('Nhập tay')),
+      appBar: AppBar(title: const Text('Nhập tay / Nói')),
       body: PhoneFrame(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -155,29 +156,26 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
                 hintText: 'Trưa nay ăn hai bát cơm với thịt kho và canh rau',
               ),
             ),
-            // The recorder is mobile-only (see the app README).
-            if (!kIsWeb) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _micButton(),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _recording
-                          ? 'Đang nghe… nhấn để dừng'
-                          : _transcribing
-                          ? 'Đang chuyển giọng nói thành chữ…'
-                          : 'Nhấn mic để nói, chữ sẽ được thêm vào ô trên',
-                      style: const TextStyle(
-                        color: RetroTokens.inkSoft,
-                        fontSize: 12,
-                      ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _micButton(),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _recording
+                        ? 'Đang nghe… nhấn để dừng'
+                        : _transcribing
+                        ? 'Đang chuyển giọng nói thành chữ…'
+                        : 'Nhấn mic để nói, chữ sẽ được thêm vào ô trên',
+                    style: const TextStyle(
+                      color: RetroTokens.inkSoft,
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             FilledButton(
               onPressed: _busy || _recording || _transcribing ? null : _submit,

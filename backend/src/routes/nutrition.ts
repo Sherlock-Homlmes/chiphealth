@@ -442,8 +442,15 @@ app.post('/meals/transcribe', async (c) => {
 
 /** Whisper on the raw clip. Same model the sleep-talk transcripts use. */
 async function transcribe(env: Bindings, audio: number[]): Promise<string> {
-  const result = (await env.AI.run(modelConfig(env).asr as never, { audio } as never)) as
-    unknown as { text?: string };
+  // whisper-large-v3-turbo takes the clip as base64, not a byte array.
+  let binary = '';
+  for (let i = 0; i < audio.length; i += 0x8000) {
+    binary += String.fromCharCode(...audio.slice(i, i + 0x8000));
+  }
+  const result = (await env.AI.run(
+    modelConfig(env).asr as never,
+    { audio: btoa(binary), language: 'vi' } as never,
+  )) as unknown as { text?: string };
   const text = (result.text ?? '').trim();
   if (!text) throw new ApiError('UPSTREAM_AI_ERROR', 'Không nghe rõ nội dung');
   return text;

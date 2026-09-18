@@ -55,7 +55,7 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
                 ctx,
                 LogMealMethod.manual,
                 Icons.edit_note,
-                'Nhập tay',
+                'Nhập tay / Nói',
                 'Gõ hoặc nói bữa ăn, máy tự tách thành phần',
               ),
               const Divider(height: 1, color: RetroTokens.paperSunk),
