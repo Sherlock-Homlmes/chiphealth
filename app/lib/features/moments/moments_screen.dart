@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/api/api_exception.dart';
 import '../../core/auth/auth_controller.dart';
@@ -14,6 +13,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'messages_screen.dart';
+import 'moment_camera_screen.dart';
 import 'moment_composer.dart';
 import 'moment_menu.dart';
 import 'moment_tile.dart';
@@ -52,26 +52,11 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
   }
 
   Future<void> _capture() async {
-    final shot = await ImagePicker().pickImage(
-      source: ImageSource.camera,
-      imageQuality: 85,
-      maxWidth: 1400,
-    );
-    if (shot == null) return;
-
-    // Read the bytes once, here: a retry after a failed upload must not need a
-    // second trip to the camera, and on iOS the picked file is a temporary the
-    // OS may have cleaned up by then.
-    final bytes = await shot.readAsBytes();
-
-    if (!mounted) return;
-    final caption = await showDialog<String>(
-      context: context,
-      builder: (_) => const _CaptionDialog(),
-    );
-    if (!mounted) return;
-
-    await _post(bytes, caption);
+    // The shot is reviewed and captioned on the camera screen itself; what
+    // comes back is already the photo the user chose to send.
+    final shot = await MomentCameraScreen.open(context);
+    if (shot == null || !mounted) return;
+    await _post(shot.bytes, shot.caption);
   }
 
   Future<void> _post(Uint8List bytes, String? caption) async {
@@ -550,37 +535,6 @@ class _FeedFooter extends ConsumerWidget {
     }
     return const SizedBox.shrink();
   }
-}
-
-class _CaptionDialog extends StatefulWidget {
-  const _CaptionDialog();
-
-  @override
-  State<_CaptionDialog> createState() => _CaptionDialogState();
-}
-
-class _CaptionDialogState extends State<_CaptionDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Thêm chú thích'),
-    content: TextField(
-      controller: _controller,
-      maxLength: 60,
-      decoration: const InputDecoration(hintText: 'ngắn thôi'),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Bỏ qua'),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
-        child: const Text('Đăng'),
-      ),
-    ],
-  );
 }
 
 class _FriendsScreen extends ConsumerStatefulWidget {

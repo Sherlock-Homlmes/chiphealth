@@ -1,19 +1,17 @@
 import 'dart:typed_data';
 
-// XFile comes from share_plus's own export, so cross_file stays out of the
-// pubspec.
-import 'package:share_plus/share_plus.dart';
+import 'package:gal/gal.dart';
 
-/// The system sheet, where "Save image" writes to the camera roll. Sharing the
-/// bytes directly avoids a temp file, and with it path_provider — a dependency
-/// this app deliberately does not carry.
+/// Straight into the photo library (Photos on iOS, Pictures/ on Android) — no
+/// share sheet in between. Gal asks for the add-only permission the first
+/// time; a refusal throws, and the caller reports it.
 Future<void> saveImage(List<int> bytes, {required String filename}) async {
-  final file = XFile.fromData(
+  if (!await Gal.hasAccess()) {
+    await Gal.requestAccess();
+  }
+  final dot = filename.lastIndexOf('.');
+  await Gal.putImageBytes(
     bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
-    mimeType: 'image/jpeg',
-    name: filename,
-  );
-  await SharePlus.instance.share(
-    ShareParams(files: [file], fileNameOverrides: [filename]),
+    name: dot > 0 ? filename.substring(0, dot) : filename,
   );
 }

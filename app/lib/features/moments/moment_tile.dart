@@ -106,16 +106,19 @@ class AuthorAvatar extends StatelessWidget {
     final url = avatarUrl;
     final label = name ?? 'Bạn';
 
+    // The ring and shadow sit on an outer box; the picture is clipped by its
+    // own ClipOval. A decoration's clip does not reach the <img> element the
+    // web falls back to for cross-origin avatars (Google's), which then drew
+    // square over the circle.
     return Container(
       height: size,
       width: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.all(1.5),
+      decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: RetroTokens.paperRaised,
         // A ring, so a light avatar on a light photo still reads as a face.
-        border: Border.all(color: RetroTokens.paperRaised, width: 1.5),
-        boxShadow: const [
+        color: RetroTokens.paperRaised,
+        boxShadow: [
           BoxShadow(
             color: Color(0x33000000),
             blurRadius: 3,
@@ -123,29 +126,32 @@ class AuthorAvatar extends StatelessWidget {
           ),
         ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: url == null
-          ? Text(
-              label.characters.first.toUpperCase(),
-              style: TextStyle(
-                fontSize: size * 0.5,
-                fontWeight: FontWeight.w700,
-                color: RetroTokens.inkSoft,
+      child: ClipOval(
+        child: url == null
+            ? Center(
+                child: Text(
+                  label.characters.first.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: size * 0.5,
+                    fontWeight: FontWeight.w700,
+                    color: RetroTokens.inkSoft,
+                  ),
+                ),
+              )
+            : Image.network(
+                url,
+                fit: BoxFit.cover,
+                width: size,
+                height: size,
+                // A provider that 403s on a stale picture URL must not paint
+                // an exception over the tile.
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.person,
+                  size: 14,
+                  color: RetroTokens.inkFaint,
+                ),
               ),
-            )
-          : Image.network(
-              url,
-              fit: BoxFit.cover,
-              width: size,
-              height: size,
-              // A provider that 403s on a stale picture URL must not paint an
-              // exception over the tile.
-              errorBuilder: (_, __, ___) => const Icon(
-                Icons.person,
-                size: 14,
-                color: RetroTokens.inkFaint,
-              ),
-            ),
+      ),
     );
   }
 }

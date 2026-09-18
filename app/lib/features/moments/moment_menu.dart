@@ -108,7 +108,15 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
   Future<void> _save() async {
     setState(() => _busy = true);
     try {
-      await saveImage(await _bytes(), filename: 'chiphealth.jpg');
+      await saveImage(
+        await _bytes(),
+        filename: 'chiphealth_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Đã lưu ảnh vào máy.')));
+      }
     } catch (err) {
       _failed(err);
     } finally {
