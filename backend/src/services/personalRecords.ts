@@ -227,6 +227,7 @@ const sameScope = (
   a.distanceM === b.distanceM;
 
 export interface DetectedPr {
+  id: string;
   metric: PrMetric;
   value: number;
   unit: string;
@@ -234,6 +235,7 @@ export interface DetectedPr {
   distanceM: number | null;
   exerciseId: number | null;
   activityTypeId: number | null;
+  achievedAt: number;
 }
 
 /**
@@ -275,7 +277,9 @@ export async function detectPersonalRecords(
     if (existing && !isBetter(cand.metric, cand.value, existing.value)) continue;
     if (existing) beaten.push(existing.id as unknown as number);
 
+    const id = newId();
     detected.push({
+      id,
       metric: cand.metric,
       value: cand.value,
       unit: cand.unit,
@@ -283,9 +287,10 @@ export async function detectPersonalRecords(
       distanceM: cand.distanceM,
       exerciseId: cand.exerciseId,
       activityTypeId: cand.activityTypeId,
+      achievedAt,
     });
     inserts.push({
-      id: newId(),
+      id,
       userId,
       activityTypeId: cand.activityTypeId,
       exerciseId: cand.exerciseId,

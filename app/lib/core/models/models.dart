@@ -701,8 +701,8 @@ class PersonalRecord {
       previousValue == null ? null : (value - previousValue!).abs();
 
   factory PersonalRecord.fromJson(Map<String, dynamic> json) => PersonalRecord(
-    id: json['id'] as String,
-    metric: json['metric'] as String,
+    id: json['id'] as String? ?? '',
+    metric: json['metric'] as String? ?? '',
     value: _dblOr(json['value']),
     unit: json['unit'] as String? ?? '',
     achievedAt: _int(json['achievedAt']),
