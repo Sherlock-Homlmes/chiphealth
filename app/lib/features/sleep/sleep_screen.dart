@@ -6,6 +6,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import 'clip_play_button.dart';
 import 'manual_sleep_screen.dart';
 import 'night_recorder_screen.dart';
 
@@ -478,12 +479,69 @@ class _NightDetail extends ConsumerWidget {
 
   final String sessionId;
 
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Xoá đêm này?'),
+        content: const Text(
+          'Giấc ngủ, các giai đoạn và clip ngáy / nói mớ sẽ bị xoá hẳn.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('Giữ lại'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: RetroTokens.accent),
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('Xoá'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await ref.read(sleepRepositoryProvider).deleteSession(sessionId);
+      ref.invalidate(sleepDebtProvider);
+      ref.invalidate(sleepSessionsProvider);
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (err) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final night = ref.watch(sleepSessionProvider(sessionId));
+    final n = night.valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Đêm')),
+      appBar: AppBar(
+        title: const Text('Đêm'),
+        actions: [
+          if (n != null) ...[
+            IconButton(
+              tooltip: 'Sửa giờ ngủ',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ManualSleepScreen(editing: n),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Xoá đêm này',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () => _delete(context, ref),
+            ),
+          ],
+        ],
+      ),
       body: PhoneFrame(
         child: asyncBody(
           night,
@@ -553,18 +611,7 @@ class _NightDetail extends ConsumerWidget {
                           ),
                         ),
                         if (event.audioAssetId != null)
-                          IconButton(
-                            icon: const Icon(Icons.play_arrow),
-                            // Clips are kept indefinitely; playback wiring is in the README.
-                            onPressed: () =>
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      'Phát clip — cần just_audio wiring',
-                                    ),
-                                  ),
-                                ),
-                          ),
+                          ClipPlayButton(assetId: event.audioAssetId!),
                       ],
                     ),
                   ),

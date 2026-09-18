@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,8 +34,64 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
   DateTime _start = DateTime.now().subtract(const Duration(minutes: 30));
   bool _saving = false;
 
+  /// Server preview of what an empty kcal field will be saved as.
+  Map<String, dynamic>? _estimate;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    for (final c in [_hours, _minutes, _distance]) {
+      c.addListener(_scheduleEstimate);
+    }
+  }
+
+  void _scheduleEstimate() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), _fetchEstimate);
+  }
+
+  Future<void> _fetchEstimate() async {
+    final activity = _activity;
+    final km = _number(_distance);
+    final seconds = _durationSeconds;
+    if (activity == null || (seconds <= 0 && (km ?? 0) <= 0)) {
+      if (mounted) setState(() => _estimate = null);
+      return;
+    }
+    try {
+      final e = await ref
+          .read(trainingRepositoryProvider)
+          .estimate(
+            activityTypeId: activity.id,
+            durationSeconds: seconds > 0 ? seconds : null,
+            distanceM: km == null || km <= 0 ? null : km * 1000,
+          );
+      if (mounted) setState(() => _estimate = e);
+    } catch (_) {
+      // Preview only; saving still estimates server-side.
+    }
+  }
+
+  String? get _estimateText {
+    final e = _estimate;
+    final kcal = (e?['kcal'] as num?)?.round();
+    if (e == null || kcal == null) return null;
+    final met = (e['met'] as num?)?.toStringAsFixed(1);
+    final kg = (e['weightKg'] as num).toStringAsFixed(0);
+    final mins = (((e['seconds'] as num?) ?? 0) / 60).round();
+    final parts = [
+      'MET $met × $kg kg${e['weightIsFallback'] == true ? ' (chưa có cân nặng, lấy mặc định)' : ''}',
+      e['secondsFromDistance'] == true
+          ? '~$mins phút theo tốc độ trung bình'
+          : '$mins phút',
+    ];
+    return 'Ước tính ≈ $kcal kcal · ${parts.join(' × ')}';
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
     for (final c in [_title, _hours, _minutes, _distance, _kcal, _notes]) {
       c.dispose();
     }
@@ -75,15 +133,17 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
   Future<void> _save() async {
     final activity = _activity;
     final seconds = _durationSeconds;
-    if (activity == null || seconds <= 0) {
+    final km = _number(_distance);
+    if (activity == null || (seconds <= 0 && (km ?? 0) <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Chọn môn và nhập thời lượng.')),
+        const SnackBar(
+          content: Text('Chọn môn và nhập thời lượng hoặc quãng đường.'),
+        ),
       );
       return;
     }
     setState(() => _saving = true);
     final startedAt = _start.millisecondsSinceEpoch;
-    final km = _number(_distance);
     final kcal = _number(_kcal);
     final title = _title.text.trim();
     try {
@@ -95,9 +155,9 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
             source: 'manual_entry',
             activityTypeId: activity.id,
             startedAt: startedAt,
-            endedAt: startedAt + seconds * 1000,
-            durationSeconds: seconds,
-            movingSeconds: seconds,
+            endedAt: seconds > 0 ? startedAt + seconds * 1000 : null,
+            durationSeconds: seconds > 0 ? seconds : null,
+            movingSeconds: seconds > 0 ? seconds : null,
             distanceM: km == null || km <= 0 ? null : km * 1000,
             caloriesBurnedKcal: kcal == null || kcal <= 0 ? null : kcal,
             title: title.isEmpty ? defaultTitleFor(startedAt, activity) : title,
@@ -156,7 +216,10 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
                       ),
                     ),
                 ],
-                onChanged: (v) => setState(() => _activity = v),
+                onChanged: (v) {
+                  setState(() => _activity = v);
+                  _fetchEstimate();
+                },
               ),
               const SizedBox(height: 12),
               InkWell(
@@ -208,11 +271,16 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: _kcal,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Calo đốt (kcal) — tuỳ chọn',
+                  hintText: _estimate?['kcal'] == null
+                      ? null
+                      : '${(_estimate!['kcal'] as num).round()}',
                   helperText:
-                      'Để trống: tự ước tính theo môn, thời lượng và cân nặng.',
-                  helperMaxLines: 2,
+                      _estimateText ??
+                      'Để trống: tự ước tính theo môn, thời lượng / quãng '
+                          'đường và cân nặng.',
+                  helperMaxLines: 3,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,

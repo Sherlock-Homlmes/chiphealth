@@ -25,7 +25,6 @@ MealItem _item(int id, String name, double kcal,
 void main() {
   group('meal timeline', () {
     test('groups the diary by day, newest day first', () {
-      // The API answers newest first; the screen reads a day top to bottom.
       final state = MealTimelineState(meals: [
         _meal('c', '2026-09-10', 8, 300),
         _meal('b', '2026-09-09', 19, 700),
@@ -34,7 +33,18 @@ void main() {
 
       final days = state.days;
       expect(days.map((d) => d.date), ['2026-09-10', '2026-09-09']);
-      expect(days[1].meals.map((m) => m.id), ['a', 'b']);
+      expect(days[1].meals.map((m) => m.id), ['b', 'a']);
+    });
+
+    test('a day lists the latest-eaten meal first, not the latest created', () {
+      // 'z' was created last but eaten first (breakfast typed up at noon).
+      final state = MealTimelineState(meals: [
+        _meal('a', '2026-09-09', 12, 500),
+        _meal('z', '2026-09-09', 7, 300),
+        _meal('m', '2026-09-09', 19, 700),
+      ]);
+
+      expect(state.days.single.meals.map((m) => m.id), ['m', 'a', 'z']);
     });
 
     test('a day heading carries what that day added up to', () {

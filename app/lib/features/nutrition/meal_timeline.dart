@@ -1,12 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/format/date_range.dart';
 import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/repositories/repositories.dart';
 
-/// How far back the screen opens. Older meals arrive by scrolling.
-const kTimelineWindowDays = 7;
+/// How many of the latest meals the screen opens on, however old they are.
+const kTimelineFirstPage = 10;
 
 /// How many meals each page after the first one fetches.
 const _pageSize = 30;
@@ -31,7 +30,7 @@ class MealTimelineState {
   final bool hasMore;
   final Object? error;
 
-  /// Days in view, newest first, each with its meals in the order they were eaten.
+  /// Days in view, newest first, each with its latest-eaten meal on top.
   List<MealDay> get days {
     final byDate = <String, List<MealLog>>{};
     for (final meal in meals) {
@@ -39,8 +38,18 @@ class MealTimelineState {
     }
     final dates = byDate.keys.toList()..sort((a, b) => b.compareTo(a));
     return [
+      // Latest meal on top (dinner, lunch, breakfast), by the time it was
+      // eaten (loggedAt, which the user can move) — never by creation order.
       for (final date in dates)
-        MealDay(date: date, meals: byDate[date]!.reversed.toList()),
+        MealDay(
+          date: date,
+          meals: byDate[date]!
+            ..sort(
+              (a, b) => a.loggedAt != b.loggedAt
+                  ? b.loggedAt.compareTo(a.loggedAt)
+                  : b.id.compareTo(a.id),
+            ),
+        ),
     ];
   }
 
@@ -75,11 +84,10 @@ class MealDay {
 
 /// The meal diary, paged backwards through time.
 ///
-/// The first page is bounded by date rather than by count — the screen opens on
-/// the last week, whatever that week happens to hold — and every page after it
-/// is pure cursor paging. That is why the first page has to mint its own cursor
-/// when the server does not: an empty week still has to know where to continue
-/// from, and that point is the start of the window, not the last row returned.
+/// The screen opens on the latest [kTimelineFirstPage] meals — however far back
+/// they go, so a quiet week never leaves it looking empty — and pages by cursor
+/// from there. The oldest day on a page is topped up to whole before showing,
+/// so no day heading ever sums only part of that day.
 class MealTimeline extends StateNotifier<MealTimelineState> {
   MealTimeline(this._repo) : super(const MealTimelineState()) {
     refresh();
@@ -89,27 +97,16 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
 
   Future<void> refresh() async {
     state = const MealTimelineState();
-    final now = DateTime.now();
-    final windowStart = DateTime(
-      now.year,
-      now.month,
-      now.day - (kTimelineWindowDays - 1),
-    );
-
     try {
-      // A big enough limit that the opening week is one round trip in practice.
-      final page = await _repo.meals(
-        from: DateRange.iso(windowStart),
-        limit: 100,
+      final page = await _wholeDays(
+        await _repo.meals(limit: kTimelineFirstPage),
       );
       if (!mounted) return;
       state = MealTimelineState(
         meals: _visible(page.items),
-        cursor: page.nextCursor ?? _cursorBefore(page.items, windowStart),
+        cursor: page.nextCursor,
         loading: false,
-        // The window bounded this page, so there may well be older meals under
-        // it even when the server said there was nothing more to send.
-        hasMore: true,
+        hasMore: page.nextCursor != null,
       );
     } catch (err) {
       if (mounted) state = MealTimelineState(loading: false, error: err);
@@ -127,13 +124,14 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
     state = state.copyWith(loadingMore: true, clearError: true);
 
     try {
-      final page = await _repo.meals(cursor: cursor, limit: _pageSize);
+      final page = await _wholeDays(
+        await _repo.meals(cursor: cursor, limit: _pageSize),
+      );
       if (!mounted) return;
       state = MealTimelineState(
         meals: [...state.meals, ..._visible(page.items)],
         cursor: page.nextCursor,
         loading: false,
-        // Unbounded from here on, so the server's answer is the whole truth.
         hasMore: page.nextCursor != null,
       );
     } catch (err) {
@@ -147,15 +145,20 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
   List<MealLog> _visible(List<MealLog> page) =>
       page.where((m) => !m.isFailedDraft || m.photoAssetId != null).toList();
 
-  /// Where to continue when the opening window returned no cursor of its own:
-  /// just before the oldest thing seen, or just before the window itself.
-  String _cursorBefore(List<MealLog> page, DateTime windowStart) {
-    if (page.isNotEmpty) {
-      final last = page.last;
-      return '${last.loggedAt}:${last.id}';
-    }
-    // Empty id: every id sorts after it, so this means "strictly older".
-    return '${windowStart.millisecondsSinceEpoch}:';
+  /// Fetches the rest of the oldest day on [page] when the page cut it short.
+  Future<MealPage> _wholeDays(MealPage page) async {
+    final cursor = page.nextCursor;
+    if (cursor == null || page.items.isEmpty) return page;
+    final rest = await _repo.meals(
+      from: page.items.last.localDate,
+      cursor: cursor,
+      limit: 100,
+    );
+    // The date filter ends this page, not the diary: continue from the last
+    // meal seen, whether or not the day added any.
+    final items = [...page.items, ...rest.items];
+    final last = items.last;
+    return MealPage(items: items, nextCursor: '${last.loggedAt}:${last.id}');
   }
 }
 

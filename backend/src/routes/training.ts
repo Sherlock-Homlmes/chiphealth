@@ -43,21 +43,76 @@ const workoutSchema = z.object({
 /** Used when nobody has logged a weight yet, so a workout still counts. */
 const FALLBACK_WEIGHT_KG = 65;
 
-/** MET x kg x hours — the fallback when no wearable reported energy. */
-async function estimateCalories(
-  db: AppEnv['Variables']['db'], userId: string, activityTypeId: number, seconds: number | null,
-): Promise<number | null> {
-  if (!seconds || seconds <= 0) return null;
-  const [metRows, inputs] = await Promise.all([
-    db.select({ met: activityTypes.defaultMet })
+/**
+ * Recreational average speed (m/s) per sport, for when only a distance was
+ * typed ("bơi 300 m"): distance / speed gives the time the MET formula needs.
+ */
+const TYPICAL_SPEED_MS: Record<string, number> = {
+  running: 2.8, trail_running: 2.2, treadmill: 2.8,
+  walking: 1.4, hiking: 1.1, trekking: 1.0,
+  cycling: 5.5, mountain_biking: 4.2, indoor_cycling: 7, spinning: 7,
+  swimming: 0.6, open_water_swimming: 0.55,
+  rowing: 2.5, kayaking: 1.5, skiing: 5, snowboarding: 5,
+};
+
+interface CalorieEstimate {
+  kcal: number | null;
+  met: number | null;
+  weightKg: number;
+  weightIsFallback: boolean;
+  /** The time the estimate used — typed, or derived from the distance. */
+  seconds: number | null;
+  secondsFromDistance: boolean;
+}
+
+/** MET (activity_types) x latest weight (body_metrics_logs) x hours. */
+async function estimateCalorieDetail(
+  db: AppEnv['Variables']['db'], userId: string, activityTypeId: number,
+  seconds: number | null | undefined, distanceM?: number | null,
+): Promise<CalorieEstimate> {
+  const [typeRows, inputs] = await Promise.all([
+    db.select({ met: activityTypes.defaultMet, code: activityTypes.code })
       .from(activityTypes).where(eq(activityTypes.id, activityTypeId)).limit(1),
     loadTdeeInputs(db, userId),
   ]);
-  const met = metRows[0]?.met;
-  if (!met) return null;
+  const met = typeRows[0]?.met ?? null;
+  const speed = TYPICAL_SPEED_MS[typeRows[0]?.code ?? ''];
   const weightKg = inputs.weightKg ?? FALLBACK_WEIGHT_KG;
-  return Math.round(met * weightKg * (seconds / 3600));
+
+  let time = seconds && seconds > 0 ? seconds : null;
+  let fromDistance = false;
+  if (!time && distanceM && distanceM > 0 && speed) {
+    time = Math.round(distanceM / speed);
+    fromDistance = true;
+  }
+  return {
+    kcal: met && time ? Math.round(met * weightKg * (time / 3600)) : null,
+    met,
+    weightKg,
+    weightIsFallback: inputs.weightKg == null,
+    seconds: time,
+    secondsFromDistance: fromDistance,
+  };
 }
+
+async function estimateCalories(
+  db: AppEnv['Variables']['db'], userId: string, activityTypeId: number,
+  seconds: number | null | undefined, distanceM?: number | null,
+): Promise<number | null> {
+  return (await estimateCalorieDetail(db, userId, activityTypeId, seconds, distanceM)).kcal;
+}
+
+/** Live preview for the manual-entry form; the same maths POST applies. */
+app.get('/workouts/estimate', async (c) => {
+  const q = parseQuery(c, z.object({
+    activityTypeId: z.coerce.number().int().positive(),
+    durationSeconds: z.coerce.number().int().nonnegative().optional(),
+    distanceM: z.coerce.number().nonnegative().optional(),
+  }));
+  return c.json(await estimateCalorieDetail(
+    c.get('db'), c.get('user').id, q.activityTypeId, q.durationSeconds, q.distanceM,
+  ));
+});
 
 /**
  * Re-derives an estimated session's calories after its sport or duration
@@ -67,7 +122,9 @@ async function refreshEstimatedCalories(db: AppEnv['Variables']['db'], userId: s
   const rows = await db.select().from(workoutSessions).where(eq(workoutSessions.id, id)).limit(1);
   const s = rows[0];
   if (!s || (!s.caloriesAreEstimated && s.caloriesBurnedKcal != null)) return;
-  const kcal = await estimateCalories(db, userId, s.activityTypeId, s.movingSeconds || s.durationSeconds);
+  const kcal = await estimateCalories(
+    db, userId, s.activityTypeId, s.movingSeconds || s.durationSeconds, s.distanceM,
+  );
   await db.update(workoutSessions)
     .set({ caloriesBurnedKcal: kcal, caloriesAreEstimated: true })
     .where(eq(workoutSessions.id, id));
@@ -100,7 +157,7 @@ app.post('/workouts', async (c) => {
     maxHeartRate: body.maxHeartRate ?? null,
     elevationGainM: body.elevationGainM ?? null,
     caloriesBurnedKcal: body.caloriesBurnedKcal
-      ?? await estimateCalories(db, user.id, body.activityTypeId, body.movingSeconds || duration),
+      ?? await estimateCalories(db, user.id, body.activityTypeId, body.movingSeconds || duration, body.distanceM),
     caloriesAreEstimated: body.caloriesBurnedKcal == null ? true : body.caloriesAreEstimated,
     perceivedExertion: body.perceivedExertion ?? null,
     notes: body.notes ?? null,

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/format/units.dart';
+import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../widgets/retro_widgets.dart';
 import 'sleep_screen.dart';
@@ -11,8 +12,13 @@ import 'sleep_screen.dart';
 /// fall asleep. No stages — the server counts in-bed time minus the latency
 /// as sleep. One night per wake-up day, so this replaces a night already
 /// logged for that morning.
+///
+/// With [editing] it moves an existing night's bedtime / wake-up instead;
+/// whatever was recorded outside the new window is cut away.
 class ManualSleepScreen extends ConsumerStatefulWidget {
-  const ManualSleepScreen({super.key});
+  const ManualSleepScreen({super.key, this.editing});
+
+  final SleepSession? editing;
 
   @override
   ConsumerState<ManualSleepScreen> createState() => _ManualSleepScreenState();
@@ -27,6 +33,14 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
   @override
   void initState() {
     super.initState();
+    final night = widget.editing;
+    if (night != null) {
+      _bed = DateTime.fromMillisecondsSinceEpoch(night.startedAt);
+      _wake = DateTime.fromMillisecondsSinceEpoch(
+        night.endedAt ?? night.startedAt,
+      );
+      return;
+    }
     final now = DateTime.now();
     // Last night 23:00 → this morning 07:00, clamped so it is not in the future.
     final today7 = DateTime(now.year, now.month, now.day, 7);
@@ -65,16 +79,28 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
     }
     final latencyMin = int.tryParse(_latency.text) ?? 0;
     setState(() => _saving = true);
+    final night = widget.editing;
     try {
-      await ref
-          .read(sleepRepositoryProvider)
-          .upload(
-            source: 'manual',
-            startedAt: _bed.millisecondsSinceEpoch,
-            endedAt: _wake.millisecondsSinceEpoch,
-            stages: const [],
-            sleepLatencySeconds: latencyMin > 0 ? latencyMin * 60 : null,
-          );
+      if (night != null) {
+        await ref
+            .read(sleepRepositoryProvider)
+            .updateSession(
+              night.id,
+              startedAt: _bed.millisecondsSinceEpoch,
+              endedAt: _wake.millisecondsSinceEpoch,
+            );
+        ref.invalidate(sleepSessionProvider(night.id));
+      } else {
+        await ref
+            .read(sleepRepositoryProvider)
+            .upload(
+              source: 'manual',
+              startedAt: _bed.millisecondsSinceEpoch,
+              endedAt: _wake.millisecondsSinceEpoch,
+              stages: const [],
+              sleepLatencySeconds: latencyMin > 0 ? latencyMin * 60 : null,
+            );
+      }
       ref.invalidate(sleepDebtProvider);
       ref.invalidate(sleepSessionsProvider);
       if (mounted) Navigator.of(context).pop();
@@ -115,12 +141,15 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
   @override
   Widget build(BuildContext context) {
     final inBed = _wake.difference(_bed);
-    final latency = Duration(minutes: int.tryParse(_latency.text) ?? 0);
+    final editing = widget.editing != null;
+    final latency = editing
+        ? Duration.zero
+        : Duration(minutes: int.tryParse(_latency.text) ?? 0);
     final asleep = inBed - latency;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nhập giấc ngủ'),
+        title: Text(editing ? 'Sửa giờ ngủ' : 'Nhập giấc ngủ'),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
@@ -140,27 +169,32 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
               Icons.wb_sunny_outlined,
               (v) => _wake = v,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _latency,
-              decoration: const InputDecoration(
-                labelText: 'Mất bao lâu để ngủ (phút)',
+            if (!editing) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _latency,
+                decoration: const InputDecoration(
+                  labelText: 'Mất bao lâu để ngủ (phút)',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (_) => setState(() {}),
               ),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (_) => setState(() {}),
-            ),
+            ],
             const SizedBox(height: 16),
-            if (!inBed.isNegative)
+            if (!inBed.isNegative && !editing)
               StatTile(
                 value: Units.duration(asleep.isNegative ? 0 : asleep.inSeconds),
                 label: 'thời gian ngủ',
               ),
             const SizedBox(height: 12),
-            const Text(
-              'Mỗi buổi sáng chỉ có một đêm: lưu sẽ thay đêm đã ghi cho '
-              'ngày thức dậy đó (nếu có).',
-              style: TextStyle(fontSize: 12),
+            Text(
+              editing
+                  ? 'Phần giấc ngủ, giai đoạn và clip nằm ngoài khoảng giờ mới '
+                        'sẽ bị cắt bỏ.'
+                  : 'Mỗi buổi sáng chỉ có một đêm: lưu sẽ thay đêm đã ghi cho '
+                        'ngày thức dậy đó (nếu có).',
+              style: const TextStyle(fontSize: 12),
             ),
           ],
         ),

@@ -60,7 +60,15 @@ ThemeData buildRetroTheme() {
       enabledBorder: _inputBorder(RetroTokens.ink),
       focusedBorder: _inputBorder(RetroTokens.accent),
       errorBorder: _inputBorder(RetroTokens.accent),
-      labelStyle: const TextStyle(color: RetroTokens.inkSoft),
+      // Resting inside an empty field the label doubles as a placeholder, so
+      // it is faint there and only takes full ink once it floats.
+      labelStyle: const TextStyle(color: RetroTokens.inkFaint),
+      floatingLabelStyle: const TextStyle(color: RetroTokens.inkSoft),
+      // Placeholders have to read as "example", not as typed text.
+      hintStyle: TextStyle(
+        color: RetroTokens.inkFaint.withValues(alpha: 0.55),
+        fontWeight: FontWeight.w400,
+      ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(

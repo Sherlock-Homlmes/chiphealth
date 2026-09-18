@@ -773,7 +773,8 @@ class _MealsCard extends StatelessWidget {
         (daily?.tdeeKcal ??
                 DailyTargets.fallbackKcal + (daily?.burnedKcal ?? 0))
             .round();
-    final meals = daily?.meals ?? const <MealLog>[];
+    final meals = [...?daily?.meals]
+      ..sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
     // Green while comfortably under budget, amber within ±100 kcal of it,
     // red once more than 100 over.
     final tone = consumed < budget - 100

@@ -46,7 +46,7 @@ const sessionSchema = z.object({
 });
 
 /** Stage seconds are derived from the segments, never trusted from the client. */
-function stageTotals(stages: z.infer<typeof sessionSchema>['stages']) {
+function stageTotals(stages: { stage: typeof STAGES[number]; startedAt: number; endedAt: number }[]) {
   const totals = { awake: 0, light: 0, deep: 0, rem: 0 };
   for (const s of stages) {
     const seconds = Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000));
@@ -214,6 +214,11 @@ app.get('/sessions/:id', async (c) => {
   return c.json({ ...session, stages, events });
 });
 
+/**
+ * Moves bedtime / wake-up. Anything recorded outside the new window — stage
+ * segments, snore / sleep-talk events and their clips — is cut away, and the
+ * totals and score are derived again from what is left.
+ */
 app.patch('/sessions/:id', async (c) => {
   const body = await parseBody(c, z.object({
     startedAt: z.number().int().positive().optional(),
@@ -228,22 +233,100 @@ app.patch('/sessions/:id', async (c) => {
   if (endedAt <= startedAt) {
     throw new ApiError('VALIDATION_ERROR', 'endedAt must be after startedAt');
   }
+  const oldDay = session.localDate;
+  const day = localDate(endedAt, user.timezone);
+  if (day !== oldDay) {
+    const clash = await db.select({ id: sleepSessions.id }).from(sleepSessions)
+      .where(and(eq(sleepSessions.userId, user.id), eq(sleepSessions.localDate, day)))
+      .limit(1);
+    if (clash[0]) throw new ApiError('CONFLICT', 'Another night already ends on that day');
+  }
 
+  // Clip the hypnogram to the new window.
+  const segments = await db.select().from(sleepStageSegments)
+    .where(eq(sleepStageSegments.sleepSessionId, session.id))
+    .orderBy(asc(sleepStageSegments.startedAt));
+  const kept = segments
+    .map((s) => ({ ...s, startedAt: Math.max(s.startedAt, startedAt), endedAt: Math.min(s.endedAt, endedAt) }))
+    .filter((s) => s.endedAt > s.startedAt);
+  await db.delete(sleepStageSegments).where(eq(sleepStageSegments.sleepSessionId, session.id));
+  if (kept.length > 0) {
+    await insertMany(
+      (chunk) => db.insert(sleepStageSegments).values(chunk),
+      kept.map((s) => ({
+        sleepSessionId: session.id,
+        stage: s.stage,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        confidence: s.confidence,
+      })),
+    );
+  }
+
+  // Events outside the window go, clips included.
+  const outside = and(
+    eq(sleepAudioEvents.sleepSessionId, session.id),
+    sql`(${sleepAudioEvents.occurredAt} < ${startedAt} or ${sleepAudioEvents.occurredAt} > ${endedAt})`,
+  );
+  const dropped = await db.select({ assetId: sleepAudioEvents.audioAssetId })
+    .from(sleepAudioEvents).where(outside);
+  await db.delete(sleepAudioEvents).where(outside);
+  await orphanClips(db, dropped.map((e) => e.assetId));
+
+  const totals = stageTotals(kept);
   const inBed = Math.round((endedAt - startedAt) / 1000);
+  const totalSleep = totals.asleep > 0
+    ? totals.asleep
+    : Math.max(0, inBed - (session.sleepLatencySeconds ?? 0));
+  const efficiency = inBed > 0 ? Math.round((totalSleep / inBed) * 1000) / 1000 : null;
+
   await db.update(sleepSessions).set({
     startedAt,
     endedAt,
+    localDate: day,
     inBedSeconds: inBed,
-    localDate: localDate(endedAt, user.timezone),
+    totalSleepSeconds: totalSleep,
+    awakeSeconds: totals.awake,
+    lightSeconds: totals.light,
+    deepSeconds: totals.deep,
+    remSeconds: totals.rem,
+    sleepEfficiency: efficiency,
+    sleepScore: sleepScore(totals, totalSleep, efficiency),
     updatedAt: Date.now(),
   }).where(eq(sleepSessions.id, session.id));
 
-  await recomputeSleepDebt(db, c.env, user.id, localDate(endedAt, user.timezone));
+  await recomputeSleepDebt(db, c.env, user.id, day);
+  if (day !== oldDay) await recomputeSleepDebt(db, c.env, user.id, oldDay);
 
   const rows = await db.select().from(sleepSessions)
     .where(eq(sleepSessions.id, session.id)).limit(1);
   return c.json(rows[0]);
 });
+
+/** A whole night, with its stages, events and clips. */
+app.delete('/sessions/:id', async (c) => {
+  const db = c.get('db');
+  const user = c.get('user');
+  const session = await ownedSession(db, user.id, c.req.param('id'));
+
+  const clips = await db.select({ assetId: sleepAudioEvents.audioAssetId })
+    .from(sleepAudioEvents).where(eq(sleepAudioEvents.sleepSessionId, session.id));
+  await db.delete(sleepAudioEvents).where(eq(sleepAudioEvents.sleepSessionId, session.id));
+  await db.delete(sleepStageSegments).where(eq(sleepStageSegments.sleepSessionId, session.id));
+  await db.delete(sleepSessions).where(eq(sleepSessions.id, session.id));
+  await orphanClips(db, clips.map((e) => e.assetId));
+
+  await recomputeSleepDebt(db, c.env, user.id, session.localDate);
+  return c.body(null, 204);
+});
+
+/** Hands clips nobody points at any more to the orphan sweeper. */
+async function orphanClips(db: AppEnv['Variables']['db'], ids: (string | null)[]) {
+  const assetIds = ids.filter((x): x is string => Boolean(x));
+  if (assetIds.length === 0) return;
+  await db.update(mediaAssets).set({ isOrphan: true })
+    .where(sql`${mediaAssets.id} in ${assetIds}`);
+}
 
 app.get('/debt', async (c) => {
   const q = parseQuery(c, z.object({ date: isoDateSchema.optional() }));

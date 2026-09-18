@@ -455,6 +455,25 @@ class TrainingRepository {
     return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  /// Server-side kcal preview: the sport's MET from the catalogue times the
+  /// latest logged weight; a distance alone is turned into time first.
+  Future<Map<String, dynamic>> estimate({
+    required int activityTypeId,
+    int? durationSeconds,
+    double? distanceM,
+  }) async =>
+      (await _api.get<dynamic>(
+                '/v1/workouts/estimate',
+                query: {
+                  'activityTypeId': '$activityTypeId',
+                  if (durationSeconds != null)
+                    'durationSeconds': '$durationSeconds',
+                  if (distanceM != null) 'distanceM': '$distanceM',
+                },
+              )
+              as Map)
+          .cast<String, dynamic>();
+
   /// Edit what the athlete typed; the numbers come from the stream.
   Future<WorkoutSession> update(
     String id, {
@@ -578,6 +597,19 @@ class SleepRepository {
     (await _api.get<dynamic>('/v1/sleep/sessions/$id') as Map)
         .cast<String, dynamic>(),
   );
+
+  /// Moves bedtime / wake-up; whatever falls outside is cut from the night.
+  Future<void> updateSession(
+    String id, {
+    required int startedAt,
+    required int endedAt,
+  }) => _api.patch<dynamic>(
+    '/v1/sleep/sessions/$id',
+    body: {'startedAt': startedAt, 'endedAt': endedAt},
+  );
+
+  Future<void> deleteSession(String id) =>
+      _api.delete<dynamic>('/v1/sleep/sessions/$id');
 
   Future<SleepDebt> debt([String? date]) async {
     final data = await _api.get<dynamic>(
