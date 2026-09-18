@@ -210,8 +210,10 @@ jobs:
 
   ios:
     name: iOS unsigned IPA (sideload)
-    needs: [provision, backend]
-    if: ${{ !cancelled() && needs.provision.result == 'success' && (inputs.target == 'all' || inputs.target == 'ios') && needs.backend.result != 'failure' }}
+    # Only needs the Worker URL, which provision already knows, so build in
+    # parallel with the backend deploy instead of queueing behind it.
+    needs: provision
+    if: ${{ inputs.target == 'all' || inputs.target == 'ios' }}
     # macos-14 image is retired; the label reroutes to a newer image whose
     # default Xcode SDK breaks camera_avfoundation 0.9.x
     # (AVCaptureSession.wasInterruptedNotification is not exposed there).
@@ -230,7 +232,10 @@ jobs:
           xcode-version: latest-stable
 
       - name: Show toolchain
-        run: xcodebuild -version && sw_vers
+        id: toolchain
+        run: |
+          xcodebuild -version && sw_vers
+          echo "xcode=$(xcodebuild -version | tr -d '\n ' )" >> "$GITHUB_OUTPUT"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -284,8 +289,25 @@ jobs:
 
       - run: flutter pub get
 
+      # MLKit (mobile_scanner) and TensorFlowLiteC (tflite_flutter) are huge
+      # binary pods. The download cache is always safe to reuse; Pods/ +
+      # Podfile.lock only on an exact match, since a stale lock from other
+      # plugin versions makes pod install fail to resolve.
+      - uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/CocoaPods
+          key: cocoapods-dl-${{ hashFiles('app/pubspec.lock') }}
+          restore-keys: cocoapods-dl-
+      - uses: actions/cache@v4
+        with:
+          path: |
+            app/ios/Pods
+            app/ios/Podfile.lock
+          key: pods-${{ steps.toolchain.outputs.xcode }}-${{ hashFiles('app/pubspec.lock') }}
+
       - name: Build unsigned release
         env:
+          COCOAPODS_DISABLE_STATS: "true"
           API_BASE_URL: ${{ needs.provision.outputs.api_base_url }}
         run: |
           # Without this the app falls back to http://10.0.2.2:8787, which only
