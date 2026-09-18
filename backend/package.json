@@ -11,7 +11,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply chiphealth --remote",
     "db:seed:local": "wrangler d1 execute chiphealth --local --file=./seeds/seed.sql",
     "vectorize:create": "wrangler vectorize create chiphealth-food --dimensions=1024 --metric=cosine",
-    "test": "esbuild test/unit.test.ts --bundle --platform=node --format=esm --outfile=.wrangler/tmp/unit.mjs --log-level=error && node .wrangler/tmp/unit.mjs",
+    "test": "esbuild test/unit.test.ts --bundle --platform=node --format=esm --loader:.md=text --outfile=.wrangler/tmp/unit.mjs --log-level=error && node .wrangler/tmp/unit.mjs",
     "db:seed:remote": "wrangler d1 execute chiphealth --remote --file=./seeds/seed.sql",
     "dev:session": "node scripts/dev-session.mjs",
     "r2:smoke": "node scripts/r2-smoke.mjs",

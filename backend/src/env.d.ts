@@ -31,6 +31,13 @@ export interface Bindings {
   AI_ASR_MODEL?: string;
   AI_RERANK_MODEL?: string;
   RERANK_ENABLED?: string;
+  AI_AGENT_MAX_STEPS?: string;
+  AI_AGENT_MAX_TOOL_CALLS?: string;
+  AI_AGENT_THINKING?: string;
+  AI_GUARD_TIMEOUT_MS?: string;
+  AI_AGENT_CALL_TIMEOUT_MS?: string;
+  AI_AGENT_RATE_PER_MINUTE?: string;
+  AI_AGENT_RATE_PER_DAY?: string;
 
   SEARCH_BM25_TOP_K?: string;
   SEARCH_VECTOR_TOP_K?: string;

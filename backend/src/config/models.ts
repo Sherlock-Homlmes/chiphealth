@@ -29,6 +29,26 @@ export function modelConfig(env: Bindings) {
     rerank: env.AI_RERANK_MODEL ?? '@cf/baai/bge-reranker-base',
     rerankEnabled: env.RERANK_ENABLED === 'true',
     promptVersion: env.PROMPT_VERSION ?? 'meal-v1',
+    /** Assistant agent: model rounds per user turn before it must answer. */
+    agentMaxSteps: num(env.AI_AGENT_MAX_STEPS, 6),
+    /** Assistant agent: tool executions per user turn, across all rounds. */
+    agentMaxToolCalls: num(env.AI_AGENT_MAX_TOOL_CALLS, 12),
+    /**
+     * Let the chat model reason before each agent round. Off by default: on
+     * gemma-4 it multiplies a round's latency several times over for little
+     * gain in tool choice. Models without the switch ignore it.
+     */
+    agentThinking: env.AI_AGENT_THINKING === 'true',
+    /**
+     * Wall-clock caps on single model calls. Workers AI occasionally queues a
+     * request for most of a minute; the guard then fails open (the agent holds
+     * the same rules) and an agent round gives up with the fallback reply.
+     */
+    guardTimeoutMs: num(env.AI_GUARD_TIMEOUT_MS, 8000),
+    agentCallTimeoutMs: num(env.AI_AGENT_CALL_TIMEOUT_MS, 45000),
+    /** Assistant messages a user may send per rolling minute / per rolling day. */
+    agentRatePerMinute: num(env.AI_AGENT_RATE_PER_MINUTE, 6),
+    agentRatePerDay: num(env.AI_AGENT_RATE_PER_DAY, 150),
   } as const;
 }
 

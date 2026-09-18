@@ -11,6 +11,7 @@ import { insertMany } from '../db/client';
 import type { Db } from '../db/client';
 import type { Bindings } from '../env';
 import { aiText } from '../lib/aiText';
+import { PROMPTS, renderPrompt } from '../prompts';
 
 export interface CoachContext {
   profile: {
@@ -106,31 +107,11 @@ export async function buildCoachContext(
   };
 }
 
-export const COACH_SYSTEM_PROMPT = `Bạn là huấn luyện viên sức khỏe cá nhân của người dùng.
-Trả lời ngắn gọn, cụ thể, dựa trên số liệu được cung cấp. Luôn dùng đơn vị mét (kg, cm, km).
-Nếu người dùng có bệnh nền, mọi lời khuyên về ăn uống và tập luyện phải tính đến bệnh đó.
-Không chẩn đoán bệnh, không kê thuốc; khi vấn đề vượt quá phạm vi, khuyên đi khám bác sĩ.`;
-
 export function contextBlock(ctx: CoachContext): string {
-  return `[DỮ LIỆU NGƯỜI DÙNG]\n${JSON.stringify(ctx)}`;
+  return renderPrompt(PROMPTS.coachContext, { context_json: JSON.stringify(ctx) });
 }
 
 export interface ChatTurn { role: 'user' | 'assistant' | 'system'; content: string }
-
-/** Streams a coach reply. The caller persists the assistant row when the stream ends. */
-export async function streamCoachReply(
-  env: Bindings, ctx: CoachContext, history: ChatTurn[],
-): Promise<ReadableStream> {
-  const { chat, chatMaxTokens, chatTemperature } = modelConfig(env);
-  const messages: ChatTurn[] = [
-    { role: 'system', content: COACH_SYSTEM_PROMPT },
-    { role: 'system', content: contextBlock(ctx) },
-    ...history,
-  ];
-  return (await env.AI.run(chat as never, {
-    messages, max_tokens: chatMaxTokens, temperature: chatTemperature, stream: true,
-  } as never)) as unknown as ReadableStream;
-}
 
 export async function completeCoachReply(
   env: Bindings, ctx: CoachContext, history: ChatTurn[],
@@ -138,7 +119,7 @@ export async function completeCoachReply(
   const { chat, chatMaxTokens, chatTemperature } = modelConfig(env);
   const res = await env.AI.run(chat as never, {
     messages: [
-      { role: 'system', content: COACH_SYSTEM_PROMPT },
+      { role: 'system', content: renderPrompt(PROMPTS.coachSystem) },
       { role: 'system', content: contextBlock(ctx) },
       ...history,
     ],
@@ -147,9 +128,6 @@ export async function completeCoachReply(
   } as never);
   return aiText(res);
 }
-
-const INSIGHT_PROMPT = `Dựa trên dữ liệu, viết tối đa 3 nhận xét ngắn cho hôm nay.
-Trả về DUY NHẤT JSON: [{"domain":"nutrition|training|sleep|body|overall","title":"...","body":"...","severity":"info|warning|alert"}]`;
 
 /**
  * Nightly proactive coaching. Deterministic rules fire first — sleep debt and a
@@ -185,7 +163,7 @@ export async function generateDailyInsights(
   }
 
   try {
-    const text = await completeCoachReply(env, ctx, [{ role: 'user', content: INSIGHT_PROMPT }]);
+    const text = await completeCoachReply(env, ctx, [{ role: 'user', content: renderPrompt(PROMPTS.coachInsights) }]);
     const start = text.indexOf('[');
     const end = text.lastIndexOf(']');
     if (start !== -1 && end > start) {

@@ -19,6 +19,7 @@ import { modelConfig } from '../config/models';
 import type { Bindings } from '../env';
 import { insertMany } from '../db/client';
 import { buildCoachContext, completeCoachReply } from '../services/coach';
+import { PROMPTS, renderPrompt } from '../prompts';
 import type { AppEnv } from '../env';
 
 const app = new Hono<AppEnv>();
@@ -874,10 +875,10 @@ app.post('/meal-plans/generate', async (c) => {
   const db = c.get('db');
 
   const ctx = await buildCoachContext(db, c.env, user.id, user.timezone);
-  const prompt = `Lên thực đơn ngày ${body.date} cho các bữa: ${body.mealTypes.join(', ')}.
-Món ăn phải phù hợp khẩu vị Việt Nam, tính đến bệnh nền và mục tiêu.
-Trả về DUY NHẤT JSON:
-[{"mealType":"breakfast","title":"...","description":"...","targetCaloriesKcal":0,"targetProteinG":0,"targetCarbsG":0,"targetFatG":0,"rationale":"vì sao chọn món này"}]`;
+  const prompt = renderPrompt(PROMPTS.nutritionMealPlan, {
+    date: body.date,
+    meal_types: body.mealTypes.join(', '),
+  });
 
   const text = await completeCoachReply(c.env, ctx, [{ role: 'user', content: prompt }]);
   const start = text.indexOf('[');

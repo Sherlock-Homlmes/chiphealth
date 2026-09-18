@@ -38,8 +38,20 @@ class ApiClient {
   Future<T> get<T>(String path, {Map<String, dynamic>? query}) =>
       _send<T>('GET', path, query: query);
 
-  Future<T> post<T>(String path, {Object? body, Map<String, dynamic>? query}) =>
-      _send<T>('POST', path, body: body, query: query);
+  /// [receiveTimeout] overrides the client-wide 30 s for the few calls that
+  /// legitimately run long — an assistant turn makes several model calls.
+  Future<T> post<T>(
+    String path, {
+    Object? body,
+    Map<String, dynamic>? query,
+    Duration? receiveTimeout,
+  }) => _send<T>(
+    'POST',
+    path,
+    body: body,
+    query: query,
+    receiveTimeout: receiveTimeout,
+  );
 
   Future<T> put<T>(String path, {Object? body, Map<String, dynamic>? query}) =>
       _send<T>('PUT', path, body: body, query: query);
@@ -106,6 +118,7 @@ class ApiClient {
     bool anonymous = false,
     String? contentType,
     ResponseType? responseType,
+    Duration? receiveTimeout,
   }) async {
     final headers = <String, dynamic>{};
     final accessToken = tokens.accessToken;
@@ -124,6 +137,7 @@ class ApiClient {
           method: method,
           headers: headers,
           responseType: responseType,
+          receiveTimeout: receiveTimeout,
         ),
       );
     } on DioException catch (err) {
@@ -145,6 +159,7 @@ class ApiClient {
           allowRetry: false,
           contentType: contentType,
           responseType: responseType,
+          receiveTimeout: receiveTimeout,
         );
       }
     }

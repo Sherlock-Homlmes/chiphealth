@@ -961,20 +961,106 @@ class CoachMessage {
   const CoachMessage({
     required this.role,
     required this.content,
+    this.id,
     this.createdAt,
+    this.actions = const [],
   });
 
+  final int? id;
   final String role;
   final String content;
   final int? createdAt;
 
+  /// Writes the assistant proposed in this reply; each waits for "Xác nhận".
+  final List<CoachAction> actions;
+
   bool get isUser => role == 'user';
 
+  CoachMessage copyWith({List<CoachAction>? actions}) => CoachMessage(
+    id: id,
+    role: role,
+    content: content,
+    createdAt: createdAt,
+    actions: actions ?? this.actions,
+  );
+
   factory CoachMessage.fromJson(Map<String, dynamic> json) => CoachMessage(
+    id: _intOrNull(json['id']),
     role: json['role'] as String,
     content: json['content'] as String,
     createdAt: _intOrNull(json['createdAt']),
+    actions: ((json['actions'] as List?) ?? const [])
+        .map((a) => CoachAction.fromJson((a as Map).cast<String, dynamic>()))
+        .toList(),
   );
+}
+
+/// A create/update/delete the assistant proposed. Nothing is written until the
+/// user confirms it; [summary] is composed by the server from the validated
+/// arguments, never by the model, so it is what will actually happen.
+class CoachAction {
+  const CoachAction({
+    required this.id,
+    required this.tool,
+    required this.summary,
+    required this.status,
+    this.details = const [],
+    this.error,
+    this.linkType,
+    this.linkId,
+  });
+
+  final String id;
+  final String tool;
+  final String summary;
+
+  /// pending | confirmed | cancelled | failed | expired
+  final String status;
+  final List<String> details;
+  final String? error;
+
+  /// What the confirmed write produced, so the card can open it.
+  final String? linkType;
+  final String? linkId;
+
+  bool get isPending => status == 'pending';
+
+  factory CoachAction.fromJson(Map<String, dynamic> json) {
+    final result = (json['result'] as Map?)?.cast<String, dynamic>();
+    final link = (result?['link'] as Map?)?.cast<String, dynamic>();
+    return CoachAction(
+      id: json['id'] as String,
+      tool: json['tool'] as String,
+      summary: json['summary'] as String,
+      status: json['status'] as String,
+      details: ((json['details'] as List?) ?? const []).cast<String>(),
+      error: json['error'] as String?,
+      linkType: link?['type'] as String?,
+      linkId: link?['id'] as String?,
+    );
+  }
+}
+
+class CoachConversation {
+  const CoachConversation({
+    required this.id,
+    this.title,
+    this.lastMessageAt,
+    this.messageCount = 0,
+  });
+
+  final String id;
+  final String? title;
+  final int? lastMessageAt;
+  final int messageCount;
+
+  factory CoachConversation.fromJson(Map<String, dynamic> json) =>
+      CoachConversation(
+        id: json['id'] as String,
+        title: json['title'] as String?,
+        lastMessageAt: _intOrNull(json['lastMessageAt']),
+        messageCount: _intOrNull(json['messageCount']) ?? 0,
+      );
 }
 
 class CoachInsight {

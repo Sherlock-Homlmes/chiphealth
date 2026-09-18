@@ -229,18 +229,22 @@ When no connection is enabled: steps/energy are estimated from logged workouts
 
 ---
 
-## 9. AI coach
+## 9. AI coach (Trợ lý AI)
 
 | Method | Path | Notes |
 |---|---|---|
-| GET/POST | `/v1/coach/conversations` | list / create |
-| GET | `/v1/coach/conversations/:id/messages` | thread |
-| POST | `/v1/coach/conversations/:id/messages` | `{ content }` → SSE stream of the reply; the persisted assistant row stores the context snapshot + token counts |
+| GET/POST | `/v1/coach/conversations` | list (archived hidden) / create |
+| DELETE | `/v1/coach/conversations/:id` | archive; pending proposals are cancelled |
+| GET | `/v1/coach/conversations/:id/messages` | thread; each message carries its `actions[]` |
+| POST | `/v1/coach/conversations/:id/messages` | `{ content, device?: { waterMlToday, waterTargetMl } }` → the assistant message. Runs the agent (guard → tool loop → output check); the stored row keeps guard verdict, tool trace and timings. `429 RATE_LIMITED` past `AI_AGENT_RATE_PER_MINUTE` / `_PER_DAY` |
+| POST | `/v1/coach/actions/:id/confirm` | executes a proposed write through the public API → `{ action, message, clientEffect }` |
+| POST | `/v1/coach/actions/:id/cancel` | → `{ action, message }` |
 | GET | `/v1/coach/insights?from=&to=` | auto-generated daily/weekly insights |
 | POST | `/v1/coach/insights/:id/read` | mark read |
 
-Every turn injects a compact context block: profile, active goals, chronic conditions,
-today's nutrition balance, the last 7 days of training load, and sleep debt.
+The assistant never writes on its own: write tools file a `coach_actions` row the user confirms.
+Full design, tools and prompt-injection layers: [how_ai_work.md](how_ai_work.md). Every prompt lives
+in `backend/src/prompts/*.md`.
 
 ---
 

@@ -656,23 +656,59 @@ class CoachRepository {
     return data['id'] as String;
   }
 
-  Future<List<Map<String, dynamic>>> conversations() async =>
-      _items(await _api.get<dynamic>('/v1/coach/conversations'));
+  Future<List<CoachConversation>> conversations() async => _items(
+    await _api.get<dynamic>('/v1/coach/conversations'),
+  ).map(CoachConversation.fromJson).toList();
+
+  Future<void> deleteConversation(String id) =>
+      _api.delete<dynamic>('/v1/coach/conversations/$id');
 
   Future<List<CoachMessage>> messages(String conversationId) async => _items(
     await _api.get<dynamic>('/v1/coach/conversations/$conversationId/messages'),
   ).map(CoachMessage.fromJson).toList();
 
-  Future<CoachMessage> send(String conversationId, String content) async {
+  /// One assistant turn. The agent may look things up several times before it
+  /// answers, so this waits far longer than an ordinary request.
+  Future<CoachMessage> send(
+    String conversationId,
+    String content, {
+    int? waterMlToday,
+    int? waterTargetMl,
+  }) async {
     final data =
         (await _api.post<dynamic>(
                   '/v1/coach/conversations/$conversationId/messages',
-                  body: {'content': content},
+                  body: {
+                    'content': content,
+                    'device': {
+                      if (waterMlToday != null) 'waterMlToday': waterMlToday,
+                      if (waterTargetMl != null) 'waterTargetMl': waterTargetMl,
+                    },
+                  },
+                  receiveTimeout: const Duration(seconds: 120),
                 )
                 as Map)
             .cast<String, dynamic>();
     return CoachMessage.fromJson(data);
   }
+
+  /// Runs a proposed write. [CoachActionOutcome.waterMl] is set when the write
+  /// is one the app applies itself (water lives on the device).
+  Future<CoachActionOutcome> confirmAction(String actionId) async =>
+      CoachActionOutcome.fromJson(
+        (await _api.post<dynamic>(
+                  '/v1/coach/actions/$actionId/confirm',
+                  receiveTimeout: const Duration(seconds: 60),
+                )
+                as Map)
+            .cast<String, dynamic>(),
+      );
+
+  Future<CoachActionOutcome> cancelAction(String actionId) async =>
+      CoachActionOutcome.fromJson(
+        (await _api.post<dynamic>('/v1/coach/actions/$actionId/cancel') as Map)
+            .cast<String, dynamic>(),
+      );
 
   Future<List<CoachInsight>> insights({String? from, String? to}) async =>
       _items(
@@ -684,6 +720,37 @@ class CoachRepository {
 
   Future<void> markRead(String id) =>
       _api.post<dynamic>('/v1/coach/insights/$id/read');
+}
+
+class CoachActionOutcome {
+  const CoachActionOutcome({
+    required this.action,
+    required this.message,
+    this.waterDate,
+    this.waterMl,
+  });
+
+  final CoachAction action;
+
+  /// The "Đã thực hiện: …" line the server appended to the thread.
+  final CoachMessage message;
+  final String? waterDate;
+  final int? waterMl;
+
+  factory CoachActionOutcome.fromJson(Map<String, dynamic> json) {
+    final effect = (json['clientEffect'] as Map?)?.cast<String, dynamic>();
+    final isWater = effect?['type'] == 'water_add';
+    return CoachActionOutcome(
+      action: CoachAction.fromJson(
+        (json['action'] as Map).cast<String, dynamic>(),
+      ),
+      message: CoachMessage.fromJson(
+        (json['message'] as Map).cast<String, dynamic>(),
+      ),
+      waterDate: isWater ? effect!['date'] as String : null,
+      waterMl: isWater ? (effect!['ml'] as num).toInt() : null,
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ moments */

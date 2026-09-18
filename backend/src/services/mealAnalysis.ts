@@ -10,6 +10,7 @@ import { insertMany } from '../db/client';
 import { aiText, toDataUri } from '../lib/aiText';
 import type { Db } from '../db/client';
 import type { Bindings } from '../env';
+import { PROMPTS, renderPrompt } from '../prompts';
 
 const NUTRIENT_KEYS = [
   'caloriesKcal', 'proteinG', 'carbsG', 'fatG', 'saturatedFatG',
@@ -55,16 +56,6 @@ export function effectiveAnalysis<T extends AnalysisLike>(
   }
   return { ...a, timedOut: false };
 }
-
-const VISION_PROMPT = `Bạn là chuyên gia dinh dưỡng. Nhìn ảnh bữa ăn, đặt tên cho món và liệt kê TỪNG thành phần riêng biệt (cơm, thịt, rau, nước chấm, đồ uống...).
-Trả về DUY NHẤT một object JSON, không giải thích, không markdown:
-{"dish":"tên món tiếng Việt, ngắn gọn","items":[{"name":"tên thành phần tiếng Việt","grams":<khối lượng ước tính>,"label":"cách mô tả khẩu phần","confidence":<0..1>}]}
-Ước lượng khối lượng theo khẩu phần thực tế nhìn thấy trong ảnh.`;
-
-const SPEECH_PROMPT = `Bạn là chuyên gia dinh dưỡng. Người dùng mô tả bữa ăn bằng lời. Hãy tách ra TỪNG thành phần riêng biệt và ước lượng khối lượng theo gram.
-Trả về DUY NHẤT một object JSON, không giải thích, không markdown:
-{"dish":"tên món tiếng Việt, ngắn gọn","items":[{"name":"tên thành phần tiếng Việt","grams":<khối lượng ước tính>,"label":"cách mô tả khẩu phần","confidence":<0..1>}]}
-Nếu người dùng nói khẩu phần ("hai bát cơm"), quy ra gram theo khẩu phần Việt Nam thông thường.`;
 
 /**
  * Models wrap JSON in prose or fences no matter how firm the instruction is, so
@@ -275,14 +266,8 @@ async function estimateNutrition(env: Bindings, comp: DetectedComponent): Promis
   const { chat, chatMaxTokens } = modelConfig(env);
   const res = await env.AI.run(chat as never, {
     messages: [
-      {
-        role: 'system',
-        content: 'Trả về DUY NHẤT JSON, không giải thích. Đơn vị: kcal, g, mg. Giá trị cho 100g.',
-      },
-      {
-        role: 'user',
-        content: `Ước lượng dinh dưỡng cho 100g "${comp.name}". JSON keys: caloriesKcal, proteinG, carbsG, fatG, saturatedFatG, fiberG, sugarG, sodiumMg, cholesterolMg.`,
-      },
+      { role: 'system', content: renderPrompt(PROMPTS.mealEstimateSystem) },
+      { role: 'user', content: renderPrompt(PROMPTS.mealEstimateUser, { name: comp.name }) },
     ],
     max_tokens: chatMaxTokens,
     temperature: 0.2,
@@ -329,8 +314,8 @@ export async function analyzeMealPhoto(
       .where(eq(mealLogs.id, opts.mealLogId)).limit(1);
     const note = noteRows[0]?.note?.trim();
     const prompt = note
-      ? `${VISION_PROMPT}\nNgười dùng mô tả thêm (ưu tiên thông tin này khi đặt tên món, thành phần và khẩu phần): "${note}"`
-      : VISION_PROMPT;
+      ? `${renderPrompt(PROMPTS.mealVision)}\n${renderPrompt(PROMPTS.mealVisionNote, { note })}`
+      : renderPrompt(PROMPTS.mealVision);
 
     // Vision models read the photo as a data URI in a chat message. Reasoning
     // models spend most of their budget before writing an answer, so the token
@@ -362,7 +347,7 @@ export async function analyzeMealFromSpeech(
 
   return runAnalysis(db, env, opts, async () => aiText(await env.AI.run(chat as never, {
     messages: [
-      { role: 'system', content: SPEECH_PROMPT },
+      { role: 'system', content: renderPrompt(PROMPTS.mealSpeech) },
       { role: 'user', content: opts.transcript },
     ],
     max_tokens: chatMaxTokens,

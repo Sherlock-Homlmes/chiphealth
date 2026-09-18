@@ -3,6 +3,12 @@ main = "src/index.ts"
 compatibility_date = "2026-09-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Prompt files (src/prompts/**/*.md) are imported as plain strings.
+[[rules]]
+type = "Text"
+globs = ["**/*.md"]
+fallthrough = true
+
 # --- Observability: Workers Logs (console output + invocation traces) -----
 [observability]
 enabled = true
@@ -61,6 +67,13 @@ AI_EMBEDDING_DIMENSIONS = "1024"
 AI_ASR_MODEL = "@cf/openai/whisper-large-v3-turbo"
 AI_RERANK_MODEL = "@cf/baai/bge-reranker-base"
 RERANK_ENABLED = "false"
+AI_AGENT_MAX_STEPS = "6"
+AI_AGENT_MAX_TOOL_CALLS = "12"
+AI_AGENT_THINKING = "false"
+AI_GUARD_TIMEOUT_MS = "8000"
+AI_AGENT_CALL_TIMEOUT_MS = "45000"
+AI_AGENT_RATE_PER_MINUTE = "6"
+AI_AGENT_RATE_PER_DAY = "150"
 SEARCH_BM25_TOP_K = "20"
 SEARCH_VECTOR_TOP_K = "20"
 SEARCH_RRF_K = "60"

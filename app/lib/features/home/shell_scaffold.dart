@@ -33,13 +33,16 @@ class ShellScaffold extends StatelessWidget {
   /// screen would open with an empty back stack and a dead back button.
   static const _fullScreen = {'/record'};
 
-  /// What the green "+" opens. Sleep has no other entry point, so it lives here.
+  /// What the green "+" opens. Sleep and the assistant have no other entry
+  /// point, so they live here.
   static const _logOptions = [
     ('/nutrition', Icons.restaurant, 'Bữa ăn'),
     // The feed, not the recorder: its own "+" starts a new activity.
     ('/training', Icons.directions_run, 'Hoạt động'),
     ('/sleep', Icons.bedtime, 'Giấc ngủ'),
     ('/moments', Icons.groups, 'Cộng đồng'),
+    // Chat with the health agent; its writes wait for the user's confirm.
+    ('/coach', Icons.smart_toy_outlined, 'Trợ lý AI'),
   ];
 
   Future<void> _openLogSheet(BuildContext context) async {

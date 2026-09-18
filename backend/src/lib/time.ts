@@ -44,3 +44,30 @@ export function ageFromDob(dob: string, now = Date.now()): number {
   if (beforeBirthday) age--;
   return age;
 }
+
+/** How far `timeZone` is ahead of UTC at an instant, in ms. */
+function zoneOffsetMs(epochMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(new Date(epochMs));
+  const part = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const asUtc = Date.UTC(
+    part('year'), part('month') - 1, part('day'), part('hour'), part('minute'), part('second'),
+  );
+  return asUtc - Math.floor(epochMs / 1000) * 1000;
+}
+
+/**
+ * The instant a local wall-clock time (`YYYY-MM-DD`, `HH:MM`) names in
+ * `timeZone`. The offset is looked up twice so a DST edge resolves to the
+ * offset actually in force at the result, not at the naive guess.
+ */
+export function localDateTimeToEpoch(date: string, time: string, timeZone: string): number {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  const [hh, mm] = time.split(':').map(Number) as [number, number];
+  const naive = Date.UTC(y, m - 1, d, hh, mm);
+  const guess = naive - zoneOffsetMs(naive, timeZone);
+  return naive - zoneOffsetMs(guess, timeZone);
+}

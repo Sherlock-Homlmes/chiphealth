@@ -56,3 +56,32 @@ export const coachInsights = sqliteTable('coach_insights', {
 }, (t) => [
   index('coach_insights_user_date_idx').on(t.userId, t.localDate),
 ]);
+
+export const COACH_ACTION_STATUSES = ['pending', 'confirmed', 'cancelled', 'failed', 'expired'] as const;
+
+/**
+ * A write the assistant proposed. The agent only ever creates these; the
+ * user's confirm executes `tool` with `argsJson` through the public API.
+ */
+export const coachActions = sqliteTable('coach_actions', {
+  id: pkUuid(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  conversationId: text('conversation_id').notNull()
+    .references(() => coachConversations.id, { onDelete: 'cascade' }),
+  /** The assistant reply that carries the confirm card; set once the reply is stored. */
+  messageId: integer('message_id').references(() => coachMessages.id, { onDelete: 'set null' }),
+  tool: text('tool').notNull(),
+  argsJson: text('args_json').notNull(),
+  /** Written by code from the validated arguments, never by the model. */
+  summary: text('summary').notNull(),
+  detailsJson: text('details_json'),
+  status: text('status', { enum: COACH_ACTION_STATUSES }).notNull().default('pending'),
+  resultJson: text('result_json'),
+  errorMessage: text('error_message'),
+  createdAt: tsNow('created_at'),
+  resolvedAt: ts('resolved_at'),
+}, (t) => [
+  index('coach_actions_conversation_idx').on(t.conversationId),
+  index('coach_actions_user_idx').on(t.userId, t.createdAt),
+  check('coach_actions_status_ck', sql`${t.status} in ('pending','confirmed','cancelled','failed','expired')`),
+]);

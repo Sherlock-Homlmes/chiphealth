@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createDb } from './db/client';
 import { onError } from './middleware/error';
+import { registerRootApp } from './lib/internalApi';
 import { requireAuth } from './middleware/auth';
 import { requireAdmin } from './middleware/admin';
 import type { AppEnv } from './env';
@@ -89,6 +90,9 @@ app.route('/v1/admin', adminRoutes);
 
 app.notFound((c) =>
   c.json({ error: { code: 'NOT_FOUND', message: `No route for ${c.req.path}` } }, 404));
+
+// The assistant's tools call back into this app with the user's own token.
+registerRootApp(app);
 
 export default {
   fetch: app.fetch,

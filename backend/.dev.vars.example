@@ -96,6 +96,15 @@ AI_ASR_MODEL=@cf/openai/whisper-large-v3-turbo
 RERANK_ENABLED=false
 AI_RERANK_MODEL=@cf/baai/bge-reranker-base
 
+# Trợ lý AI (agent): budgets per user turn, and per-user message rate limits.
+AI_AGENT_MAX_STEPS=6
+AI_AGENT_MAX_TOOL_CALLS=12
+AI_AGENT_THINKING=false
+AI_GUARD_TIMEOUT_MS=8000
+AI_AGENT_CALL_TIMEOUT_MS=45000
+AI_AGENT_RATE_PER_MINUTE=6
+AI_AGENT_RATE_PER_DAY=150
+
 # ---------------------------------------------------------------------------
 # Hybrid food retrieval (BM25 via FTS5  +  ANN via Vectorize  ->  RRF)
 # ---------------------------------------------------------------------------
