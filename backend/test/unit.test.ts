@@ -9,7 +9,7 @@ import { encodePolyline, decodePolyline, computeZoneRanges, haversineMeters } fr
 import { fastestForDistance, isBetter } from '../src/services/personalRecords';
 import { rollingDebtSeconds } from '../src/services/sleepDebt';
 import {
-  extractJson, parseComponents, effectiveAnalysis, MEAL_ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE,
+  extractJson, parseComponents, foodNameFits, effectiveAnalysis, MEAL_ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE,
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
 import { parseCsv } from '../src/routes/admin/foods';
@@ -121,6 +121,15 @@ check('nameless entries are dropped', parseComponents([{ grams: 50 }, { name: 'g
 let threw = false;
 try { extractJson('no json at all'); } catch { threw = true; }
 check('missing JSON throws', threw, true);
+
+console.log('\n# food-base match must be the named food');
+check('same name is exact', foodNameFits('Cơm trắng', 'cơm trắng'), 'exact');
+check('a prefix is not a match ("trà" is not "Cơm trắng")', foodNameFits('Trà', 'Cơm trắng'), null);
+check('a shared word is not a match', foodNameFits('Thịt bò', 'Phở bò'), null);
+check('a more specific dish fits its base food', foodNameFits('phở bò tái', 'Phở bò'), 'contained');
+check('an unmentioned filling does not fit', foodNameFits('Bánh mì', 'Bánh mì thịt'), null);
+check('diacritics count when written', foodNameFits('trà', 'tra'), null);
+check('unaccented input still matches', foodNameFits('pho bo', 'Phở bò'), 'exact');
 
 console.log('\n# analysis timeout (3 minutes, read-side)');
 const NOW = Date.parse('2026-09-09T12:00:00Z');

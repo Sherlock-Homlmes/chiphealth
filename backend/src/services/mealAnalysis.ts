@@ -133,6 +133,39 @@ export function parseComponents(raw: unknown): DetectedComponent[] {
   });
 }
 
+function nameTokens(name: string, stripMarks: boolean): string[] {
+  let s = name.normalize('NFC').toLowerCase();
+  if (stripMarks) s = s.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd');
+  return s.split(/[^\p{L}\p{N}]+/u).filter((t) => t.length > 0);
+}
+
+/**
+ * Whether a food-base row is the thing the component names, not merely a row
+ * that shares a prefix with it. Search is prefix-OR on purpose (it feeds
+ * search-as-you-type), so "trà" finds "Cơm trắng" and "thịt bò" finds
+ * "Phở bò" — fine for a list to pick from, wrong as the source of a meal's
+ * calories. A row fits when every word of its name is a word of the component:
+ * "phở bò tái" is a "Phở bò", but "bánh mì" is not a "Bánh mì thịt" — that
+ * would add a filling nobody mentioned. Diacritics only count when the model
+ * wrote them; "pho bo" still reaches "Phở bò".
+ */
+export function foodNameFits(component: string, foodName: string): 'exact' | 'contained' | null {
+  const strip = nameTokens(component, true).join(' ') === nameTokens(component, false).join(' ');
+  const comp = nameTokens(component, strip);
+  const food = nameTokens(foodName, strip);
+  if (comp.length === 0 || food.length === 0) return null;
+  if (comp.join(' ') === food.join(' ')) return 'exact';
+  const words = new Set(comp);
+  return food.every((t) => words.has(t)) ? 'contained' : null;
+}
+
+/**
+ * A vector-only hit carries no words to check, so it has to earn its place on
+ * similarity alone — high enough that "cơm tẻ" still reaches "Cơm trắng" but a
+ * neighbour dish does not.
+ */
+const VECTOR_ONLY_MIN_SCORE = 0.85;
+
 /** Scale a per-serving nutrition row to the eaten grams. */
 function scale(row: Nutrients & { servingSizeG?: number | null }, grams: number): Nutrients {
   const per = row.servingSizeG && row.servingSizeG > 0 ? row.servingSizeG : 100;
@@ -188,21 +221,36 @@ async function resolveComponent(
   if (foodIds.length > 0) {
     const rows = await db.select().from(foods).where(inArray(foods.id, foodIds));
     const byId = new Map(rows.map((r) => [r.id, r]));
-    // Keep the fused ordering, but let a verified row jump ahead of an unverified one.
-    const ordered = foodIds
-      .map((id) => byId.get(id))
-      .filter((r): r is NonNullable<typeof r> => Boolean(r))
-      .sort((a, b) => Number(b.isVerified) - Number(a.isVerified));
+    // Only rows that are the named food count; the rest fall through to an
+    // estimate. Among those, an exact name beats a contained one, a verified row
+    // beats an unverified one, and the fused ordering breaks the remaining ties.
+    const ordered = search.fused
+      .filter((c) => c.kind === 'food')
+      .flatMap((c, rank) => {
+        const row = byId.get(c.id);
+        if (!row) return [];
+        const fit = foodNameFits(comp.name, row.name)
+          ?? (c.bm25Rank === undefined && (c.vectorScore ?? 0) >= VECTOR_ONLY_MIN_SCORE
+            ? 'contained'
+            : null);
+        return fit ? [{ row, fit, rank }] : [];
+      })
+      .sort((a, b) =>
+        Number(b.fit === 'exact') - Number(a.fit === 'exact')
+        || Number(b.row.isVerified) - Number(a.row.isVerified)
+        || a.rank - b.rank);
 
-    const best = ordered[0];
-    if (best) {
-      const rank = search.fused.findIndex((c) => c.kind === 'food' && c.id === best.id);
+    const match = ordered[0];
+    if (match) {
+      const { row: best, fit, rank } = match;
       return {
         resolution: {
           source: best.source === 'admin_barcode' || best.source === 'admin_manual'
             ? best.source
             : 'rag_matched',
-          confidence: best.isVerified ? 0.9 : 0.7 - rank * 0.05,
+          confidence: best.isVerified
+            ? (fit === 'exact' ? 0.9 : 0.85)
+            : Math.max(0.7 - rank * 0.05, 0.5),
           foodId: best.id,
           nutrients: scale(best, comp.grams),
         },
