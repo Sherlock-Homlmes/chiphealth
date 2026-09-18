@@ -1,7 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/theme/tokens.dart';
 import 'save_image.dart';
@@ -37,10 +36,15 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
   List<CameraDescription> _cameras = const [];
   CameraController? _controller;
   int _cameraIndex = 0;
-  FlashMode _flash = FlashMode.off;
+  bool _flashOn = false;
+
+  /// The white screen shown while a flash shot is taken without a hardware
+  /// flash to fire — the front camera, a laptop webcam — like Locket's front
+  /// flash.
+  bool _screenFlash = false;
 
   /// Why there is no viewfinder, when there is none: no camera, or no
-  /// permission. The gallery stays available either way.
+  /// permission.
   String? _error;
   bool _shooting = false;
 
@@ -113,7 +117,6 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
     );
     try {
       await controller.initialize();
-      if (!kIsWeb) await controller.setFlashMode(_flash);
     } on CameraException catch (err) {
       await controller.dispose();
       if (!mounted) return;
@@ -133,6 +136,11 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
       _cameraIndex = index;
       _error = null;
     });
+    // Off until the shot: the web's only hardware flash is the torch, which
+    // would otherwise stay lit the whole time the viewfinder is open.
+    try {
+      await controller.setFlashMode(FlashMode.off);
+    } catch (_) {}
   }
 
   Future<void> _flip() async {
@@ -140,20 +148,31 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
     await _open((_cameraIndex + 1) % _cameras.length);
   }
 
-  Future<void> _toggleFlash() async {
-    final next = _flash == FlashMode.off ? FlashMode.always : FlashMode.off;
-    try {
-      await _controller?.setFlashMode(next);
-      setState(() => _flash = next);
-    } catch (_) {
-      // Front cameras and some devices have no flash; the button just stays off.
-    }
-  }
+  void _toggleFlash() => setState(() => _flashOn = !_flashOn);
 
   Future<void> _takePicture() async {
     final controller = _controller;
     if (controller == null || _shooting) return;
     setState(() => _shooting = true);
+
+    // The hardware flash when the lens has one (the torch on the web, where
+    // "always" is not offered); otherwise the screen lights the face.
+    var hardware = false;
+    if (_flashOn &&
+        controller.description.lensDirection != CameraLensDirection.front) {
+      try {
+        await controller.setFlashMode(
+          kIsWeb ? FlashMode.torch : FlashMode.always,
+        );
+        hardware = true;
+      } catch (_) {}
+    }
+    if (_flashOn && !hardware) {
+      setState(() => _screenFlash = true);
+      // Long enough for the sensor's exposure to settle on the white screen.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
+
     try {
       final file = await controller.takePicture();
       final bytes = await file.readAsBytes();
@@ -164,25 +183,20 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
       _controller = null;
       await controller.dispose();
     } catch (_) {
+      if (hardware) {
+        try {
+          await controller.setFlashMode(FlashMode.off);
+        } catch (_) {}
+      }
       _toast('Không chụp được. Thử lại.');
     } finally {
-      if (mounted) setState(() => _shooting = false);
+      if (mounted) {
+        setState(() {
+          _shooting = false;
+          _screenFlash = false;
+        });
+      }
     }
-  }
-
-  Future<void> _pickFromGallery() async {
-    final picked = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1400,
-    );
-    if (picked == null) return;
-    final bytes = await picked.readAsBytes();
-    if (!mounted) return;
-    final controller = _controller;
-    _controller = null;
-    setState(() => _shot = bytes);
-    await controller?.dispose();
   }
 
   Future<void> _retake() async {
@@ -235,36 +249,44 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
     // controls step aside so the photo stays above it (the keyboard's own
     // "send" posts).
     final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
-    return Scaffold(
-      backgroundColor: _Cam.bg,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              children: [
-                _topBar(reviewing),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(44),
-                      child: reviewing ? _review() : _viewfinder(),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: _Cam.bg,
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  children: [
+                    _topBar(reviewing),
+                    const Spacer(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: AspectRatio(
+                        aspectRatio: 1,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(44),
+                          child: reviewing ? _review() : _viewfinder(),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (!typing) ...[
+                      const SizedBox(height: 40),
+                      reviewing ? _reviewControls() : _cameraControls(),
+                    ],
+                    Spacer(flex: typing ? 1 : 2),
+                  ],
                 ),
-                if (!typing) ...[
-                  const SizedBox(height: 40),
-                  reviewing ? _reviewControls() : _cameraControls(),
-                ],
-                Spacer(flex: typing ? 1 : 2),
-              ],
+              ),
             ),
           ),
         ),
-      ),
+        if (_screenFlash)
+          const Positioned.fill(
+            child: IgnorePointer(child: ColoredBox(color: Colors.white)),
+          ),
+      ],
     );
   }
 
@@ -408,23 +430,13 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // The web has no flash to drive; the gallery takes that slot there
-        // and whenever there is no camera at all.
-        if (!kIsWeb && _error == null)
-          _RoundButton(
-            icon: _flash == FlashMode.off ? Icons.flash_off : Icons.flash_on,
-            tooltip: 'Đèn flash',
-            highlight: _flash != FlashMode.off,
-            size: 52,
-            onTap: ready ? _toggleFlash : null,
-          )
-        else
-          _RoundButton(
-            icon: Icons.photo_library_outlined,
-            tooltip: 'Chọn từ thư viện',
-            size: 52,
-            onTap: _pickFromGallery,
-          ),
+        _RoundButton(
+          icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+          tooltip: _flashOn ? 'Tắt flash' : 'Bật flash',
+          highlight: _flashOn,
+          size: 52,
+          onTap: ready ? _toggleFlash : null,
+        ),
         _Shutter(busy: _shooting, onTap: ready ? _takePicture : null),
         _RoundButton(
           icon: Icons.cameraswitch_outlined,
