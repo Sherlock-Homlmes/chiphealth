@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,14 +9,9 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
-import 'log_weight_sheet.dart';
 
 final meProvider = FutureProvider<Map<String, dynamic>>(
   (ref) => ref.watch(profileRepositoryProvider).me(),
-);
-
-final bodyMetricsProvider = FutureProvider<List<BodyMetric>>(
-  (ref) => ref.watch(profileRepositoryProvider).bodyMetrics(),
 );
 
 /// `/v1/me/tdee`: the personal details form reads its starting values from
@@ -30,7 +27,6 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final me = ref.watch(meProvider);
     final tdee = ref.watch(tdeeInfoProvider);
-    final metrics = ref.watch(bodyMetricsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -43,61 +39,20 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(meProvider);
-          ref.invalidate(tdeeInfoProvider);
-          ref.invalidate(bodyMetricsProvider);
-        },
-        child: PhoneFrame(
-          child: ListView(
-            children: [
-              const SectionTitle('Thông tin cá nhân'),
-              asyncBody(
-                tdee,
-                onRetry: () => ref.invalidate(tdeeInfoProvider),
-                // Keyed on the payload so a refetch after saving resets the
-                // form to what the server now holds.
-                data: (info) =>
-                    _PersonalInfoForm(key: ObjectKey(info), info: info),
-              ),
-              SectionTitle(
-                'Lịch sử cân nặng',
-                action: IconButton(
-                  tooltip: 'Ghi cân nặng',
-                  icon: const Icon(Icons.add),
-                  onPressed: () => logWeight(
-                    context,
-                    ref,
-                    current: _num(
-                      (tdee.valueOrNull?['inputs'] as Map?)?['weightKg'],
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: asyncBody(
-                  metrics,
-                  emptyWhen: (list) =>
-                      list.where((m) => m.weightKg != null).length < 2,
-                  emptyText: 'Ghi thêm vài lần cân để thấy biểu đồ.',
-                  data: (list) =>
-                      RetroBox(child: _WeightSparkline(metrics: list)),
-                ),
-              ),
-              asyncBody(
-                me,
-                onRetry: () => ref.invalidate(meProvider),
-                data: (data) => _GoalsAndConditions(
-                  data: data,
-                  currentWeightKg: _num(
-                    (tdee.valueOrNull?['inputs'] as Map?)?['weightKg'],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 40),
-            ],
+      body: PhoneFrame(
+        child: asyncBody(
+          tdee,
+          onRetry: () => ref.invalidate(tdeeInfoProvider),
+          data: (info) => asyncBody(
+            me,
+            onRetry: () => ref.invalidate(meProvider),
+            // Keyed on both payloads so a refetch after saving resets the
+            // form to what the server now holds.
+            data: (data) => _SettingsForm(
+              key: ValueKey((identityHashCode(info), identityHashCode(data))),
+              info: info,
+              me: data,
+            ),
           ),
         ),
       ),
@@ -108,7 +63,7 @@ class ProfileScreen extends ConsumerWidget {
 double? _num(Object? v) => v is num ? v.toDouble() : null;
 
 /* -------------------------------------------------------------------------- */
-/* Personal details + daily energy                                             */
+/* Vocabulary                                                                  */
 /* -------------------------------------------------------------------------- */
 
 /// Mirrors ACTIVITY_MULTIPLIERS in the backend's nutritionMath.ts.
@@ -118,6 +73,26 @@ const _activityLevels = <String, (String, String, double)>{
   'moderate': ('Vận động vừa', 'Tập 3–5 buổi/tuần', 1.55),
   'active': ('Năng động', 'Tập 6–7 buổi/tuần', 1.725),
   'very_active': ('Rất năng động', 'Lao động nặng hoặc tập 2 lần/ngày', 1.9),
+};
+
+/// Goal type → (label, unit the server stores it in). Mirrors GOAL_UNITS in
+/// the backend's routes/me.ts.
+const _goalTypes = <String, (String, String?)>{
+  'lose_weight': ('Giảm cân', 'kg'),
+  'gain_weight': ('Tăng cân', 'kg'),
+  'gain_muscle': ('Tăng cơ', 'kg'),
+  'reduce_body_fat': ('Giảm mỡ', 'percent'),
+  'improve_endurance': ('Tăng sức bền', 'km'),
+  'improve_strength': ('Tăng sức mạnh', 'kg'),
+  'sleep_better': ('Ngủ tốt hơn', 'minutes'),
+  'manage_condition': ('Kiểm soát bệnh nền', null),
+};
+
+String _unitLabel(String? unit) => switch (unit) {
+  'percent' => '%',
+  'minutes' => 'phút',
+  null => '',
+  _ => unit,
 };
 
 /// Whole years, the way the backend's ageFromDob counts them.
@@ -130,50 +105,145 @@ int _ageOn(DateTime dob, DateTime today) {
   return age;
 }
 
-class _PersonalInfoForm extends ConsumerStatefulWidget {
-  const _PersonalInfoForm({super.key, required this.info});
-
-  final Map<String, dynamic> info;
-
-  @override
-  ConsumerState<_PersonalInfoForm> createState() => _PersonalInfoFormState();
+String _fmt(double? v, {int digits = 1}) {
+  if (v == null) return '';
+  return v == v.roundToDouble()
+      ? v.toStringAsFixed(0)
+      : v.toStringAsFixed(digits);
 }
 
-class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
+double? _parse(String text) =>
+    double.tryParse(text.trim().replaceAll(',', '.'));
+
+final _kcal = NumberFormat('#,##0');
+final _date = DateFormat('dd/MM/yyyy');
+final _iso = DateFormat('yyyy-MM-dd');
+
+Set<String> _ids(Object? list) => {
+  for (final e in (list as List? ?? const []).whereType<Map>())
+    if (e['id'] is String) e['id'] as String,
+};
+
+/// A goal as the form holds it: saved ones carry their id, new ones don't
+/// until the save bar sends them.
+class _GoalDraft {
+  const _GoalDraft({
+    this.id,
+    required this.goalType,
+    this.startValue,
+    this.targetValue,
+    this.deadline,
+  });
+
+  factory _GoalDraft.fromGoal(Goal g) => _GoalDraft(
+    id: g.id,
+    goalType: g.goalType,
+    startValue: g.startValue,
+    targetValue: g.targetValue,
+    deadline: g.deadline,
+  );
+
+  final String? id;
+  final String goalType;
+  final double? startValue;
+  final double? targetValue;
+  final String? deadline;
+
+  String? get unit => _goalTypes[goalType]?.$2;
+
+  Object toSignature() => id ?? [goalType, startValue, targetValue, deadline];
+}
+
+class _ConditionDraft {
+  const _ConditionDraft({this.id, required this.description});
+
+  final String? id;
+  final String description;
+
+  Object toSignature() => id ?? description;
+}
+
+/* -------------------------------------------------------------------------- */
+/* The form                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/// Everything on the page is edited locally; nothing reaches the server until
+/// the save bar that slides up on the first change is pressed.
+class _SettingsForm extends ConsumerStatefulWidget {
+  const _SettingsForm({super.key, required this.info, required this.me});
+
+  final Map<String, dynamic> info;
+  final Map<String, dynamic> me;
+
+  @override
+  ConsumerState<_SettingsForm> createState() => _SettingsFormState();
+}
+
+class _SettingsFormState extends ConsumerState<_SettingsForm> {
   late final Map<String, dynamic> _inputs =
       (widget.info['inputs'] as Map? ?? const {}).cast<String, dynamic>();
 
-  late String? _sex = _inputs['biologicalSex'] as String?;
-  late DateTime? _dob = DateTime.tryParse(
-    _inputs['dateOfBirth'] as String? ?? '',
-  );
-  late String _activity = _activityLevels.containsKey(_inputs['activityLevel'])
-      ? _inputs['activityLevel'] as String
-      : 'moderate';
-  late final _height = TextEditingController(
-    text: _fmt(_num(_inputs['heightCm'])),
-  );
-  late final _weight = TextEditingController(
-    text: _fmt(_num(_inputs['weightKg'])),
-  );
-  late final _override = TextEditingController(
-    text: _fmt(_num(_inputs['dailyCalorieOverrideKcal']), digits: 0),
-  );
-  late bool _manual = _num(_inputs['dailyCalorieOverrideKcal']) != null;
+  final _height = TextEditingController();
+  final _weight = TextEditingController();
+  final _override = TextEditingController();
+
+  String? _sex;
+  DateTime? _dob;
+  String _activity = 'moderate';
+  bool _manual = false;
+  List<_GoalDraft> _goals = [];
+  List<_ConditionDraft> _conditions = [];
+
+  late String _savedSignature;
   bool _saving = false;
 
-  static final _kcal = NumberFormat('#,##0');
-  static final _date = DateFormat('dd/MM/yyyy');
-
-  static String _fmt(double? v, {int digits = 1}) {
-    if (v == null) return '';
-    return v == v.roundToDouble()
-        ? v.toStringAsFixed(0)
-        : v.toStringAsFixed(digits);
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  static double? _parse(String text) =>
-      double.tryParse(text.trim().replaceAll(',', '.'));
+  /// Fills every field from the server payload — also what "Đặt lại" does.
+  void _load() {
+    _sex = _inputs['biologicalSex'] as String?;
+    _dob = DateTime.tryParse(_inputs['dateOfBirth'] as String? ?? '');
+    _activity = _activityLevels.containsKey(_inputs['activityLevel'])
+        ? _inputs['activityLevel'] as String
+        : 'moderate';
+    _height.text = _fmt(_num(_inputs['heightCm']));
+    _weight.text = _fmt(_num(_inputs['weightKg']));
+    final override = _num(_inputs['dailyCalorieOverrideKcal']);
+    _override.text = _fmt(override, digits: 0);
+    _manual = override != null;
+    // /v1/me names these activeGoals / activeConditions.
+    _goals = (widget.me['activeGoals'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Goal.fromJson(e.cast<String, dynamic>()))
+        .map(_GoalDraft.fromGoal)
+        .toList();
+    _conditions = (widget.me['activeConditions'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => ChronicCondition.fromJson(e.cast<String, dynamic>()))
+        .map((c) => _ConditionDraft(id: c.id, description: c.description))
+        .toList();
+    _savedSignature = _signature();
+  }
+
+  /// A fingerprint of everything editable; the form is dirty when it differs
+  /// from the one taken at load time.
+  String _signature() => jsonEncode([
+    _sex,
+    _dob?.toIso8601String(),
+    _activity,
+    _height.text.trim(),
+    _weight.text.trim(),
+    _manual,
+    _manual ? _override.text.trim() : null,
+    [for (final g in _goals) g.toSignature()],
+    [for (final c in _conditions) c.toSignature()],
+  ]);
+
+  bool get _dirty => _signature() != _savedSignature;
 
   @override
   void dispose() {
@@ -217,6 +287,27 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
     if (picked != null) setState(() => _dob = picked);
   }
 
+  Future<void> _addGoal() async {
+    final goal = await showDialog<_GoalDraft>(
+      context: context,
+      builder: (_) => _GoalDialog(currentWeightKg: _parse(_weight.text)),
+    );
+    if (goal != null) setState(() => _goals = [..._goals, goal]);
+  }
+
+  Future<void> _addCondition() async {
+    final text = await showDialog<String>(
+      context: context,
+      builder: (_) => const _ConditionDialog(),
+    );
+    if (text == null || text.isEmpty) return;
+    setState(
+      () => _conditions = [..._conditions, _ConditionDraft(description: text)],
+    );
+  }
+
+  void _reset() => setState(_load);
+
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);
     final kg = _parse(_weight.text);
@@ -243,7 +334,8 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
     final repo = ref.read(profileRepositoryProvider);
     try {
       // Weight and height are logs, not profile fields: write a new row only
-      // for the ones that actually changed.
+      // for the ones that actually changed. First, so a new weight goal below
+      // snapshots the new weight as its starting point.
       final oldKg = _num(_inputs['weightKg']);
       final oldCm = _num(_inputs['heightCm']);
       final newKg = kg != null && kg != oldKg ? kg : null;
@@ -253,26 +345,50 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
       }
       await repo.patchProfile({
         'biologicalSex': _sex,
-        'dateOfBirth': _dob == null
-            ? null
-            : DateFormat('yyyy-MM-dd').format(_dob!),
+        'dateOfBirth': _dob == null ? null : _iso.format(_dob!),
         'activityLevel': _activity,
         'dailyCalorieOverrideKcal': override?.roundToDouble(),
       });
+
+      final keptGoals = {for (final g in _goals) ?g.id};
+      for (final id in _ids(widget.me['activeGoals']).difference(keptGoals)) {
+        await repo.deleteGoal(id);
+      }
+      for (final g in _goals.where((g) => g.id == null)) {
+        await repo.addGoal(
+          goalType: g.goalType,
+          targetValue: g.targetValue,
+          targetUnit: g.unit,
+          deadline: g.deadline,
+          startValue: g.startValue ?? 0,
+        );
+      }
+
+      final keptConditions = {for (final c in _conditions) ?c.id};
+      final loadedConditions = _ids(widget.me['activeConditions']);
+      for (final id in loadedConditions.difference(keptConditions)) {
+        await repo.deleteCondition(id);
+      }
+      for (final c in _conditions.where((c) => c.id == null)) {
+        await repo.addCondition(c.description);
+      }
+
+      // Hide the bar now rather than after the refetch lands.
+      _savedSignature = _signature();
+      messenger.showSnackBar(const SnackBar(content: Text('Đã lưu')));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('Không lưu được: $e')));
+    } finally {
+      // Also after a failure: part of it may have landed, and the form should
+      // show what did.
       ref
         ..invalidate(tdeeInfoProvider)
         ..invalidate(meProvider)
-        ..invalidate(bodyMetricsProvider)
+        ..invalidate(goalsProvider)
         ..invalidate(bodyMetricsRangeProvider)
         ..invalidate(allBodyMetricsProvider)
         ..invalidate(dailyNutritionProvider)
         ..invalidate(nutritionRangeProvider);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Đã lưu thông tin cá nhân')),
-      );
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Không lưu được: $e')));
-    } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
@@ -281,185 +397,337 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
   Widget build(BuildContext context) {
     final computed = _computed;
     final effective = _manual ? _parse(_override.text) : computed;
+    final currentKg = _num(_inputs['weightKg']);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          RetroBox(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const _Label('Giới tính'),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'male', label: Text('Nam')),
-                    ButtonSegment(value: 'female', label: Text('Nữ')),
-                  ],
-                  selected: {?_sex},
-                  emptySelectionAllowed: true,
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      setState(() => _sex = s.isEmpty ? null : s.first),
-                ),
-                const SizedBox(height: 14),
-                const _Label('Ngày sinh'),
-                OutlinedButton.icon(
-                  onPressed: _pickDob,
-                  icon: const Icon(Icons.cake_outlined, size: 18),
-                  style: OutlinedButton.styleFrom(
-                    alignment: Alignment.centerLeft,
-                  ),
-                  label: Text(
-                    _dob == null
-                        ? 'Chọn ngày sinh'
-                        : '${_date.format(_dob!)} · $_age tuổi',
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
+    return Stack(
+      children: [
+        ListView(
+          // Room for the save bar, so it never hides the last card.
+          padding: const EdgeInsets.only(bottom: 96),
+          children: [
+            const SectionTitle('Thông tin cá nhân'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: RetroBox(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _height,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          labelText: 'Chiều cao',
-                          suffixText: 'cm',
-                        ),
+                    const _Label('Giới tính'),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'male', label: Text('Nam')),
+                        ButtonSegment(value: 'female', label: Text('Nữ')),
+                      ],
+                      selected: {?_sex},
+                      emptySelectionAllowed: true,
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) =>
+                          setState(() => _sex = s.isEmpty ? null : s.first),
+                    ),
+                    const SizedBox(height: 14),
+                    const _Label('Ngày sinh'),
+                    OutlinedButton.icon(
+                      onPressed: _pickDob,
+                      icon: const Icon(Icons.cake_outlined, size: 18),
+                      style: OutlinedButton.styleFrom(
+                        alignment: Alignment.centerLeft,
+                      ),
+                      label: Text(
+                        _dob == null
+                            ? 'Chọn ngày sinh'
+                            : '${_date.format(_dob!)} · $_age tuổi',
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _weight,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _height,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                            decoration: const InputDecoration(
+                              labelText: 'Chiều cao',
+                              suffixText: 'cm',
+                            ),
+                          ),
                         ),
-                        onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          labelText: 'Cân nặng',
-                          suffixText: 'kg',
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _weight,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            onChanged: (_) => setState(() {}),
+                            decoration: const InputDecoration(
+                              labelText: 'Cân nặng',
+                              suffixText: 'kg',
+                            ),
+                          ),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      // Keyed so "Đặt lại" repaints the reverted value.
+                      key: ValueKey(_activity),
+                      initialValue: _activity,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Mức vận động',
                       ),
+                      items: [
+                        for (final e in _activityLevels.entries)
+                          DropdownMenuItem(
+                            value: e.key,
+                            child: Text(
+                              '${e.value.$1} · ${e.value.$2}',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (v) =>
+                          setState(() => _activity = v ?? _activity),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _activity,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Mức vận động'),
-                  items: [
-                    for (final e in _activityLevels.entries)
-                      DropdownMenuItem(
-                        value: e.key,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: RetroBox(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Calo tiêu thụ mỗi ngày',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        _HelpButton(
+                          onTap: () => _explain(
+                            context,
+                            sex: _sex,
+                            weightKg: _parse(_weight.text),
+                            heightCm: _parse(_height.text),
+                            age: _age,
+                            bmr: _bmr,
+                            activity: _activity,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      effective == null
+                          ? '— kcal'
+                          : '${_kcal.format(effective)} kcal',
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      computed == null
+                          ? 'Điền giới tính, ngày sinh, chiều cao và cân nặng '
+                                'để app tự tính.'
+                          : 'Tự tính: BMR ${_kcal.format(_bmr)} × '
+                                '$_multiplier = ${_kcal.format(computed)} kcal'
+                                '${_manual ? ' (đang dùng số bạn nhập)' : ''}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: RetroTokens.inkSoft,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Tự nhập số calo'),
+                      subtitle: const Text(
+                        'Dùng khi bạn biết số của mình, ví dụ từ đồng hồ '
+                        'thông minh hoặc chuyên gia dinh dưỡng.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      value: _manual,
+                      onChanged: (v) => setState(() {
+                        _manual = v;
+                        if (v && _override.text.isEmpty && computed != null) {
+                          _override.text = computed.round().toString();
+                        }
+                      }),
+                    ),
+                    if (_manual)
+                      TextField(
+                        controller: _override,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: 'Calo tiêu thụ mỗi ngày',
+                          suffixText: 'kcal',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SectionTitle(
+              'Mục tiêu',
+              action: IconButton(
+                tooltip: 'Thêm mục tiêu',
+                icon: const Icon(Icons.add),
+                onPressed: _addGoal,
+              ),
+            ),
+            if (_goals.isEmpty)
+              const _Empty('Chưa đặt mục tiêu nào. Bấm + để thêm.'),
+            for (final goal in _goals)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _GoalTile(
+                  goal: goal,
+                  currentWeightKg: currentKg,
+                  onRemove: () =>
+                      setState(() => _goals = [..._goals]..remove(goal)),
+                ),
+              ),
+            SectionTitle(
+              'Bệnh nền',
+              action: IconButton(
+                tooltip: 'Thêm bệnh nền',
+                icon: const Icon(Icons.add),
+                onPressed: _addCondition,
+              ),
+            ),
+            if (_conditions.isEmpty)
+              const _Empty('Không khai báo bệnh nền. Bấm + để thêm.'),
+            for (final condition in _conditions)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: RetroBox(
+                  child: Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          '${e.value.$1} · ${e.value.$2}',
-                          overflow: TextOverflow.ellipsis,
+                          condition.id == null
+                              ? '${condition.description} · chưa lưu'
+                              : condition.description,
                         ),
                       ),
-                  ],
-                  onChanged: (v) => setState(() => _activity = v ?? _activity),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          RetroBox(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Calo tiêu thụ mỗi ngày',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                      _RemoveButton(
+                        onPressed: () => setState(
+                          () =>
+                              _conditions = [..._conditions]..remove(condition),
                         ),
                       ),
-                    ),
-                    _HelpButton(
-                      onTap: () => _explain(
-                        context,
-                        sex: _sex,
-                        weightKg: _parse(_weight.text),
-                        heightCm: _parse(_height.text),
-                        age: _age,
-                        bmr: _bmr,
-                        activity: _activity,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  effective == null
-                      ? '— kcal'
-                      : '${_kcal.format(effective)} kcal',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  computed == null
-                      ? 'Điền giới tính, ngày sinh, chiều cao và cân nặng để '
-                            'app tự tính.'
-                      : 'Tự tính: BMR ${_kcal.format(_bmr)} × '
-                            '$_multiplier = ${_kcal.format(computed)} kcal'
-                            '${_manual ? ' (đang dùng số bạn nhập)' : ''}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: RetroTokens.inkSoft,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Tự nhập số calo'),
-                  subtitle: const Text(
-                    'Dùng khi bạn biết số của mình, ví dụ từ đồng hồ '
-                    'thông minh hoặc chuyên gia dinh dưỡng.',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  value: _manual,
-                  onChanged: (v) => setState(() {
-                    _manual = v;
-                    if (v && _override.text.isEmpty && computed != null) {
-                      _override.text = computed.round().toString();
-                    }
-                  }),
-                ),
-                if (_manual)
-                  TextField(
-                    controller: _override,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => setState(() {}),
-                    decoration: const InputDecoration(
-                      labelText: 'Calo tiêu thụ mỗi ngày',
-                      suffixText: 'kcal',
-                    ),
-                  ),
-              ],
-            ),
+              ),
+          ],
+        ),
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: 12,
+          child: _SaveBar(
+            visible: _dirty || _saving,
+            saving: _saving,
+            onReset: _reset,
+            onSave: _save,
           ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: _saving ? null : _save,
-            child: Text(_saving ? 'Đang lưu…' : 'Lưu thông tin'),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Save bar                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/// Discord-style: hidden until something changes, then slides up from the
+/// bottom with the one question that matters.
+class _SaveBar extends StatelessWidget {
+  const _SaveBar({
+    required this.visible,
+    required this.saving,
+    required this.onReset,
+    required this.onSave,
+  });
+
+  final bool visible;
+  final bool saving;
+  final VoidCallback onReset;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !visible,
+    child: AnimatedSlide(
+      offset: visible ? Offset.zero : const Offset(0, 2),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: AnimatedOpacity(
+        opacity: visible ? 1 : 0,
+        duration: const Duration(milliseconds: 180),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+          decoration: BoxDecoration(
+            color: RetroTokens.ink,
+            borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x40000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Có thông tin chưa cập nhật',
+                  style: TextStyle(
+                    color: RetroTokens.paper,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: saving ? null : onReset,
+                style: TextButton.styleFrom(foregroundColor: RetroTokens.paper),
+                child: const Text('Đặt lại'),
+              ),
+              const SizedBox(width: 4),
+              FilledButton(
+                onPressed: saving ? null : onSave,
+                style: FilledButton.styleFrom(
+                  backgroundColor: RetroTokens.ok,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(saving ? 'Đang lưu…' : 'Lưu'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Small pieces                                                                */
+/* -------------------------------------------------------------------------- */
 
 class _Label extends StatelessWidget {
   const _Label(this.text);
@@ -473,6 +741,295 @@ class _Label extends StatelessWidget {
       text,
       style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
     ),
+  );
+}
+
+class _Empty extends StatelessWidget {
+  const _Empty(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Text(text, style: const TextStyle(color: RetroTokens.inkFaint)),
+  );
+}
+
+class _RemoveButton extends StatelessWidget {
+  const _RemoveButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: 'Xoá',
+    visualDensity: VisualDensity.compact,
+    icon: const Icon(Icons.close, size: 18, color: RetroTokens.inkSoft),
+    onPressed: onPressed,
+  );
+}
+
+class _GoalTile extends StatelessWidget {
+  const _GoalTile({
+    required this.goal,
+    required this.currentWeightKg,
+    required this.onRemove,
+  });
+
+  final _GoalDraft goal;
+  final double? currentWeightKg;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = _unitLabel(goal.unit);
+    final isWeight =
+        goal.goalType == 'lose_weight' || goal.goalType == 'gain_weight';
+    final target = goal.targetValue == null ? '—' : _fmt(goal.targetValue);
+    final detail = [
+      if (goal.targetValue != null)
+        goal.startValue == null
+            ? '→ $target $unit'
+            : 'từ ${_fmt(goal.startValue)} → $target $unit',
+      if (goal.deadline != null)
+        'hạn ${_date.format(DateTime.parse(goal.deadline!))}',
+      if (goal.id == null) 'chưa lưu',
+    ].join(' · ');
+
+    return RetroBox(
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _goalTypes[goal.goalType]?.$1 ?? goal.goalType,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                if (detail.isNotEmpty)
+                  Text(
+                    detail,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: RetroTokens.inkSoft,
+                    ),
+                  ),
+                if (isWeight && goal.id != null) ...[
+                  const SizedBox(height: 6),
+                  LinearProgressIndicator(
+                    value: _progress(currentWeightKg),
+                    backgroundColor: RetroTokens.paperSunk,
+                    color: RetroTokens.accent,
+                    minHeight: 8,
+                  ),
+                ],
+              ],
+            ),
+          ),
+          _RemoveButton(onPressed: onRemove),
+        ],
+      ),
+    );
+  }
+
+  double _progress(double? current) {
+    final start = goal.startValue;
+    final target = goal.targetValue;
+    if (start == null || target == null || current == null) return 0;
+    if (target == start) return 0;
+    return ((current - start) / (target - start)).clamp(0, 1).toDouble();
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Dialogs                                                                     */
+/* -------------------------------------------------------------------------- */
+
+class _GoalDialog extends StatefulWidget {
+  const _GoalDialog({this.currentWeightKg});
+
+  final double? currentWeightKg;
+
+  @override
+  State<_GoalDialog> createState() => _GoalDialogState();
+}
+
+class _GoalDialogState extends State<_GoalDialog> {
+  String _type = 'lose_weight';
+  final _start = TextEditingController();
+  final _target = TextEditingController();
+  DateTime? _deadline;
+  String? _error;
+
+  bool get _hasTarget => _type != 'manage_condition';
+
+  bool get _isWeight => _type == 'lose_weight' || _type == 'gain_weight';
+
+  @override
+  void initState() {
+    super.initState();
+    _prefill();
+  }
+
+  /// Weight goals start from the weight on the form; the server snapshots it
+  /// again on save anyway.
+  void _prefill() {
+    _start.text = _isWeight ? _fmt(widget.currentWeightKg) : '';
+  }
+
+  @override
+  void dispose() {
+    _start.dispose();
+    _target.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDeadline() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _deadline ?? now.add(const Duration(days: 90)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 10),
+      helpText: 'Hạn hoàn thành',
+    );
+    if (picked != null) setState(() => _deadline = picked);
+  }
+
+  void _submit() {
+    final start = _parse(_start.text);
+    final target = _parse(_target.text);
+    if (_hasTarget && target == null) {
+      setState(() => _error = 'Nhập giá trị mục tiêu');
+      return;
+    }
+    Navigator.of(context).pop(
+      _GoalDraft(
+        goalType: _type,
+        startValue: _hasTarget ? start : null,
+        targetValue: _hasTarget ? target : null,
+        deadline: _deadline == null ? null : _iso.format(_deadline!),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final unit = _unitLabel(_goalTypes[_type]!.$2);
+    return AlertDialog(
+      title: const Text('Thêm mục tiêu'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Loại mục tiêu'),
+              items: [
+                for (final e in _goalTypes.entries)
+                  DropdownMenuItem(value: e.key, child: Text(e.value.$1)),
+              ],
+              onChanged: (v) => setState(() {
+                _type = v ?? _type;
+                _error = null;
+                _prefill();
+              }),
+            ),
+            if (_hasTarget) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _start,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Hiện tại (không bắt buộc)',
+                  suffixText: unit,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _target,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Mục tiêu',
+                  suffixText: unit,
+                  errorText: _error,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _pickDeadline,
+              icon: const Icon(Icons.event_outlined, size: 18),
+              style: OutlinedButton.styleFrom(alignment: Alignment.centerLeft),
+              label: Text(
+                _deadline == null
+                    ? 'Hạn hoàn thành (không bắt buộc)'
+                    : 'Hạn: ${_date.format(_deadline!)}',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Huỷ'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Thêm')),
+      ],
+    );
+  }
+}
+
+class _ConditionDialog extends StatefulWidget {
+  const _ConditionDialog();
+
+  @override
+  State<_ConditionDialog> createState() => _ConditionDialogState();
+}
+
+class _ConditionDialogState extends State<_ConditionDialog> {
+  final _field = TextEditingController();
+
+  @override
+  void dispose() {
+    _field.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_field.text.trim());
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('Thêm bệnh nền'),
+    content: TextField(
+      controller: _field,
+      autofocus: true,
+      maxLength: 2000,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => _submit(),
+      decoration: const InputDecoration(
+        labelText: 'Bệnh nền',
+        hintText: 'Ví dụ: tiểu đường type 2, cao huyết áp',
+        counterText: '',
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Text('Huỷ'),
+      ),
+      FilledButton(onPressed: _submit, child: const Text('Thêm')),
+    ],
   );
 }
 
@@ -518,15 +1075,14 @@ void _explain(
   required double? bmr,
   required String activity,
 }) {
-  final kcal = NumberFormat('#,##0');
   final level = _activityLevels[activity]!;
   final yours = bmr == null
       ? null
       : '10 × ${weightKg!.toStringAsFixed(1)} + 6,25 × '
             '${heightCm!.toStringAsFixed(0)} − 5 × $age '
-            '${sex == 'male' ? '+ 5' : '− 161'} = ${kcal.format(bmr)} kcal\n'
-            '${kcal.format(bmr)} × ${level.$3} (${level.$1}) = '
-            '${kcal.format(bmr * level.$3)} kcal/ngày';
+            '${sex == 'male' ? '+ 5' : '− 161'} = ${_kcal.format(bmr)} kcal\n'
+            '${_kcal.format(bmr)} × ${level.$3} (${level.$1}) = '
+            '${_kcal.format(bmr * level.$3)} kcal/ngày';
 
   showDialog<void>(
     context: context,
@@ -597,154 +1153,4 @@ void _explain(
       ],
     ),
   );
-}
-
-/* -------------------------------------------------------------------------- */
-/* Goals + conditions                                                          */
-/* -------------------------------------------------------------------------- */
-
-class _GoalsAndConditions extends StatelessWidget {
-  const _GoalsAndConditions({required this.data, this.currentWeightKg});
-
-  final Map<String, dynamic> data;
-  final double? currentWeightKg;
-
-  @override
-  Widget build(BuildContext context) {
-    // /v1/me names these activeGoals / activeConditions.
-    final goals = (data['activeGoals'] as List? ?? const [])
-        .whereType<Map>()
-        .map((e) => Goal.fromJson(e.cast<String, dynamic>()))
-        .toList();
-    final conditions = (data['activeConditions'] as List? ?? const [])
-        .whereType<Map>()
-        .map((e) => ChronicCondition.fromJson(e.cast<String, dynamic>()))
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SectionTitle('Mục tiêu'),
-        if (goals.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Chưa đặt mục tiêu nào.',
-              style: TextStyle(color: RetroTokens.inkFaint),
-            ),
-          ),
-        for (final goal in goals)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: RetroBox(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _goalLabel(goal.goalType),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  Text(
-                    'từ ${goal.startValue.toStringAsFixed(1)} → '
-                    '${goal.targetValue?.toStringAsFixed(1) ?? '—'} ${goal.targetUnit ?? ''}'
-                    '${goal.deadline != null ? ' · hạn ${goal.deadline}' : ''}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: RetroTokens.inkSoft,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  LinearProgressIndicator(
-                    value: goal.progress(currentWeightKg),
-                    backgroundColor: RetroTokens.paperSunk,
-                    color: RetroTokens.accent,
-                    minHeight: 8,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        const SectionTitle('Bệnh nền'),
-        if (conditions.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Không khai báo bệnh nền.',
-              style: TextStyle(color: RetroTokens.inkFaint),
-            ),
-          ),
-        for (final condition in conditions)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: RetroBox(child: Text(condition.description)),
-          ),
-      ],
-    );
-  }
-}
-
-String _goalLabel(String type) => switch (type) {
-  'lose_weight' => 'Giảm cân',
-  'gain_weight' => 'Tăng cân',
-  'gain_muscle' => 'Tăng cơ',
-  'reduce_body_fat' => 'Giảm mỡ',
-  'improve_endurance' => 'Tăng sức bền',
-  'improve_strength' => 'Tăng sức mạnh',
-  'sleep_better' => 'Ngủ tốt hơn',
-  _ => 'Kiểm soát bệnh nền',
-};
-
-/// Weight over time. A sparkline rather than a full chart: the trend is the
-/// message, and the exact numbers are one tap away.
-class _WeightSparkline extends StatelessWidget {
-  const _WeightSparkline({required this.metrics});
-
-  final List<BodyMetric> metrics;
-
-  @override
-  Widget build(BuildContext context) {
-    final points = metrics.where((m) => m.weightKg != null).toList()
-      ..sort((a, b) => a.recordedAt.compareTo(b.recordedAt));
-    if (points.length < 2) return const SizedBox.shrink();
-
-    return SizedBox(
-      height: 80,
-      child: CustomPaint(
-        painter: _SparklinePainter(points.map((p) => p.weightKg!).toList()),
-        size: Size.infinite,
-      ),
-    );
-  }
-}
-
-class _SparklinePainter extends CustomPainter {
-  _SparklinePainter(this.values);
-
-  final List<double> values;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final min = values.reduce((a, b) => a < b ? a : b);
-    final max = values.reduce((a, b) => a > b ? a : b);
-    final span = (max - min).abs() < 0.01 ? 1.0 : max - min;
-
-    final path = Path();
-    for (var i = 0; i < values.length; i++) {
-      final x = size.width * (i / (values.length - 1));
-      final y = size.height - ((values[i] - min) / span) * size.height;
-      i == 0 ? path.moveTo(x, y) : path.lineTo(x, y);
-    }
-
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = RetroTokens.accent
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _SparklinePainter oldDelegate) =>
-      oldDelegate.values != values;
 }

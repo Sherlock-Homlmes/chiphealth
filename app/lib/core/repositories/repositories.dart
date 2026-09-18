@@ -68,6 +68,8 @@ class ProfileRepository {
     double? targetValue,
     String? targetUnit,
     String? deadline,
+    // Only used when the server has no baseline of its own for the type.
+    double? startValue,
   }) async {
     final data = await _api.post<dynamic>(
       '/v1/me/goals',
@@ -76,6 +78,7 @@ class ProfileRepository {
         'targetValue': targetValue,
         'targetUnit': targetUnit,
         'deadline': deadline,
+        'startValue': ?startValue,
       },
     );
     return Goal.fromJson((data as Map).cast<String, dynamic>());

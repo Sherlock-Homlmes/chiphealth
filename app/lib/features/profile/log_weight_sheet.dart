@@ -25,7 +25,6 @@ Future<double?> logWeight(
   ref
     ..invalidate(bodyMetricsRangeProvider)
     ..invalidate(allBodyMetricsProvider)
-    ..invalidate(bodyMetricsProvider)
     ..invalidate(meProvider)
     ..invalidate(tdeeInfoProvider)
     ..invalidate(dailyNutritionProvider)
