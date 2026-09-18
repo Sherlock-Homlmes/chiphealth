@@ -599,6 +599,8 @@ class WorkoutSession {
     this.caloriesBurnedKcal,
     this.source = 'in_app',
     this.polyline,
+    this.notes,
+    this.perceivedExertion,
   });
 
   final String id;
@@ -618,6 +620,10 @@ class WorkoutSession {
 
   /// Encoded route (Google polyline, precision 5); null when there is no GPS.
   final String? polyline;
+  final String? notes;
+
+  /// 1–10, Strava's "perceived exertion".
+  final int? perceivedExertion;
 
   double get distanceKm => (distanceM ?? 0) / 1000;
 
@@ -637,6 +643,39 @@ class WorkoutSession {
     caloriesBurnedKcal: _dbl(json['caloriesBurnedKcal']),
     source: json['source'] as String? ?? 'in_app',
     polyline: json['polyline'] as String?,
+    notes: json['notes'] as String?,
+    perceivedExertion: _intOrNull(json['perceivedExertion']),
+  );
+}
+
+/// One timed GPS point of a recording (`GET /v1/workouts/:id/track`).
+class TrackPoint {
+  const TrackPoint({
+    required this.t,
+    required this.lat,
+    required this.lng,
+    required this.d,
+    this.ele,
+    this.hr,
+  });
+
+  /// Seconds from the first sample.
+  final double t;
+  final double lat;
+  final double lng;
+
+  /// Cumulative metres.
+  final double d;
+  final double? ele;
+  final int? hr;
+
+  factory TrackPoint.fromJson(Map<String, dynamic> json) => TrackPoint(
+    t: _dblOr(json['t']),
+    lat: _dblOr(json['lat']),
+    lng: _dblOr(json['lng']),
+    d: _dblOr(json['d']),
+    ele: _dbl(json['ele']),
+    hr: _intOrNull(json['hr']),
   );
 }
 

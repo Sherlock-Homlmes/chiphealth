@@ -41,8 +41,11 @@ bool _isRide(String? code) =>
     code == 'spinning';
 
 /// Strava's "Morning Run": the activity plus the part of day it started in.
-String defaultWorkoutTitle(WorkoutSession s, ActivityType? type) {
-  final hour = DateTime.fromMillisecondsSinceEpoch(s.startedAt).hour;
+String defaultWorkoutTitle(WorkoutSession s, ActivityType? type) =>
+    defaultTitleFor(s.startedAt, type);
+
+String defaultTitleFor(int startedAtMs, ActivityType? type) {
+  final hour = DateTime.fromMillisecondsSinceEpoch(startedAtMs).hour;
   final part = switch (hour) {
     >= 4 && < 11 => 'buổi sáng',
     >= 11 && < 14 => 'buổi trưa',

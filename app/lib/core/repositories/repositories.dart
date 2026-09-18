@@ -410,7 +410,9 @@ class TrainingRepository {
     double? elevationGainM,
     int? avgHeartRate,
     int? maxHeartRate,
+    String? title,
     String? notes,
+    int? perceivedExertion,
   }) async {
     final data = await _api.post<dynamic>(
       '/v1/workouts',
@@ -426,11 +428,48 @@ class TrainingRepository {
         'elevationGainM': elevationGainM,
         'avgHeartRate': avgHeartRate,
         'maxHeartRate': maxHeartRate,
+        'title': title,
         'notes': notes,
+        'perceivedExertion': perceivedExertion,
       },
     );
     return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
   }
+
+  /// Edit what the athlete typed; the numbers come from the stream.
+  Future<WorkoutSession> update(
+    String id, {
+    required int activityTypeId,
+    String? title,
+    String? notes,
+    int? perceivedExertion,
+  }) async {
+    final data = await _api.patch<dynamic>(
+      '/v1/workouts/$id',
+      body: {
+        'activityTypeId': activityTypeId,
+        'title': title,
+        'notes': notes,
+        'perceivedExertion': perceivedExertion,
+      },
+    );
+    return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
+  }
+
+  /// Soft delete: the row stays for sync, the feed and totals drop it.
+  Future<void> delete(String id) =>
+      _api.patch<dynamic>('/v1/workouts/$id', body: {'isDeleted': true});
+
+  /// Timed GPS points for replay and crop.
+  Future<List<TrackPoint>> track(String id) async => _items(
+    await _api.get<dynamic>('/v1/workouts/$id/track'),
+  ).map(TrackPoint.fromJson).toList();
+
+  /// Keeps [fromS]..[toS] seconds of the recording and re-derives the rest.
+  Future<void> crop(String id, double fromS, double toS) => _api.post<dynamic>(
+    '/v1/workouts/$id/crop',
+    body: {'fromS': fromS, 'toS': toS},
+  );
 
   /// Uploads the raw sample stream; the server derives polyline, splits,
   /// time-in-zone and PRs from it, so no per-point rows are ever sent.

@@ -107,6 +107,10 @@ final workoutDetailProvider =
       (ref, id) => ref.watch(trainingRepositoryProvider).detail(id),
     );
 
+final workoutTrackProvider = FutureProvider.family<List<TrackPoint>, String>(
+  (ref, id) => ref.watch(trainingRepositoryProvider).track(id),
+);
+
 final insightsProvider = FutureProvider<List<CoachInsight>>(
   (ref) => ref.watch(coachRepositoryProvider).insights(),
 );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/models/models.dart';
 import '../../core/theme/tokens.dart';
 
 /// Route line colour — the one thing on the map that should pop.
@@ -98,14 +99,40 @@ class RouteMap extends StatelessWidget {
   final bool interactive;
 
   @override
+  Widget build(BuildContext context) => RouteCanvas(
+    fit: points,
+    polylines: routePolylines(points),
+    markers: routeEndpoints(points),
+    interactive: interactive,
+  );
+}
+
+/// The map every finished-route view draws on: framed to [fit], with whatever
+/// lines and markers the caller layers on (crop and replay split the route in
+/// two colours).
+class RouteCanvas extends StatelessWidget {
+  const RouteCanvas({
+    super.key,
+    required this.fit,
+    required this.polylines,
+    this.markers = const [],
+    this.interactive = false,
+  });
+
+  final List<LatLng> fit;
+  final List<Polyline> polylines;
+  final List<Marker> markers;
+  final bool interactive;
+
+  @override
   Widget build(BuildContext context) {
     final map = FlutterMap(
       options: MapOptions(
-        initialCenter: points.first,
+        initialCenter: fit.first,
         initialZoom: 15,
-        initialCameraFit: points.length > 1
+        initialCameraFit: fit.length > 1
             ? CameraFit.coordinates(
-                coordinates: points,
+                coordinates: fit,
                 padding: const EdgeInsets.all(28),
                 maxZoom: 17,
               )
@@ -118,8 +145,8 @@ class RouteMap extends StatelessWidget {
       ),
       children: [
         routeTileLayer(context),
-        PolylineLayer(polylines: routePolylines(points)),
-        MarkerLayer(markers: routeEndpoints(points)),
+        PolylineLayer(polylines: polylines),
+        MarkerLayer(markers: markers),
         _attribution,
       ],
     );
@@ -127,6 +154,49 @@ class RouteMap extends StatelessWidget {
     return interactive ? map : IgnorePointer(child: map);
   }
 }
+
+/// The part of the route not yet covered (replay) or cut away (crop).
+Polyline mutedPolyline(List<LatLng> points) => Polyline(
+  points: points,
+  color: RetroTokens.inkFaint.withValues(alpha: 0.6),
+  strokeWidth: 4,
+);
+
+Marker endpointDot(LatLng at, {bool start = true}) =>
+    _dot(at, start ? RetroTokens.ok : RetroTokens.ink);
+
+/// Index of the last point at or before [t] (points sorted by t).
+int trackIndexAt(List<TrackPoint> track, double t) {
+  var lo = 0;
+  var hi = track.length - 1;
+  while (lo < hi) {
+    final mid = (lo + hi + 1) >> 1;
+    if (track[mid].t <= t) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return lo;
+}
+
+/// Where the athlete was at [t] seconds, interpolated between samples, with
+/// the distance covered by then.
+({LatLng at, double d}) trackPositionAt(List<TrackPoint> track, double t) {
+  final i = trackIndexAt(track, t);
+  final a = track[i];
+  if (i >= track.length - 1 || t <= a.t) {
+    return (at: LatLng(a.lat, a.lng), d: a.d);
+  }
+  final b = track[i + 1];
+  final f = ((t - a.t) / (b.t - a.t)).clamp(0.0, 1.0);
+  return (
+    at: LatLng(a.lat + (b.lat - a.lat) * f, a.lng + (b.lng - a.lng) * f),
+    d: a.d + (b.d - a.d) * f,
+  );
+}
+
+LatLng trackLatLng(TrackPoint p) => LatLng(p.lat, p.lng);
 
 /// Map shown while recording: follows the newest fix and draws the route so
 /// far. [center] is the latest position (may come before any route point).

@@ -15,7 +15,9 @@ import 'features/profile/profile_screen.dart';
 import 'features/sleep/sleep_screen.dart';
 import 'features/training/recorder_screen.dart';
 import 'features/training/training_screen.dart';
+import 'features/training/workout_crop_screen.dart';
 import 'features/training/workout_detail_screen.dart';
+import 'features/training/workout_edit_screen.dart';
 import 'features/nutrition/voice_log_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -36,6 +38,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Recording and detail screens are full-screen: the tab bar would only
       // get in the way mid-workout.
       GoRoute(path: '/record', builder: (_, __) => const RecorderScreen()),
+      GoRoute(
+        path: '/workouts/:id/edit',
+        builder: (_, state) =>
+            WorkoutEditScreen(sessionId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/workouts/:id/crop',
+        builder: (_, state) =>
+            WorkoutCropScreen(sessionId: state.pathParameters['id']!),
+      ),
       GoRoute(
         path: '/workouts/:id',
         builder: (_, state) =>

@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-/// The floating pill is a bottomNavigationBar, and a bottomNavigationBar takes
+/// The tab bar is a bottomNavigationBar, and a bottomNavigationBar takes
 /// whatever height its child asks for. A height-unconstrained child (a Center,
 /// an Align without heightFactor) therefore eats the whole screen and leaves
-/// the body with zero pixels — the screen renders empty with the pill floating
+/// the body with zero pixels — the screen renders empty with the bar floating
 /// in the middle. This test pins the bar to its real height.
 void main() {
   testWidgets('the nav bar leaves the body its screen', (tester) async {
@@ -39,7 +39,7 @@ void main() {
     final body = tester.getSize(find.byType(ColoredBox).first);
     expect(body.height, greaterThan(700));
 
-    // And the pill sits at the bottom, not in the middle of the screen.
+    // And the bar sits at the bottom, not in the middle of the screen.
     expect(tester.getCenter(find.byType(ShellScaffold)).dy, 422);
     expect(tester.getTopLeft(find.byIcon(Icons.home)).dy, greaterThan(700));
   });

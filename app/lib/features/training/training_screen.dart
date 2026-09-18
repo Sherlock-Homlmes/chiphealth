@@ -21,7 +21,9 @@ class TrainingScreen extends ConsumerWidget {
     final units = Units(ref.watch(unitSystemProvider));
     final user = ref.watch(authControllerProvider).user;
     final types = {
-      for (final t in ref.watch(activityTypesProvider).valueOrNull ?? const <ActivityType>[])
+      for (final t
+          in ref.watch(activityTypesProvider).valueOrNull ??
+              const <ActivityType>[])
         t.id: t,
     };
 

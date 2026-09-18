@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
@@ -162,7 +162,7 @@ app.patch('/workouts/:id', async (c) => {
 
   const patch: Record<string, unknown> = { updatedAt: Date.now() };
   for (const key of [
-    'title', 'endedAt', 'durationSeconds', 'movingSeconds', 'distanceM', 'avgHeartRate',
+    'activityTypeId', 'title', 'endedAt', 'durationSeconds', 'movingSeconds', 'distanceM', 'avgHeartRate',
     'maxHeartRate', 'elevationGainM', 'caloriesBurnedKcal', 'perceivedExertion', 'notes',
     'isDeleted',
   ] as const) {
@@ -178,39 +178,31 @@ app.patch('/workouts/:id', async (c) => {
 });
 
 /**
- * The heart of the D1-friendly design: the client uploads raw samples to R2, and
- * this derives everything queryable (polyline, splits, time-in-zone, PRs) so no
- * per-point rows ever land in the database.
+ * Derives everything queryable from a raw sample stream and writes it back:
+ * the stream row (polyline, downsampled series), splits, time-in-zone, the
+ * session totals and PRs. Shared by the upload and by crop, which re-runs it
+ * on the trimmed samples.
  */
-app.put('/workouts/:id/stream', async (c) => {
-  const body = await parseBody(c, z.object({
-    assetId: z.string().uuid(),
-    sampleIntervalS: z.number().positive().nullish(),
-  }));
-  const db = c.get('db');
-  const user = c.get('user');
-  const session = await ownedWorkout(db, user.id, c.req.param('id'));
-
-  const assetRows = await db.select().from(mediaAssets)
-    .where(and(eq(mediaAssets.id, body.assetId), eq(mediaAssets.userId, user.id))).limit(1);
-  const asset = assetRows[0];
-  if (!asset) throw notFound('Stream asset');
-
-  const object = await c.env.MEDIA.get(asset.r2Key);
-  if (!object) throw new ApiError('CONFLICT', 'Stream object has not been uploaded yet');
-
-  const derivation = deriveFromSamples(normaliseSamples(parseSampleStream(await object.text())));
-  const zoneSet = await zoneSetEffectiveAt(db, user.id, session.startedAt)
-    ?? await insertZoneSet(db, user.id, session.startedAt);
+async function applyStream(
+  db: AppEnv['Variables']['db'],
+  userId: string,
+  session: typeof workoutSessions.$inferSelect,
+  assetId: string,
+  text: string,
+  sampleIntervalS?: number | null,
+) {
+  const derivation = deriveFromSamples(normaliseSamples(parseSampleStream(text)));
+  const zoneSet = await zoneSetEffectiveAt(db, userId, session.startedAt)
+    ?? await insertZoneSet(db, userId, session.startedAt);
 
   const now = Date.now();
-  await db.update(mediaAssets).set({ isOrphan: false }).where(eq(mediaAssets.id, asset.id));
+  await db.update(mediaAssets).set({ isOrphan: false }).where(eq(mediaAssets.id, assetId));
 
   await db.insert(workoutStreams).values({
     workoutSessionId: session.id,
-    r2AssetId: asset.id,
+    r2AssetId: assetId,
     sampleCount: derivation.sampleCount,
-    sampleIntervalS: body.sampleIntervalS ?? derivation.sampleIntervalS,
+    sampleIntervalS: sampleIntervalS ?? derivation.sampleIntervalS,
     encodedPolyline: derivation.encodedPolyline,
     downsampledJson: JSON.stringify(derivation.downsampled),
     startLatitude: derivation.startLatitude,
@@ -222,9 +214,9 @@ app.put('/workouts/:id/stream', async (c) => {
   }).onConflictDoUpdate({
     target: workoutStreams.workoutSessionId,
     set: {
-      r2AssetId: asset.id,
+      r2AssetId: assetId,
       sampleCount: derivation.sampleCount,
-      sampleIntervalS: body.sampleIntervalS ?? derivation.sampleIntervalS,
+      sampleIntervalS: sampleIntervalS ?? derivation.sampleIntervalS,
       encodedPolyline: derivation.encodedPolyline,
       downsampledJson: JSON.stringify(derivation.downsampled),
       startLatitude: derivation.startLatitude,
@@ -282,7 +274,35 @@ app.put('/workouts/:id/stream', async (c) => {
     updatedAt: now,
   }).where(eq(workoutSessions.id, session.id));
 
-  const records = await detectPersonalRecords(db, user.id, session.id);
+  const records = await detectPersonalRecords(db, userId, session.id);
+  return { derivation, zoneTimes, records };
+}
+
+/**
+ * The heart of the D1-friendly design: the client uploads raw samples to R2, and
+ * this derives everything queryable (polyline, splits, time-in-zone, PRs) so no
+ * per-point rows ever land in the database.
+ */
+app.put('/workouts/:id/stream', async (c) => {
+  const body = await parseBody(c, z.object({
+    assetId: z.string().uuid(),
+    sampleIntervalS: z.number().positive().nullish(),
+  }));
+  const db = c.get('db');
+  const user = c.get('user');
+  const session = await ownedWorkout(db, user.id, c.req.param('id'));
+
+  const assetRows = await db.select().from(mediaAssets)
+    .where(and(eq(mediaAssets.id, body.assetId), eq(mediaAssets.userId, user.id))).limit(1);
+  const asset = assetRows[0];
+  if (!asset) throw notFound('Stream asset');
+
+  const object = await c.env.MEDIA.get(asset.r2Key);
+  if (!object) throw new ApiError('CONFLICT', 'Stream object has not been uploaded yet');
+
+  const { derivation, zoneTimes, records } = await applyStream(
+    db, user.id, session, asset.id, await object.text(), body.sampleIntervalS,
+  );
 
   return c.json({
     sampleCount: derivation.sampleCount,
@@ -290,6 +310,112 @@ app.put('/workouts/:id/stream', async (c) => {
     zones: zoneTimes.length,
     newRecords: records,
   });
+});
+
+/** The session's raw stream, or 404 when it was recorded without one. */
+async function streamObject(c: Context<AppEnv>, sessionId: string) {
+  const rows = await c.get('db')
+    .select({ assetId: mediaAssets.id, r2Key: mediaAssets.r2Key })
+    .from(workoutStreams)
+    .innerJoin(mediaAssets, eq(mediaAssets.id, workoutStreams.r2AssetId))
+    .where(eq(workoutStreams.workoutSessionId, sessionId)).limit(1);
+  const row = rows[0];
+  if (!row) throw notFound('Workout stream');
+  const object = await c.env.MEDIA.get(row.r2Key);
+  if (!object) throw notFound('Workout stream');
+  return { ...row, text: await object.text() };
+}
+
+/** Upper bound on points sent for replay/crop; plenty for a smooth line. */
+const TRACK_MAX_POINTS = 1500;
+
+/**
+ * Timed GPS points (t = seconds from the first sample, d = cumulative metres)
+ * for replaying the route and picking crop bounds. The stored polyline has no
+ * timestamps, so this reads the raw stream.
+ */
+app.get('/workouts/:id/track', async (c) => {
+  const session = await ownedWorkout(c.get('db'), c.get('user').id, c.req.param('id'));
+  const { text } = await streamObject(c, session.id);
+  const gps = normaliseSamples(parseSampleStream(text))
+    .filter((s) => s.lat !== null && s.lng !== null);
+  const stride = Math.max(1, Math.ceil(gps.length / TRACK_MAX_POINTS));
+  const points = gps
+    .filter((_, i) => i % stride === 0 || i === gps.length - 1)
+    .map((s) => ({
+      t: Math.round(s.t * 10) / 10,
+      lat: s.lat,
+      lng: s.lng,
+      d: Math.round(s.d),
+      ele: s.ele,
+      hr: s.hr,
+    }));
+  return c.json({ items: points });
+});
+
+/**
+ * Strava-style crop: keeps the samples between `fromS` and `toS` (seconds from
+ * the first sample), rewrites the stored stream and re-derives everything from
+ * it. Personal records already set by the uncropped version are left alone.
+ */
+app.post('/workouts/:id/crop', async (c) => {
+  const body = await parseBody(c, z.object({
+    fromS: z.number().nonnegative(),
+    toS: z.number().positive(),
+  }).refine((b) => b.toS > b.fromS, 'toS must be after fromS'));
+  const db = c.get('db');
+  const user = c.get('user');
+  const session = await ownedWorkout(db, user.id, c.req.param('id'));
+  const stream = await streamObject(c, session.id);
+
+  const raw = parseSampleStream(stream.text)
+    .filter((s) => typeof s.t === 'number' && Number.isFinite(s.t))
+    .sort((a, b) => a.t - b.t);
+  if (raw.length === 0) throw new ApiError('CONFLICT', 'Stream has no samples');
+  // Same clock as normaliseSamples: epoch ms when t is huge, else seconds.
+  const asEpochMs = raw[0]!.t > 1e11;
+  const base = raw[0]!.t;
+  const secondsOf = (t: number) => (asEpochMs ? (t - base) / 1000 : t - base);
+  const kept = raw.filter((s) => {
+    const t = secondsOf(s.t);
+    return t >= body.fromS && t <= body.toS;
+  });
+  if (kept.length < 2) {
+    throw new ApiError('VALIDATION_ERROR', 'Crop keeps fewer than two samples');
+  }
+
+  const text = kept.map((s) => JSON.stringify(s)).join('\n');
+  const written = await c.env.MEDIA.put(stream.r2Key, text, {
+    httpMetadata: { contentType: 'application/x-ndjson' },
+  });
+  await db.update(mediaAssets).set({ byteSize: written?.size ?? text.length })
+    .where(eq(mediaAssets.id, stream.assetId));
+
+  const firstS = secondsOf(kept[0]!.t);
+  const lastS = secondsOf(kept[kept.length - 1]!.t);
+  const startedAt = session.startedAt + Math.round(firstS * 1000);
+  const durationSeconds = Math.max(1, Math.round(lastS - firstS));
+  // Totals are re-derived below; clear the ones applyStream only fills when blank.
+  await db.update(workoutSessions).set({
+    startedAt,
+    endedAt: startedAt + durationSeconds * 1000,
+    durationSeconds,
+    distanceM: null,
+    movingSeconds: null,
+    elevationGainM: null,
+    updatedAt: Date.now(),
+  }).where(eq(workoutSessions.id, session.id));
+
+  const fresh = await ownedWorkout(db, user.id, session.id);
+  await applyStream(db, user.id, fresh, stream.assetId, text);
+  // Derived duration counts sample span only; keep the cropped wall-clock span.
+  await db.update(workoutSessions).set({ durationSeconds })
+    .where(eq(workoutSessions.id, session.id));
+  await recomputeDailyNutritionSummary(db, c.env, user.id, session.localDate);
+
+  const rows = await db.select().from(workoutSessions)
+    .where(eq(workoutSessions.id, session.id)).limit(1);
+  return c.json(rows[0]);
 });
 
 /** Time-in-zone from the downsampled series; exact enough for a 5-bucket chart. */

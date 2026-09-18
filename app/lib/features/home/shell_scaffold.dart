@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/tokens.dart';
 import 'home_widgets.dart';
 
-/// Bottom navigation, drawn as one floating pill: home and progress on either
+/// Bottom navigation, a standard mobile tab bar: home and progress on either
 /// side of the green "+". Everything that *writes* data hangs off that button —
 /// the logging surfaces (bữa ăn, hoạt động, giấc ngủ) plus the way into the
 /// community — so the bar stays two tabs wide however many of those there are.
@@ -43,8 +43,7 @@ class ShellScaffold extends StatelessWidget {
   Future<void> _openLogSheet(BuildContext context) async {
     final path = await showModalBottomSheet<String>(
       context: context,
-      // Same phone-frame width as the bar that raised it.
-      constraints: const BoxConstraints(maxWidth: 400),
+      constraints: const BoxConstraints(maxWidth: 480),
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -67,7 +66,7 @@ class ShellScaffold extends StatelessWidget {
     }
   }
 
-  /// -1 when the location is a screen the pill does not carry (bữa ăn, giấc
+  /// -1 when the location is a screen the bar does not carry (bữa ăn, giấc
   /// ngủ, cộng đồng, coach, cá nhân): nothing is highlighted rather than the
   /// wrong thing.
   int _indexFor(String location) {
@@ -85,60 +84,51 @@ class ShellScaffold extends StatelessWidget {
 
     return Scaffold(
       body: child,
-      // The bar must size itself to its content: a Center (or any other
-      // height-unconstrained box) here stretches the bottomNavigationBar to the
-      // full screen height and leaves the body with nothing. Align with
-      // heightFactor 1 hugs the child's height while still centring it, and
-      // passes down the real screen width so the pill can never overflow a
-      // narrow phone.
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                decoration: BoxDecoration(
-                  color: RetroTokens.paperRaised,
-                  borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
-                  border: Border.all(
-                    color: RetroTokens.ink,
-                    width: RetroTokens.border,
+      // A plain edge-to-edge tab bar, the way phones draw one: flush with the
+      // bottom edge, a hairline on top instead of a floating card, and the
+      // home-indicator inset painted in the bar's own colour so nothing of the
+      // body shows through underneath it.
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: RetroTokens.paperRaised,
+          border: Border(
+            top: BorderSide(color: RetroTokens.ink, width: RetroTokens.border),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 60,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _NavTab(
+                    icon: index == 0 ? _tabs[0].$3 : _tabs[0].$2,
+                    label: _tabs[0].$4,
+                    selected: index == 0,
+                    onTap: () => context.go(_tabs[0].$1),
                   ),
-                  boxShadow: const [
-                    BoxShadow(color: RetroTokens.ink, offset: Offset(3, 3)),
-                  ],
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _NavIcon(
-                      icon: index == 0 ? _tabs[0].$3 : _tabs[0].$2,
-                      label: _tabs[0].$4,
-                      selected: index == 0,
-                      onTap: () => context.go(_tabs[0].$1),
-                    ),
-                    // The same green disc as before, now between the tabs: the
-                    // one control that writes anything keeps standing out from
-                    // the two that only navigate.
-                    AddButton(
-                      size: 46,
+                // The one control that writes anything stays a green disc so
+                // it keeps standing out from the two that only navigate.
+                Expanded(
+                  child: Center(
+                    child: AddButton(
+                      size: 42,
                       icon: Icons.menu,
                       onTap: () => _openLogSheet(context),
                     ),
-                    _NavIcon(
-                      icon: index == 1 ? _tabs[1].$3 : _tabs[1].$2,
-                      label: _tabs[1].$4,
-                      selected: index == 1,
-                      onTap: () => context.go(_tabs[1].$1),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                Expanded(
+                  child: _NavTab(
+                    icon: index == 1 ? _tabs[1].$3 : _tabs[1].$2,
+                    label: _tabs[1].$4,
+                    selected: index == 1,
+                    onTap: () => context.go(_tabs[1].$1),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -147,8 +137,8 @@ class ShellScaffold extends StatelessWidget {
   }
 }
 
-class _NavIcon extends StatelessWidget {
-  const _NavIcon({
+class _NavTab extends StatelessWidget {
+  const _NavTab({
     required this.icon,
     required this.label,
     required this.selected,
@@ -161,25 +151,40 @@ class _NavIcon extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    selected: selected,
-    button: true,
-    label: label,
-    child: GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: selected ? RetroTokens.accentSoft : Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          size: 22,
-          color: selected ? RetroTokens.accent : RetroTokens.inkSoft,
+  Widget build(BuildContext context) {
+    final color = selected ? RetroTokens.accent : RetroTokens.inkSoft;
+    return Semantics(
+      selected: selected,
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkResponse(
+        onTap: onTap,
+        containedInkWell: true,
+        highlightShape: BoxShape.rectangle,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+              decoration: BoxDecoration(
+                color: selected ? RetroTokens.accentSoft : Colors.transparent,
+                borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
+              ),
+              child: Icon(icon, size: 22, color: color),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
