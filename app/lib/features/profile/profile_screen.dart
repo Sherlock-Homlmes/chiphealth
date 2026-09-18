@@ -147,8 +147,7 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
   late DateTime? _dob = DateTime.tryParse(
     _inputs['dateOfBirth'] as String? ?? '',
   );
-  late String _activity =
-      _activityLevels.containsKey(_inputs['activityLevel'])
+  late String _activity = _activityLevels.containsKey(_inputs['activityLevel'])
       ? _inputs['activityLevel'] as String
       : 'moderate';
   late final _height = TextEditingController(
@@ -354,9 +353,7 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
                 DropdownButtonFormField<String>(
                   initialValue: _activity,
                   isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Mức vận động',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Mức vận động'),
                   items: [
                     for (final e in _activityLevels.entries)
                       DropdownMenuItem(
@@ -403,7 +400,9 @@ class _PersonalInfoFormState extends ConsumerState<_PersonalInfoForm> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  effective == null ? '— kcal' : '${_kcal.format(effective)} kcal',
+                  effective == null
+                      ? '— kcal'
+                      : '${_kcal.format(effective)} kcal',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
