@@ -34,7 +34,8 @@ class ShellScaffold extends StatelessWidget {
   /// What the green "+" opens. Sleep has no other entry point, so it lives here.
   static const _logOptions = [
     ('/nutrition', Icons.restaurant, 'Bữa ăn'),
-    ('/record', Icons.directions_run, 'Hoạt động'),
+    // The feed, not the recorder: its own "+" starts a new activity.
+    ('/training', Icons.directions_run, 'Hoạt động'),
     ('/sleep', Icons.bedtime, 'Giấc ngủ'),
     ('/moments', Icons.groups, 'Cộng đồng'),
   ];
