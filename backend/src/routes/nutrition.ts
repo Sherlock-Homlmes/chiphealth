@@ -420,6 +420,26 @@ async function enqueueAnalysis(
   }
 }
 
+/**
+ * Dictation for the typed "nhập tay" box: the clip comes back as text and
+ * nothing else happens. The user reads, fixes and appends to it before sending
+ * the whole transcript through /meals/:id/voice, so no meal is created here.
+ */
+app.post('/meals/transcribe', async (c) => {
+  const contentType = c.req.header('content-type') ?? '';
+  if (!contentType.startsWith('audio/')) {
+    throw new ApiError('VALIDATION_ERROR', 'Expected an audio/* body');
+  }
+  const buf = await c.req.arrayBuffer();
+  const maxBytes = Number(c.env.MAX_MEAL_AUDIO_BYTES) || 4 * 1024 * 1024;
+  if (buf.byteLength === 0) throw new ApiError('VALIDATION_ERROR', 'Empty audio body');
+  if (buf.byteLength > maxBytes) {
+    throw new ApiError('UPLOAD_TOO_LARGE', `Max ${maxBytes} bytes for a voice clip`);
+  }
+  const transcript = await transcribe(c.env, [...new Uint8Array(buf)]);
+  return c.json({ transcript });
+});
+
 /** Whisper on the raw clip. Same model the sleep-talk transcripts use. */
 async function transcribe(env: Bindings, audio: number[]): Promise<string> {
   const result = (await env.AI.run(modelConfig(env).asr as never, { audio } as never)) as

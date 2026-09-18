@@ -248,6 +248,19 @@ class NutritionRepository {
           body: {'transcript': transcript},
         );
 
+  /// Dictation for the typed box: the clip comes back as text, no meal made.
+  Future<String> transcribeClip(Uint8List audio, {String? mimeType}) async {
+    final data =
+        (await _api.postBytes<dynamic>(
+                  '/v1/meals/transcribe',
+                  audio,
+                  contentType: mimeType ?? 'audio/mp4',
+                )
+                as Map)
+            .cast<String, dynamic>();
+    return data['transcript'] as String? ?? '';
+  }
+
   /// A meal the user threw away, or one whose analysis failed and was discarded.
   Future<void> deleteMeal(String mealId) =>
       _api.delete<dynamic>('/v1/meals/$mealId');
@@ -413,13 +426,19 @@ class TrainingRepository {
     String? title,
     String? notes,
     int? perceivedExertion,
+    double? caloriesBurnedKcal,
+    String source = 'in_app',
   }) async {
     final data = await _api.post<dynamic>(
       '/v1/workouts',
       body: {
         'id': id,
         'activityTypeId': activityTypeId,
-        'source': 'in_app',
+        'source': source,
+        if (caloriesBurnedKcal != null) ...{
+          'caloriesBurnedKcal': caloriesBurnedKcal,
+          'caloriesAreEstimated': false,
+        },
         'startedAt': startedAt,
         'endedAt': endedAt,
         'durationSeconds': durationSeconds,

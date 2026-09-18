@@ -5,7 +5,7 @@ import '../../core/theme/tokens.dart';
 /// What the one "+" can start. Water is not a meal, but it is the other thing
 /// a user reaches for on this screen, so it shares the button rather than
 /// forcing a trip back to the home screen.
-enum LogMealMethod { photo, barcode, voice, manual, water }
+enum LogMealMethod { photo, barcode, manual, water }
 
 /// Bottom sheet the "+" opens. Kept separate from the screen so the same menu
 /// can be raised from anywhere that wants to start an entry.
@@ -20,7 +20,7 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
       // edge-to-edge on a tablet.
       constraints: const BoxConstraints(maxWidth: 400),
       builder: (ctx) => SafeArea(
-        // Five options plus the handle are taller than the sheet's half-screen
+        // Four options plus the handle are taller than the sheet's half-screen
         // budget on a short phone, so the list scrolls rather than clipping the
         // last option away.
         child: SingleChildScrollView(
@@ -53,17 +53,10 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
               ),
               _option(
                 ctx,
-                LogMealMethod.voice,
-                Icons.mic,
-                'Nói',
-                'Kể bữa ăn, máy tự tách thành phần',
-              ),
-              _option(
-                ctx,
                 LogMealMethod.manual,
                 Icons.edit_note,
                 'Nhập tay',
-                'Tìm món có sẵn hoặc tự điền số',
+                'Gõ hoặc nói bữa ăn, máy tự tách thành phần',
               ),
               const Divider(height: 1, color: RetroTokens.paperSunk),
               _option(

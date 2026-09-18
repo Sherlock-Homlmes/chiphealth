@@ -96,8 +96,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const BarcodeScanScreen()),
         );
-      case LogMealMethod.voice:
-        await context.push<void>('/meals/voice');
       case LogMealMethod.manual:
         await context.push<void>('/meals/manual');
       case LogMealMethod.water:

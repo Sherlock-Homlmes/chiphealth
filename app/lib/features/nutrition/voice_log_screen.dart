@@ -9,17 +9,13 @@ import '../../core/utils/clip_reader.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 
-/// Log a meal by describing it out loud.
+/// Log a meal by writing it down ("nhập tay").
 ///
-/// The clip goes straight to the API and is never stored: the server transcribes
-/// it, pulls the components out of the sentence and throws the audio away. The
-/// transcript box under the button is the same endpoint without the microphone,
-/// which is what "nhập tay" uses and what makes this testable without a mic.
+/// The box takes free text; the mic button dictates into it. A clip is only
+/// transcribed and appended to whatever is already typed — the user reviews
+/// the text before "Phân tích" sends it, and the audio is never stored.
 class VoiceLogScreen extends ConsumerStatefulWidget {
-  const VoiceLogScreen({super.key, this.typedOnly = false});
-
-  /// "Nhập tay" reuses this screen with the recorder hidden.
-  final bool typedOnly;
+  const VoiceLogScreen({super.key});
 
   @override
   ConsumerState<VoiceLogScreen> createState() => _VoiceLogScreenState();
@@ -29,6 +25,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
   final _recorder = AudioRecorder();
   final _typed = TextEditingController();
   bool _recording = false;
+  bool _transcribing = false;
   bool _busy = false;
   String? _error;
 
@@ -51,7 +48,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
     if (_recording) {
       final path = await _recorder.stop();
       setState(() => _recording = false);
-      if (path != null) await _submit(audioPath: path);
+      if (path != null) await _dictate(path);
       return;
     }
 
@@ -69,9 +66,38 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
     });
   }
 
-  Future<void> _submit({String? audioPath}) async {
+  /// Appends the clip's text to the box — never replaces what is there.
+  Future<void> _dictate(String audioPath) async {
+    setState(() {
+      _transcribing = true;
+      _error = null;
+    });
+    try {
+      final text =
+          (await ref
+                  .read(nutritionRepositoryProvider)
+                  .transcribeClip(
+                    await readClip(audioPath),
+                    mimeType: 'audio/mp4',
+                  ))
+              .trim();
+      if (text.isEmpty || !mounted) return;
+      final current = _typed.text.trimRight();
+      final joined = current.isEmpty ? text : '$current $text';
+      _typed.value = TextEditingValue(
+        text: joined,
+        selection: TextSelection.collapsed(offset: joined.length),
+      );
+    } catch (err) {
+      if (mounted) setState(() => _error = '$err');
+    } finally {
+      if (mounted) setState(() => _transcribing = false);
+    }
+  }
+
+  Future<void> _submit() async {
     final transcript = _typed.text.trim();
-    if (audioPath == null && transcript.isEmpty) return;
+    if (transcript.isEmpty) return;
 
     setState(() {
       _busy = true;
@@ -80,15 +106,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
     try {
       final repo = ref.read(nutritionRepositoryProvider);
       final meal = await repo.createMeal(mealType: _guessMealType());
-      if (audioPath != null) {
-        await repo.logSpoken(
-          meal.id,
-          audio: await readClip(audioPath),
-          mimeType: 'audio/mp4',
-        );
-      } else {
-        await repo.logSpoken(meal.id, transcript: transcript);
-      }
+      await repo.logSpoken(meal.id, transcript: transcript);
       ref.invalidate(dailyNutritionProvider);
       if (mounted) context.pushReplacement('/meals/${meal.id}');
     } catch (err) {
@@ -98,66 +116,37 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
     }
   }
 
+  Widget _micButton() {
+    if (_transcribing) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          height: 22,
+          width: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    return IconButton.filled(
+      onPressed: _busy ? null : _toggleRecording,
+      tooltip: _recording ? 'Dừng' : 'Nói',
+      style: IconButton.styleFrom(
+        backgroundColor: _recording ? RetroTokens.accent : RetroTokens.action,
+        foregroundColor: Colors.white,
+      ),
+      icon: Icon(_recording ? Icons.stop : Icons.mic),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: RetroTokens.paper,
-      appBar: AppBar(title: Text(widget.typedOnly ? 'Nhập tay' : 'Nói')),
+      appBar: AppBar(title: const Text('Nhập tay')),
       body: PhoneFrame(
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            if (!widget.typedOnly && !kIsWeb) ...[
-              Center(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
-                    GestureDetector(
-                      onTap: _busy ? null : _toggleRecording,
-                      child: Container(
-                        height: 120,
-                        width: 120,
-                        decoration: BoxDecoration(
-                          color: _recording
-                              ? RetroTokens.accent
-                              : RetroTokens.action,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _recording ? Icons.stop : Icons.mic,
-                          size: 46,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      _recording
-                          ? 'Đang nghe… nhấn để dừng'
-                          : 'Nhấn rồi kể bữa ăn của bạn',
-                      style: const TextStyle(color: RetroTokens.inkSoft),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Ví dụ: "trưa nay ăn hai bát cơm với thịt kho"',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: RetroTokens.inkFaint,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 12),
-              const Text(
-                'Hoặc gõ ra',
-                style: TextStyle(color: RetroTokens.inkSoft),
-              ),
-              const SizedBox(height: 8),
-            ],
             TextField(
               controller: _typed,
               maxLines: 4,
@@ -166,9 +155,32 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
                 hintText: 'Trưa nay ăn hai bát cơm với thịt kho và canh rau',
               ),
             ),
+            // The recorder is mobile-only (see the app README).
+            if (!kIsWeb) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _micButton(),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _recording
+                          ? 'Đang nghe… nhấn để dừng'
+                          : _transcribing
+                          ? 'Đang chuyển giọng nói thành chữ…'
+                          : 'Nhấn mic để nói, chữ sẽ được thêm vào ô trên',
+                      style: const TextStyle(
+                        color: RetroTokens.inkSoft,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             FilledButton(
-              onPressed: _busy ? null : () => _submit(),
+              onPressed: _busy || _recording || _transcribing ? null : _submit,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
               ),
