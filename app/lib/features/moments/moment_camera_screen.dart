@@ -267,7 +267,20 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
                         aspectRatio: 1,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(44),
-                          child: reviewing ? _review() : _viewfinder(),
+                          child: reviewing
+                              ? _review()
+                              : Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    _viewfinder(),
+                                    if (_error == null)
+                                      Positioned(
+                                        top: 14,
+                                        right: 14,
+                                        child: _flashButton(),
+                                      ),
+                                  ],
+                                ),
                         ),
                       ),
                     ),
@@ -425,18 +438,25 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
     ],
   );
 
+  /// Over the viewfinder's top-right corner, translucent so the frame still
+  /// reads through it.
+  Widget _flashButton() => _RoundButton(
+    icon: _flashOn ? Icons.flash_on : Icons.flash_off,
+    tooltip: _flashOn ? 'Tắt flash' : 'Bật flash',
+    highlight: _flashOn,
+    color: const Color(0x66000000),
+    size: 40,
+    onTap: (_controller?.value.isInitialized ?? false) ? _toggleFlash : null,
+  );
+
   Widget _cameraControls() {
     final ready = _controller?.value.isInitialized ?? false;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        _RoundButton(
-          icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-          tooltip: _flashOn ? 'Tắt flash' : 'Bật flash',
-          highlight: _flashOn,
-          size: 52,
-          onTap: ready ? _toggleFlash : null,
-        ),
+        // Balances the flip button so the shutter stays centred; the flash
+        // sits on the viewfinder.
+        const SizedBox(width: 52),
         _Shutter(busy: _shooting, onTap: ready ? _takePicture : null),
         _RoundButton(
           icon: Icons.cameraswitch_outlined,
@@ -486,6 +506,7 @@ class _RoundButton extends StatelessWidget {
     this.size = 44,
     this.highlight = false,
     this.busy = false,
+    this.color = _Cam.button,
   });
 
   final IconData icon;
@@ -494,12 +515,13 @@ class _RoundButton extends StatelessWidget {
   final double size;
   final bool highlight;
   final bool busy;
+  final Color color;
 
   @override
   Widget build(BuildContext context) => Tooltip(
     message: tooltip,
     child: Material(
-      color: highlight ? const Color(0xFFFFD54A) : _Cam.button,
+      color: highlight ? const Color(0xFFFFD54A) : color,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
