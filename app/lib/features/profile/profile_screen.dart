@@ -9,6 +9,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import '../../widgets/unsaved_changes_bar.dart';
 
 final meProvider = FutureProvider<Map<String, dynamic>>(
   (ref) => ref.watch(profileRepositoryProvider).me(),
@@ -638,7 +639,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           left: 12,
           right: 12,
           bottom: 12,
-          child: _SaveBar(
+          child: UnsavedChangesBar(
             visible: _dirty || _saving,
             saving: _saving,
             onReset: _reset,
@@ -648,81 +649,6 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
       ],
     );
   }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Save bar                                                                    */
-/* -------------------------------------------------------------------------- */
-
-/// Discord-style: hidden until something changes, then slides up from the
-/// bottom with the one question that matters.
-class _SaveBar extends StatelessWidget {
-  const _SaveBar({
-    required this.visible,
-    required this.saving,
-    required this.onReset,
-    required this.onSave,
-  });
-
-  final bool visible;
-  final bool saving;
-  final VoidCallback onReset;
-  final VoidCallback onSave;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    ignoring: !visible,
-    child: AnimatedSlide(
-      offset: visible ? Offset.zero : const Offset(0, 2),
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      child: AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: const Duration(milliseconds: 180),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-          decoration: BoxDecoration(
-            color: RetroTokens.ink,
-            borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x40000000),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Có thông tin chưa cập nhật',
-                  style: TextStyle(
-                    color: RetroTokens.paper,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              TextButton(
-                onPressed: saving ? null : onReset,
-                style: TextButton.styleFrom(foregroundColor: RetroTokens.paper),
-                child: const Text('Đặt lại'),
-              ),
-              const SizedBox(width: 4),
-              FilledButton(
-                onPressed: saving ? null : onSave,
-                style: FilledButton.styleFrom(
-                  backgroundColor: RetroTokens.ok,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(saving ? 'Đang lưu…' : 'Lưu'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }
 
 /* -------------------------------------------------------------------------- */
