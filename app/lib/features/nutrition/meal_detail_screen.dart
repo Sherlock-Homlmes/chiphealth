@@ -11,7 +11,6 @@ import '../../core/providers.dart';
 import '../../core/repositories/repositories.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
-import '../../widgets/unsaved_changes_bar.dart';
 import 'meal_health_score.dart';
 import 'meal_photo.dart';
 import 'moment_compose_dialog.dart';
@@ -413,27 +412,24 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   }
 
   /// Saving is where staged removals actually happen. Everything else on this
-  /// screen writes as it is edited; only "−" waits for this. The user stays on
-  /// the meal afterwards, like the settings page: the bar just goes away.
+  /// screen writes as it is edited; only "−" waits for this.
   Future<void> _save() async {
     if (_saving) return;
     setState(() => _saving = true);
     try {
-      for (final id in _removed.toList()) {
+      for (final id in _removed) {
         await _repo.deleteItem(widget.mealId, id);
-        _removed.remove(id);
       }
       _kept = true;
       ref.invalidate(dailyNutritionProvider);
-      await _load();
+      if (mounted) Navigator.of(context).pop();
     } catch (err) {
       if (mounted) {
+        setState(() => _saving = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('$err')));
       }
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -465,24 +461,23 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                 )
               : meal == null
               ? const Center(child: CircularProgressIndicator())
-              : Stack(
-                  children: [
-                    _body(meal),
-                    Positioned(
-                      left: 12,
-                      right: 12,
-                      bottom: 12,
-                      child: UnsavedChangesBar(
-                        visible: _removed.isNotEmpty || _saving,
-                        saving: _saving,
-                        onReset: () => setState(_removed.clear),
-                        onSave: _save,
-                      ),
-                    ),
-                  ],
-                ),
+              : _body(meal),
         ),
       ),
+      bottomNavigationBar:
+          meal == null || meal.isAnalysing || meal.isFailedDraft
+          ? null
+          : Align(
+              // Not PhoneFrame's Center: a height-unconstrained box here
+              // stretches the bar to the full screen height (same lesson as
+              // the shell's nav pill). heightFactor 1 hugs the content.
+              alignment: Alignment.bottomCenter,
+              heightFactor: 1,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 400),
+                child: _BottomActions(onSave: _save, saving: _saving),
+              ),
+            ),
     );
   }
 
@@ -559,8 +554,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     final score = MealHealthScore.of(view);
 
     return ListView(
-      // Room for the save bar, so it never hides the last card.
-      padding: const EdgeInsets.only(bottom: 96),
+      padding: EdgeInsets.zero,
       children: [
         _Header(onDiscard: _discard, onShare: _share),
         Padding(
@@ -1095,6 +1089,54 @@ class _FiberCard extends ConsumerWidget {
               overlayShape: SliderComponentShape.noOverlay,
             ),
             child: Slider(value: share, onChanged: null),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomActions extends StatelessWidget {
+  const _BottomActions({required this.onSave, this.saving = false});
+
+  final VoidCallback onSave;
+
+  /// Saving writes the staged removals, so it is not instant.
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: saving ? null : onSave,
+              style: FilledButton.styleFrom(
+                backgroundColor: RetroTokens.accent,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(26),
+                ),
+              ),
+              child: saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Lưu',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+            ),
           ),
         ],
       ),
