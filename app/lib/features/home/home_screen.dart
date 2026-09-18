@@ -774,6 +774,13 @@ class _MealsCard extends StatelessWidget {
                 DailyTargets.fallbackKcal + (daily?.burnedKcal ?? 0))
             .round();
     final meals = daily?.meals ?? const <MealLog>[];
+    // Green while comfortably under budget, amber within ±100 kcal of it,
+    // red once more than 100 over.
+    final tone = consumed < budget - 100
+        ? RetroTokens.ok
+        : consumed <= budget + 100
+        ? RetroTokens.warn
+        : RetroTokens.accent;
 
     return HomeCard(
       child: Column(
@@ -782,6 +789,7 @@ class _MealsCard extends StatelessWidget {
           _CardHead(
             label: 'Các bữa ăn',
             value: '$consumed/$budget',
+            valueColor: tone,
             unit: 'kcal',
             onAdd: () => context.go('/nutrition'),
           ),
@@ -892,10 +900,12 @@ class _CardHead extends StatelessWidget {
     required this.value,
     required this.unit,
     required this.onAdd,
+    this.valueColor,
   });
 
   final String label;
   final String value;
+  final Color? valueColor;
   final String unit;
   final VoidCallback onAdd;
 
@@ -924,7 +934,9 @@ class _CardHead extends StatelessWidget {
                       value,
                       maxLines: 1,
                       softWrap: false,
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleLarge?.copyWith(color: valueColor),
                     ),
                   ),
                 ),
