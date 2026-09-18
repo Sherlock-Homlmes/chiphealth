@@ -14,7 +14,7 @@ import {
   insertZoneSet, zoneSetEffectiveAt, currentZoneSet,
 } from '../services/workoutStream';
 import { detectPersonalRecords } from '../services/personalRecords';
-import { recomputeDailyNutritionSummary } from '../services/nutritionMath';
+import { loadTdeeInputs, recomputeDailyNutritionSummary } from '../services/nutritionMath';
 import { insertMany } from '../db/client';
 import type { AppEnv } from '../env';
 
@@ -40,16 +40,37 @@ const workoutSchema = z.object({
   notes: z.string().max(1000).nullish(),
 });
 
+/** Used when nobody has logged a weight yet, so a workout still counts. */
+const FALLBACK_WEIGHT_KG = 65;
+
 /** MET x kg x hours — the fallback when no wearable reported energy. */
 async function estimateCalories(
-  db: AppEnv['Variables']['db'], activityTypeId: number, seconds: number, weightKg: number | null,
+  db: AppEnv['Variables']['db'], userId: string, activityTypeId: number, seconds: number | null,
 ): Promise<number | null> {
-  if (!weightKg || seconds <= 0) return null;
-  const rows = await db.select({ met: activityTypes.defaultMet })
-    .from(activityTypes).where(eq(activityTypes.id, activityTypeId)).limit(1);
-  const met = rows[0]?.met;
+  if (!seconds || seconds <= 0) return null;
+  const [metRows, inputs] = await Promise.all([
+    db.select({ met: activityTypes.defaultMet })
+      .from(activityTypes).where(eq(activityTypes.id, activityTypeId)).limit(1),
+    loadTdeeInputs(db, userId),
+  ]);
+  const met = metRows[0]?.met;
   if (!met) return null;
+  const weightKg = inputs.weightKg ?? FALLBACK_WEIGHT_KG;
   return Math.round(met * weightKg * (seconds / 3600));
+}
+
+/**
+ * Re-derives an estimated session's calories after its sport or duration
+ * changed. A figure the user typed (or a wearable reported) is left alone.
+ */
+async function refreshEstimatedCalories(db: AppEnv['Variables']['db'], userId: string, id: string) {
+  const rows = await db.select().from(workoutSessions).where(eq(workoutSessions.id, id)).limit(1);
+  const s = rows[0];
+  if (!s || (!s.caloriesAreEstimated && s.caloriesBurnedKcal != null)) return;
+  const kcal = await estimateCalories(db, userId, s.activityTypeId, s.movingSeconds || s.durationSeconds);
+  await db.update(workoutSessions)
+    .set({ caloriesBurnedKcal: kcal, caloriesAreEstimated: true })
+    .where(eq(workoutSessions.id, id));
 }
 
 app.post('/workouts', async (c) => {
@@ -78,7 +99,8 @@ app.post('/workouts', async (c) => {
     avgHeartRate: body.avgHeartRate ?? null,
     maxHeartRate: body.maxHeartRate ?? null,
     elevationGainM: body.elevationGainM ?? null,
-    caloriesBurnedKcal: body.caloriesBurnedKcal ?? null,
+    caloriesBurnedKcal: body.caloriesBurnedKcal
+      ?? await estimateCalories(db, user.id, body.activityTypeId, body.movingSeconds || duration),
     caloriesAreEstimated: body.caloriesBurnedKcal == null ? true : body.caloriesAreEstimated,
     perceivedExertion: body.perceivedExertion ?? null,
     notes: body.notes ?? null,
@@ -169,7 +191,11 @@ app.patch('/workouts/:id', async (c) => {
     if (body[key as keyof typeof body] !== undefined) patch[key] = body[key as keyof typeof body];
   }
 
+  // A typed figure sticks; clearing it (null) hands it back to the estimate.
+  if (body.caloriesBurnedKcal !== undefined) patch.caloriesAreEstimated = body.caloriesBurnedKcal == null;
+
   await db.update(workoutSessions).set(patch).where(eq(workoutSessions.id, session.id));
+  await refreshEstimatedCalories(db, user.id, session.id);
   await recomputeDailyNutritionSummary(db, c.env, user.id, session.localDate);
 
   const rows = await db.select().from(workoutSessions)
@@ -274,6 +300,8 @@ async function applyStream(
     updatedAt: now,
   }).where(eq(workoutSessions.id, session.id));
 
+  await refreshEstimatedCalories(db, userId, session.id);
+
   const records = await detectPersonalRecords(db, userId, session.id);
   return { derivation, zoneTimes, records };
 }
@@ -303,6 +331,7 @@ app.put('/workouts/:id/stream', async (c) => {
   const { derivation, zoneTimes, records } = await applyStream(
     db, user.id, session, asset.id, await object.text(), body.sampleIntervalS,
   );
+  await recomputeDailyNutritionSummary(db, c.env, user.id, session.localDate);
 
   return c.json({
     sampleCount: derivation.sampleCount,

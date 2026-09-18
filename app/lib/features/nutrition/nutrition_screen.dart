@@ -15,6 +15,7 @@ import '../home/home_widgets.dart';
 import '../home/water_controller.dart';
 import 'barcode_scan_screen.dart';
 import 'log_meal_sheet.dart';
+import 'meal_hint_sheet.dart';
 import 'meal_photo.dart';
 import 'meal_timeline.dart';
 
@@ -46,20 +47,21 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       maxWidth: 1600,
     );
     if (shot == null) return;
+    final bytes = await shot.readAsBytes();
+    if (!mounted) return;
+    final hint = await showMealHintSheet(context, bytes);
+    if (hint == null || !mounted) return;
 
     setState(() => _busy = true);
     try {
       final assetId = await ref
           .read(mediaRepositoryProvider)
-          .upload(
-            await shot.readAsBytes(),
-            kind: 'meal_photo',
-            mimeType: 'image/jpeg',
-          );
+          .upload(bytes, kind: 'meal_photo', mimeType: 'image/jpeg');
       final repo = ref.read(nutritionRepositoryProvider);
       final meal = await repo.createMeal(
         mealType: _guessMealType(),
         photoAssetId: assetId,
+        note: hint.isEmpty ? null : hint,
       );
       // A failure to *start* the analysis is not a failure to log the meal: the
       // row exists either way, so the detail screen is opened regardless and

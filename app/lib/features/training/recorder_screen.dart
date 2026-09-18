@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' hide ActivityType;
+import 'package:geolocator/geolocator.dart' as geo show ActivityType;
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -41,7 +42,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   bool _activitySeeded = false;
   String? _sessionId;
   int? _startedAt;
-  int _movingSeconds = 0;
+
+  /// Moving time summed from the gaps between GPS fixes while moving, so it
+  /// stays right when the app sleeps between them.
+  int _movingMs = 0;
   double _distanceM = 0;
   double _elevationGainM = 0;
   Position? _last;
@@ -53,8 +57,30 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   /// The clock stops and nothing is recorded until "Tiếp tục".
   bool _stopped = false;
 
+  /// The clock runs on wall time, not on ticks: with the screen off the OS
+  /// throttles or freezes timers, and a tick counter would lose that time.
+  /// [_activeMs] holds finished segments, [_segmentStart] the running one.
+  int _activeMs = 0;
+  int? _segmentStart;
+
   /// Seconds on the clock: wall time minus manual pauses.
-  int _activeSeconds = 0;
+  int get _activeSeconds {
+    final running = _segmentStart == null
+        ? 0
+        : DateTime.now().millisecondsSinceEpoch - _segmentStart!;
+    return (_activeMs + running) ~/ 1000;
+  }
+
+  /// Without GPS there is no way to tell standing from moving.
+  int get _movingSeconds =>
+      (_activity?.supportsGps ?? false) ? _movingMs ~/ 1000 : _activeSeconds;
+
+  void _closeSegment() {
+    final start = _segmentStart;
+    if (start == null) return;
+    _activeMs += DateTime.now().millisecondsSinceEpoch - start;
+    _segmentStart = null;
+  }
 
   /// After "Hoàn thành": the save form, Strava's review step.
   bool _reviewing = false;
@@ -125,11 +151,12 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       _running = true;
       _paused = false;
       _stopped = false;
-      _activeSeconds = 0;
+      _activeMs = 0;
+      _segmentStart = _startedAt;
       _samples.clear();
       _distanceM = 0;
       _elevationGainM = 0;
-      _movingSeconds = 0;
+      _movingMs = 0;
       _last = null;
       _route.clear();
     });
@@ -138,23 +165,54 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   }
 
   void _startSensors(ActivityType activity) {
+    // Only repaints the clock; the time itself comes from the wall clock.
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || !_running) return;
-      setState(() {
-        if (_stopped) return;
-        _activeSeconds++;
-        if (!_paused) _movingSeconds++;
-      });
+      if (mounted && _running && !_stopped) setState(() {});
     });
 
     if (activity.supportsGps) {
       _gps = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          distanceFilter: 0,
-        ),
+        locationSettings: _backgroundLocationSettings(),
       ).listen(_onPosition);
     }
+  }
+
+  /// Keeps GPS flowing with the screen off or the app in the background:
+  /// a foreground service (with its ongoing notification) on Android, and
+  /// background location updates on iOS (UIBackgroundModes: location).
+  /// A browser tab cannot do either; the wall clock still keeps time there.
+  static LocationSettings _backgroundLocationSettings() {
+    if (kIsWeb) {
+      return const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+      );
+    }
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => AndroidSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 1),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'Đang ghi buổi tập',
+          notificationText: 'ChipHealth vẫn ghi lộ trình khi tắt màn hình.',
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      ),
+      TargetPlatform.iOS || TargetPlatform.macOS => AppleSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+        activityType: geo.ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        allowBackgroundLocationUpdates: true,
+        showBackgroundLocationIndicator: true,
+      ),
+      _ => const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+      ),
+    };
   }
 
   void _onPosition(Position position) {
@@ -177,6 +235,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     final previous = _last;
 
     if (previous != null && movingNow) {
+      final gap = position.timestamp.difference(previous.timestamp);
+      if (!gap.isNegative) _movingMs += gap.inMilliseconds;
       _distanceM += Geolocator.distanceBetween(
         previous.latitude,
         previous.longitude,
@@ -203,7 +263,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     });
   }
 
-  void _pause() => setState(() => _stopped = true);
+  void _pause() => setState(() {
+    _closeSegment();
+    _stopped = true;
+  });
 
   /// "Ghi tiếp" from the review: back to the paused recorder, sensors on.
   void _resumeAfterReview() {
@@ -215,7 +278,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     _startSensors(activity);
   }
 
-  void _resume() => setState(() => _stopped = false);
+  void _resume() => setState(() {
+    _segmentStart = DateTime.now().millisecondsSinceEpoch;
+    _stopped = false;
+  });
 
   /// "Hoàn thành": stop sensors and show the review form. Nothing is sent
   /// until "Lưu hoạt động", so the athlete can still discard.
@@ -225,6 +291,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     _ticker?.cancel();
     if (!mounted) return;
     setState(() {
+      _closeSegment();
       _running = false;
       _reviewing = true;
       _endedAt = DateTime.now().millisecondsSinceEpoch;

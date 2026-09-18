@@ -14,6 +14,34 @@ import 'route_map.dart';
 class TrainingScreen extends ConsumerWidget {
   const TrainingScreen({super.key});
 
+  /// Record live (GPS / stopwatch) or type in a session that already happened.
+  Future<void> _chooseEntry(BuildContext context) async {
+    final path = await showModalBottomSheet<String>(
+      context: context,
+      constraints: const BoxConstraints(maxWidth: 480),
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_circle_outline),
+              title: const Text('Ghi trực tiếp'),
+              subtitle: const Text('Bấm giờ, theo dõi GPS'),
+              onTap: () => Navigator.of(sheet).pop('/record'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_note),
+              title: const Text('Nhập tay'),
+              subtitle: const Text('Buổi đã tập — tính kcal vào ngày'),
+              onTap: () => Navigator.of(sheet).pop('/workouts/manual'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (path != null && context.mounted) await context.push<void>(path);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feed = ref.watch(workoutFeedProvider);
@@ -31,7 +59,7 @@ class TrainingScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Hoạt động')),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Ghi hoạt động mới',
-        onPressed: () => context.push('/record'),
+        onPressed: () => _chooseEntry(context),
         backgroundColor: RetroTokens.accent,
         foregroundColor: Colors.white,
         child: const Icon(Icons.add),

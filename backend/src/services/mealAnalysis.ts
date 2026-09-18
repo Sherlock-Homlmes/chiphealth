@@ -323,6 +323,15 @@ export async function analyzeMealPhoto(
     if (!object) throw new ApiError('NOT_FOUND', 'Meal photo missing from storage');
     const bytes = new Uint8Array(await object.arrayBuffer());
 
+    // What the user typed next to the photo ("phở bò tái, ít bánh", "2 người
+    // ăn chung") — the model cannot see sauces, fillings or who shared the plate.
+    const noteRows = await db.select({ note: mealLogs.note }).from(mealLogs)
+      .where(eq(mealLogs.id, opts.mealLogId)).limit(1);
+    const note = noteRows[0]?.note?.trim();
+    const prompt = note
+      ? `${VISION_PROMPT}\nNgười dùng mô tả thêm (ưu tiên thông tin này khi đặt tên món, thành phần và khẩu phần): "${note}"`
+      : VISION_PROMPT;
+
     // Vision models read the photo as a data URI in a chat message. Reasoning
     // models spend most of their budget before writing an answer, so the token
     // ceiling is far higher than the array itself needs.
@@ -330,7 +339,7 @@ export async function analyzeMealPhoto(
       messages: [{
         role: 'user',
         content: [
-          { type: 'text', text: VISION_PROMPT },
+          { type: 'text', text: prompt },
           { type: 'image_url', image_url: { url: toDataUri(bytes) } },
         ],
       }],

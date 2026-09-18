@@ -755,8 +755,8 @@ class _WaterLevel extends CustomClipper<Rect> {
   bool shouldReclip(_WaterLevel oldClipper) => oldClipper.fill != fill;
 }
 
-/// Meals: calories left for the day, a "+" that opens the food screen, and the
-/// day's meals once there are any.
+/// Meals: calories eaten against the day's budget, a "+" that opens the food
+/// screen, and the day's meals once there are any.
 class _MealsCard extends StatelessWidget {
   const _MealsCard({required this.nutrition});
 
@@ -765,10 +765,14 @@ class _MealsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final daily = nutrition.valueOrNull;
-    final targets = daily == null
-        ? DailyTargets.fromKcal(DailyTargets.fallbackKcal)
-        : DailyTargets.fromDaily(daily);
-    final remaining = (targets.kcal - (daily?.consumedKcal ?? 0)).round();
+    // Eaten / budget, where the budget is the daily need plus whatever the
+    // day's workouts burned. The API's TDEE already includes the workouts;
+    // the fallback figure does not, so add them there.
+    final consumed = (daily?.consumedKcal ?? 0).round();
+    final budget =
+        (daily?.tdeeKcal ??
+                DailyTargets.fallbackKcal + (daily?.burnedKcal ?? 0))
+            .round();
     final meals = daily?.meals ?? const <MealLog>[];
 
     return HomeCard(
@@ -777,7 +781,7 @@ class _MealsCard extends StatelessWidget {
         children: [
           _CardHead(
             label: 'Các bữa ăn',
-            value: '$remaining',
+            value: '$consumed/$budget',
             unit: 'kcal',
             onAdd: () => context.go('/nutrition'),
           ),

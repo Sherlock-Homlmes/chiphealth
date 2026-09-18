@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -77,6 +79,12 @@ class ShellScaffold extends StatelessWidget {
     return -1;
   }
 
+  static double _bottomInset(BuildContext context) {
+    final inset = MediaQuery.viewPaddingOf(context).bottom;
+    if (inset == 0) return 2;
+    return math.max(inset - 20, 6);
+  }
+
   @override
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
@@ -95,10 +103,13 @@ class ShellScaffold extends StatelessWidget {
             top: BorderSide(color: RetroTokens.ink, width: RetroTokens.border),
           ),
         ),
-        child: SafeArea(
-          top: false,
+        // Not a full SafeArea: the system inset (34px on iPhones, more on
+        // Android) doubled the bar's height. Keep only enough of it to clear
+        // the home indicator / gesture pill.
+        child: Padding(
+          padding: EdgeInsets.only(bottom: _bottomInset(context)),
           child: SizedBox(
-            height: 60,
+            height: 54,
             child: Row(
               children: [
                 Expanded(
