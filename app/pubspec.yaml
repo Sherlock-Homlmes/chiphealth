@@ -34,9 +34,13 @@ dependencies:
   dio: ^5.7.0
 
   # --- Persistence (plain files + secure storage; no codegen) -----------
-  # path_provider dropped: the outbox uses shared_preferences and the workout
-  # stream is encoded in memory, so nothing needs a filesystem path any more.
+  # path_provider is back for exactly one file: the meal-dictation clip. The
+  # record plugin ignores the path on web (blob URL) but on phones it writes
+  # exactly this file — an empty path there creates nothing and reading the
+  # clip back dies with PathNotFoundException. Everything else still stays
+  # off the filesystem. The Android pin below keeps the build NDK/jni-free.
   path: ^1.9.0
+  path_provider: ^2.1.5
   flutter_secure_storage: ^10.3.2  # 9.x forced win32 ^5, which clashed with
                              # share_plus >=13 (win32 ^6); 11.0.0 needs the
                              # android-37 preview SDK. 10.3.2 solves both.
@@ -62,6 +66,12 @@ dependencies:
                              # repo's Docker build image does not ship; 0.11 ships the
                              # prebuilt .so and needs no native toolchain.
   just_audio: ^0.9.42         # per-event clip playback
+  flutter_foreground_task: ^11.0.3  # Android mic foreground service for the
+                             # night recorder. v11 needs Kotlin 2.2.20+ /
+                             # Gradle 8.11.1+ (bumped in android/), and is
+                             # started with the `microphone` service type —
+                             # dataSync, the plugin default, gets killed by
+                             # Android 15 after 6h against an 8h night.
   permission_handler: ^11.3.1
   flutter_local_notifications: ^17.2.4
   timezone: ^0.9.4

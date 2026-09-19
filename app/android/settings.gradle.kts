@@ -19,7 +19,9 @@ plugins {
     // 8.9.1: androidx.activity 1.13 (pulled in transitively by the newer
     // plugins) refuses to build under older AGP.
     id("com.android.application") version "8.9.1" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+    // 2.2.20: flutter_foreground_task 11.x is compiled against Kotlin 2.x
+    // metadata; the 1.9 compiler cannot consume it.
+    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
 
 include(":app")

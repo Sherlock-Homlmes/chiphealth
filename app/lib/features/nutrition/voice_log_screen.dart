@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 import '../../core/providers.dart';
+import '../../core/storage/uuid.dart';
 import '../../core/utils/clip_reader.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
@@ -60,16 +65,33 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
         return;
       }
       if (!_held || !mounted) return;
+      // `record` ignores the path on web and hands back a blob: URL, but on a
+      // phone it writes exactly this file — an empty path there never creates
+      // one and reading the clip back dies with PathNotFoundException. The
+      // cache dir is inside the app sandbox and swept by the OS; the uuid
+      // name keeps a re-record from clobbering an in-flight upload.
+      final clipPath = kIsWeb
+          ? ''
+          : p.join(
+              (await getTemporaryDirectory()).path,
+              'dictation_${uuidV7()}.m4a',
+            );
       // Browsers record Opus in WebM; AAC is what the phones encode natively.
       await _recorder.start(
         RecordConfig(encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc),
-        path: '',
+        path: clipPath,
       );
       _startedAt = DateTime.now();
       setState(() {
         _recording = true;
         _error = null;
       });
+    } catch (err) {
+      // A recorder that cannot start (audio session taken by a call, storage
+      // full…) must surface in the UI, not as an unhandled async error from
+      // the pointer listener.
+      if (mounted) setState(() => _error = '$err');
+      return;
     } finally {
       _starting = false;
     }
@@ -85,6 +107,7 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
     // A tap is not speech; sending it would only earn a "không nghe rõ".
     if (heldFor < const Duration(milliseconds: 500)) {
       setState(() => _error = 'Nhấn và giữ nút mic trong lúc nói.');
+      if (path != null) unawaited(deleteClip(path));
       return;
     }
     if (path != null) await _dictate(path);
@@ -115,6 +138,9 @@ class _VoiceLogScreenState extends ConsumerState<VoiceLogScreen> {
     } catch (err) {
       if (mounted) setState(() => _error = '$err');
     } finally {
+      // The bytes are in memory by now (or the read failed); either way the
+      // temp file has no further purpose.
+      unawaited(deleteClip(audioPath));
       if (mounted) setState(() => _transcribing = false);
     }
   }

@@ -7,10 +7,18 @@ export async function parseBody<T extends z.ZodTypeAny>(
   c: Context, schema: T,
 ): Promise<z.infer<T>> {
   let raw: unknown;
-  try {
-    raw = await c.req.json();
-  } catch {
-    throw new ApiError('VALIDATION_ERROR', 'Body must be valid JSON');
+  // An absent body is an empty object: schemas here are all-optional in just
+  // those routes a client has nothing to say to (e.g. starting a coach
+  // conversation). Whitespace-only counts as absent too.
+  const text = (await c.req.text()).trim();
+  if (!text) {
+    raw = {};
+  } else {
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      throw new ApiError('VALIDATION_ERROR', 'Body must be valid JSON');
+    }
   }
   const result = schema.safeParse(raw);
   if (!result.success) {

@@ -11,3 +11,7 @@ Future<Uint8List> readClip(String path) async {
   );
   return Uint8List.fromList(res.data ?? const []);
 }
+
+/// Blob URLs are owned by the browser and garbage-collected once the last
+/// reference is dropped — there is no file to delete.
+Future<void> deleteClip(String path) async {}

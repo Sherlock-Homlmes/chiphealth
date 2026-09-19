@@ -79,9 +79,12 @@
             android:name=".service.WorkoutRecordingService"
             android:foregroundServiceType="location"
             android:exported="false" />
-        <!-- Sleep mic recorder: runs all night with the screen off. -->
+        <!-- Sleep mic recorder: runs all night with the screen off. Backed by
+             flutter_foreground_task's service, started from Dart with the
+             `microphone` type (see night_recorder_screen.dart). The type here
+             must include microphone, or API 34+ refuses to start it. -->
         <service
-            android:name=".service.SleepRecordingService"
+            android:name="com.pravera.flutter_foreground_task.service.ForegroundService"
             android:foregroundServiceType="microphone"
             android:exported="false" />
 

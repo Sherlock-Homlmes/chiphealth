@@ -34,7 +34,13 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
+    // KGP 2.2 removed the old kotlinOptions DSL path forward; compilerOptions
+    // is the replacement (flutter_foreground_task 11's migration doc).
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
+    }
 
     defaultConfig {
         applicationId = "vn.chiphealth.app"

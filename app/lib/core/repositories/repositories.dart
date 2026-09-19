@@ -163,19 +163,23 @@ class MediaRepository {
   Future<Uint8List> bytes(String assetId) async {
     final data = Uint8List.fromList(await _api.getBytes('/v1/media/$assetId'));
 
-    // Anything that is not an image here is an error page that answered 200 —
-    // a redirect to a bucket that does not hold the object, say. Failing now
-    // keeps it inside the future, where the tile can offer a retry; handing it
-    // to Image.memory throws during painting instead.
-    if (!_isImage(data)) {
+    // Anything that is neither an image nor an audio clip here is an error page
+    // that answered 200 — a redirect to a bucket that does not hold the object,
+    // say. Failing now keeps it inside the future, where the tile can offer a
+    // retry; handing it to Image.memory throws during painting instead. Audio
+    // matters as much as photos: snore / sleep-talk clips are WAV assets fetched
+    // by the same provider the play button reads.
+    if (!_isMedia(data)) {
       throw ApiException(
         statusCode: 200,
         code: 'BAD_MEDIA',
-        message: 'Ảnh không đọc được.',
+        message: 'Tệp media không đọc được.',
       );
     }
     return data;
   }
+
+  static bool _isMedia(Uint8List b) => _isImage(b) || _isAudio(b);
 
   static bool _isImage(Uint8List b) {
     bool at(int start, List<int> signature) {
@@ -198,6 +202,24 @@ class MediaRepository {
         at(0, gif) ||
         (at(0, riff) && at(8, webp)) ||
         at(4, ftyp);
+  }
+
+  /// WAV only: it is the one audio format the app itself uploads
+  /// (night-analyzer clips, `audio/wav`). The server's audio whitelist is
+  /// wider, but nothing in this client produces those formats, and a loose
+  /// check here would wave through JSON/HTML error bodies as "audio".
+  static bool _isAudio(Uint8List b) {
+    if (b.length < 12) return false;
+    const riff = [0x52, 0x49, 0x46, 0x46]; // 'RIFF'
+    const wave = [0x57, 0x41, 0x56, 0x45]; // 'WAVE', 8 bytes in
+    bool at(int start, List<int> signature) {
+      for (var i = 0; i < signature.length; i++) {
+        if (b[start + i] != signature[i]) return false;
+      }
+      return true;
+    }
+
+    return at(0, riff) && at(8, wave);
   }
 }
 
@@ -651,8 +673,14 @@ class CoachRepository {
   final ApiClient _api;
 
   Future<String> startConversation() async {
-    final data = (await _api.post<dynamic>('/v1/coach/conversations') as Map)
-        .cast<String, dynamic>();
+    final data = (await _api.post<dynamic>(
+          '/v1/coach/conversations',
+          // Every field is optional server-side, but the body itself must be
+          // JSON: an empty POST would be rejected with "Body must be valid JSON".
+          body: <String, dynamic>{},
+        )
+                as Map)
+            .cast<String, dynamic>();
     return data['id'] as String;
   }
 

@@ -67,13 +67,16 @@ double? _num(Object? v) => v is num ? v.toDouble() : null;
 /* Vocabulary                                                                  */
 /* -------------------------------------------------------------------------- */
 
-/// Mirrors ACTIVITY_MULTIPLIERS in the backend's nutritionMath.ts.
+/// Mirrors ACTIVITY_MULTIPLIERS in the backend's nutritionMath.ts. The level
+/// describes everyday lifestyle movement only (work, commuting, chores) —
+/// logged workout calories are added on top of TDEE separately, so counting
+/// sessions here would double them.
 const _activityLevels = <String, (String, String, double)>{
-  'sedentary': ('Ít vận động', 'Ngồi nhiều, hầu như không tập', 1.2),
-  'light': ('Vận động nhẹ', 'Tập 1–3 buổi/tuần', 1.375),
-  'moderate': ('Vận động vừa', 'Tập 3–5 buổi/tuần', 1.55),
-  'active': ('Năng động', 'Tập 6–7 buổi/tuần', 1.725),
-  'very_active': ('Rất năng động', 'Lao động nặng hoặc tập 2 lần/ngày', 1.9),
+  'sedentary': ('Ít vận động', 'Ngồi làm việc cả ngày, ít đi lại', 1.2),
+  'light': ('Vận động nhẹ', 'Việc ngồi nhiều, thỉnh thoảng đi lại', 1.375),
+  'moderate': ('Vận động vừa', 'Đi lại, di chuyển khá nhiều trong ngày', 1.55),
+  'active': ('Năng động', 'Đi đứng suốt ngày, lao động chân tay', 1.725),
+  'very_active': ('Rất năng động', 'Lao động nặng, khuân vác cả ngày', 1.9),
 };
 
 /// Goal type → (label, unit the server stores it in). Mirrors GOAL_UNITS in
@@ -478,7 +481,11 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                       initialValue: _activity,
                       isExpanded: true,
                       decoration: const InputDecoration(
-                        labelText: 'Mức vận động',
+                        labelText: 'Mức vận động hằng ngày',
+                        helperText: 'Tính theo sinh hoạt thường ngày (công việc, '
+                            'đi lại), không tính buổi tập — calo tập được cộng '
+                            'riêng vào ngày tập.',
+                        helperMaxLines: 3,
                       ),
                       items: [
                         for (final e in _activityLevels.entries)
@@ -1038,8 +1045,12 @@ void _explain(
             ),
             const SizedBox(height: 10),
             const Text(
-              '2. Nhân với hệ số vận động',
+              '2. Nhân với hệ số vận động hằng ngày',
               style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const Text(
+              'Chọn theo mức độ di chuyển thường nhật (công việc, đi lại), '
+              'không tính các buổi tập:',
             ),
             Text(
               [
@@ -1050,7 +1061,7 @@ void _explain(
             const SizedBox(height: 10),
             const Text(
               'Calo của các buổi tập bạn ghi lại được cộng thêm vào đúng '
-              'ngày đó.',
+              'ngày đó, nên không cần tính buổi tập vào mức vận động.',
             ),
             if (yours != null) ...[
               const SizedBox(height: 10),

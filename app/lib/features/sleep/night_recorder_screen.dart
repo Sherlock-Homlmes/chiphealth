@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
@@ -25,10 +27,12 @@ import 'audio/sleep_classifier_factory.dart';
 /// a timer, then one light-sleep block, because duration is what the
 /// sleep-debt window needs.
 ///
-/// NOTE: recording survives the screen turning off, but an overnight session
-/// with the app backgrounded additionally needs a foreground service on
-/// Android and the audio background mode on iOS — platform config, not code
-/// here, and deliberately out of scope for this change.
+/// Surviving the locked screen / a backgrounded app is platform plumbing:
+/// on iOS the audio background mode (Info.plist) plus an interruption-resume
+/// session keep the mic alive; on Android a microphone foreground service
+/// (flutter_foreground_task) holds the process and the CPU awake. Neither
+/// survives the user swiping the app away — accepted, the morning upload is
+/// the contract.
 class NightRecorderScreen extends ConsumerStatefulWidget {
   const NightRecorderScreen({super.key});
 
@@ -53,7 +57,61 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
     _streamSub?.cancel();
     _recorder?.stop();
     _recorder?.dispose();
+    _stopKeepAlive();
     super.dispose();
+  }
+
+  /// Android only: the microphone foreground service that keeps the process
+  /// (and so the Dart-side analyzer) alive once the screen is off or another
+  /// app is in front. `microphone` — not the plugin-default `dataSync`, which
+  /// Android 15 kills after 6 hours against a typical 8-hour night.
+  ///
+  /// A service that fails to start costs only background survival, not the
+  /// recording itself, so it degrades silently instead of blocking the night.
+  /// `stopWithTask: true` — without it, swiping the app away would leave the
+  /// "Đang ghi giấc ngủ" notification running with nothing behind it.
+  Future<void> _startKeepAlive() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+
+    FlutterForegroundTask.init(
+      androidNotificationOptions: AndroidNotificationOptions(
+        channelId: 'sleep_recording',
+        channelName: 'Ghi giấc ngủ đêm',
+        channelDescription:
+            'Thông báo giữ cho việc ghi âm tiếng ngáy / nói mớ chạy suốt đêm.',
+        onlyAlertOnce: true,
+      ),
+      // iOS never reaches startService — the audio session plus the plist's
+      // background mode are what keep that platform recording.
+      iosNotificationOptions: const IOSNotificationOptions(
+        showNotification: false,
+      ),
+      foregroundTaskOptions: ForegroundTaskOptions(
+        eventAction: ForegroundTaskEventAction.nothing(),
+        allowWakeLock: true,
+        stopWithTask: true,
+      ),
+    );
+
+    // Android 13+: without POST_NOTIFICATIONS the service still runs, its
+    // notification is just invisible — ask once, ignore the answer.
+    await Permission.notification.request();
+
+    await FlutterForegroundTask.startService(
+      serviceId: 246,
+      serviceTypes: [ForegroundServiceTypes.microphone],
+      notificationTitle: 'Đang ghi giấc ngủ',
+      notificationText: 'ChipHealth vẫn đang lắng nghe — cứ tắt màn hình và ngủ.',
+    );
+  }
+
+  Future<void> _stopKeepAlive() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await FlutterForegroundTask.stopService();
+    } catch (_) {
+      // Nothing was started, or the process it lived in is already gone.
+    }
   }
 
   Future<void> _start() async {
@@ -82,14 +140,30 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
           classifier: classifier,
         );
         final recorder = AudioRecorder();
+        await _startKeepAlive();
         final stream = await recorder.startStream(
           const RecordConfig(
             encoder: AudioEncoder.pcm16bits,
             sampleRate: 16000, // YAMNet's expected input rate
             numChannels: 1,
+            // Resume after interruptions (a call, Siri) instead of pausing for
+            // the rest of the night — the record plugin's own background
+            // recipe, which requires mixWithOthers for the resume to stick.
+            audioInterruption: AudioInterruptionMode.pauseResume,
+            iosConfig: IosRecordConfig(
+              categoryOptions: [IosAudioCategoryOption.mixWithOthers],
+            ),
           ),
         );
-        _streamSub = stream.listen(analyzer.pushBytes);
+        // One bad window must not cancel the mic subscription: an exception
+        // in an onData handler takes the whole stream down with it.
+        _streamSub = stream.listen((chunk) {
+          try {
+            analyzer.pushBytes(chunk);
+          } catch (_) {
+            // The night goes on without this window.
+          }
+        });
         _recorder = recorder;
         _analyzer = analyzer;
         streamStarted = started;
@@ -101,6 +175,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
         }
         await _streamSub?.cancel();
         await _recorder?.dispose();
+        await _stopKeepAlive();
         _streamSub = null;
         _recorder = null;
         _analyzer = null;
@@ -131,6 +206,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       await _streamSub?.cancel();
       await _recorder?.stop();
       await _recorder?.dispose();
+      await _stopKeepAlive();
       _streamSub = null;
       _recorder = null;
 

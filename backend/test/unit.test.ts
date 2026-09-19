@@ -4,6 +4,7 @@
  *   npm test
  */
 import { localDate, addDays, dateRange, ageFromDob } from '../src/lib/time';
+import { z } from 'zod';
 import { bmrMifflinStJeor, tdee, activityMultiplier } from '../src/services/nutritionMath';
 import { encodePolyline, decodePolyline, computeZoneRanges, haversineMeters } from '../src/services/workoutStream';
 import { fastestForDistance, isBetter } from '../src/services/personalRecords';
@@ -13,6 +14,8 @@ import {
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
 import { parseCsv } from '../src/routes/admin/foods';
+import { parseBody } from '../src/lib/http';
+import { ApiError } from '../src/lib/errors';
 import { insertMany, D1_MAX_BOUND_PARAMS } from '../src/db/client';
 import { localDateTimeToEpoch } from '../src/lib/time';
 import { PROMPTS, renderPrompt, promptSections } from '../src/prompts';
@@ -279,6 +282,30 @@ console.log('\n# assistant loop helpers');
   check('nested bullets keep their indent', cleanReply('* a\n    * b'), '- a\n    - b');
   check('spilled tool-call syntax is removed',
     cleanReply('<|tool_call>call:list_meals{from:<|"|>x<|"|>}<tool_call|>Xong'), 'Xong');
+}
+
+console.log('\n# request body parsing');
+{
+  // parseBody only reads c.req.text(); a stub is enough, no Worker runtime.
+  const stub = (body: string) => ({ req: { text: async () => body } }) as never;
+  const schema = z.object({ title: z.string().max(200).nullish() });
+
+  // The coach app creates a conversation with an empty POST body; every field
+  // is optional, so that must read as {} rather than "Body must be valid JSON".
+  check('empty body is {}', await parseBody(stub(''), schema), {});
+  check('whitespace-only body is {}', await parseBody(stub('  \n '), schema), {});
+  check('explicit {} parses', await parseBody(stub('{}'), schema), {});
+  check('fields still parse', await parseBody(stub('{"title":"Chào"}'), schema), { title: 'Chào' });
+
+  let err: unknown = null;
+  try { await parseBody(stub('{not json'), schema); } catch (e) { err = e; }
+  check('garbage still throws VALIDATION_ERROR',
+    err instanceof ApiError && err.code === 'VALIDATION_ERROR' && err.message === 'Body must be valid JSON', true);
+
+  err = null;
+  try { await parseBody(stub('{"title":123}'), schema); } catch (e) { err = e; }
+  check('schema violations still throw VALIDATION_ERROR',
+    err instanceof ApiError && err.code === 'VALIDATION_ERROR' && err.message === 'Invalid request body', true);
 }
 
 console.log('\n# local wall-clock to instant');
