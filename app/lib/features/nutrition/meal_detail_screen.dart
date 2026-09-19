@@ -639,8 +639,6 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
           onTap: _editItem,
           onAdd: _addItem,
         ),
-        const SizedBox(height: 14),
-        _FiberCard(meal: view),
         const SizedBox(height: 8),
       ],
     );
@@ -719,6 +717,9 @@ class _NutritionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final grams = meal.items.fold<double>(0, (s, i) => s + i.quantityG);
+    final sugar = meal.items.fold<double>(0, (s, i) => s + (i.sugarG ?? 0));
+    final sodium = meal.items.fold<double>(0, (s, i) => s + (i.sodiumMg ?? 0));
+    final fiber = meal.items.fold<double>(0, (s, i) => s + (i.fiberG ?? 0));
 
     return _Panel(
       child: Column(
@@ -782,6 +783,38 @@ class _NutritionCard extends StatelessWidget {
                   icon: Icons.water_drop,
                   label: 'Chất béo',
                   grams: meal.totalFatG,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Divider(color: RetroTokens.panelLine, height: 1),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _MacroColumn(
+                  color: RetroTokens.sugar,
+                  icon: Icons.grain,
+                  label: 'Đường',
+                  grams: sugar,
+                ),
+              ),
+              Expanded(
+                child: _MacroColumn(
+                  color: RetroTokens.sodium,
+                  icon: Icons.blur_on,
+                  label: 'Natri',
+                  grams: sodium,
+                  unit: 'mg',
+                ),
+              ),
+              Expanded(
+                child: _MacroColumn(
+                  color: RetroTokens.fiber,
+                  icon: Icons.grass,
+                  label: 'Chất xơ',
+                  grams: fiber,
                 ),
               ),
             ],
@@ -1042,66 +1075,6 @@ class _Dot extends StatelessWidget {
   }
 }
 
-/// Fibre for this meal against the 25 g/day reference intake.
-class _FiberCard extends ConsumerWidget {
-  const _FiberCard({required this.meal});
-
-  final MealLog meal;
-
-  static const _dailyTargetG = 25.0;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final fiber = meal.items.fold<double>(0, (s, i) => s + (i.fiberG ?? 0));
-    final share = (fiber / _dailyTargetG).clamp(0.0, 1.0);
-
-    return _Panel(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Chất xơ',
-            style: TextStyle(
-              color: RetroTokens.onPanelSoft,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Mức chất xơ',
-                  style: TextStyle(
-                    color: RetroTokens.onPanel,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              Text(
-                '${fiber.round()} / ${_dailyTargetG.round()} g',
-                style: const TextStyle(color: RetroTokens.onPanelSoft),
-              ),
-            ],
-          ),
-          SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor: RetroTokens.fat,
-              inactiveTrackColor: RetroTokens.panelFill,
-              thumbColor: RetroTokens.onPanel,
-              trackHeight: 5,
-              overlayShape: SliderComponentShape.noOverlay,
-            ),
-            child: Slider(value: share, onChanged: null),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /* ------------------------------------------------------------ small pieces */
 
 class _Panel extends StatelessWidget {
@@ -1235,12 +1208,14 @@ class _MacroColumn extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.grams,
+    this.unit = 'g',
   });
 
   final Color color;
   final IconData icon;
   final String label;
   final double grams;
+  final String unit;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -1273,9 +1248,12 @@ class _MacroColumn extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 2),
-          const Text(
-            'g',
-            style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 12),
+          Text(
+            unit,
+            style: const TextStyle(
+              color: RetroTokens.onPanelSoft,
+              fontSize: 12,
+            ),
           ),
         ],
       ),

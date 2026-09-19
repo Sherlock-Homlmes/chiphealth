@@ -673,12 +673,13 @@ class CoachRepository {
   final ApiClient _api;
 
   Future<String> startConversation() async {
-    final data = (await _api.post<dynamic>(
-          '/v1/coach/conversations',
-          // Every field is optional server-side, but the body itself must be
-          // JSON: an empty POST would be rejected with "Body must be valid JSON".
-          body: <String, dynamic>{},
-        )
+    final data =
+        (await _api.post<dynamic>(
+                  '/v1/coach/conversations',
+                  // Every field is optional server-side, but the body itself must be
+                  // JSON: an empty POST would be rejected with "Body must be valid JSON".
+                  body: <String, dynamic>{},
+                )
                 as Map)
             .cast<String, dynamic>();
     return data['id'] as String;

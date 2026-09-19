@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -101,7 +100,8 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       serviceId: 246,
       serviceTypes: [ForegroundServiceTypes.microphone],
       notificationTitle: 'Đang ghi giấc ngủ',
-      notificationText: 'ChipHealth vẫn đang lắng nghe — cứ tắt màn hình và ngủ.',
+      notificationText:
+          'ChipHealth vẫn đang lắng nghe — cứ tắt màn hình và ngủ.',
     );
   }
 

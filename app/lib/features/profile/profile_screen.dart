@@ -482,7 +482,8 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Mức vận động hằng ngày',
-                        helperText: 'Tính theo sinh hoạt thường ngày (công việc, '
+                        helperText:
+                            'Tính theo sinh hoạt thường ngày (công việc, '
                             'đi lại), không tính buổi tập — calo tập được cộng '
                             'riêng vào ngày tập.',
                         helperMaxLines: 3,

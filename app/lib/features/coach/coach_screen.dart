@@ -1,14 +1,22 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
 
 import '../../core/format/date_range.dart';
 import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/repositories/repositories.dart';
+import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/utils/clip_reader.dart';
 import '../../widgets/retro_widgets.dart';
 import '../home/water_controller.dart';
 import '../nutrition/meal_timeline.dart';
@@ -32,6 +40,18 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
   final _messages = <CoachMessage>[];
+
+  /// Dictation, same stack as the manual meal screen: the recorder writes a
+  /// throw-away clip, the server transcribes it, the text lands in the box.
+  final _recorder = AudioRecorder();
+  bool _recording = false;
+  bool _transcribing = false;
+
+  /// Covers the async gap while the recorder starts or stops, where
+  /// [_recording] does not yet reflect reality and a double tap would start a
+  /// second recording or stop one already stopped.
+  bool _micBusy = false;
+  DateTime _recordedFrom = DateTime.now();
 
   /// Null for a fresh thread: it is only created when the first message goes out,
   /// so opening the screen and leaving does not litter the history.
@@ -63,6 +83,8 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   void dispose() {
     _input.dispose();
     _scroll.dispose();
+    // Also stops a recording still in flight when the user walks away.
+    _recorder.dispose();
     super.dispose();
   }
 
@@ -124,7 +146,8 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
 
   Future<void> _send([String? preset]) async {
     final text = (preset ?? _input.text).trim();
-    if (text.isEmpty || _sending) return;
+    // Locked while the mic works, so half-dictated text cannot go out.
+    if (text.isEmpty || _sending || _recording || _transcribing) return;
 
     setState(() {
       _messages.add(CoachMessage(role: 'user', content: text));
@@ -157,6 +180,97 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     }
   }
 
+  /// Tap-to-talk: one tap starts recording, the next stops it and dictates.
+  Future<void> _toggleMic() async {
+    if (_micBusy || _transcribing || _sending) return;
+    _micBusy = true;
+    try {
+      if (_recording) {
+        final path = await _recorder.stop();
+        final spokenFor = DateTime.now().difference(_recordedFrom);
+        if (!mounted) {
+          if (path != null) unawaited(deleteClip(path));
+          return;
+        }
+        setState(() => _recording = false);
+        // A tap-length burst is not speech; transcribing it would only earn
+        // a "không nghe rõ".
+        if (spokenFor < const Duration(milliseconds: 500)) {
+          _snack('Đoạn ghi quá ngắn — bấm mic để nói rồi bấm lại khi hết.');
+          if (path != null) unawaited(deleteClip(path));
+          return;
+        }
+        if (path != null) await _dictate(path);
+        return;
+      }
+      if (!await _recorder.hasPermission()) {
+        if (mounted) _snack('Chưa được cấp quyền micro.');
+        return;
+      }
+      if (!mounted) return;
+      // `record` ignores the path on web and hands back a blob: URL, but on a
+      // phone it writes exactly this file. The cache dir is inside the app
+      // sandbox and swept by the OS; the uuid name keeps a re-record from
+      // clobbering an in-flight transcription.
+      final clipPath = kIsWeb
+          ? ''
+          : p.join(
+              (await getTemporaryDirectory()).path,
+              'dictation_${uuidV7()}.m4a',
+            );
+      // Browsers record Opus in WebM; AAC is what the phones encode natively.
+      await _recorder.start(
+        RecordConfig(encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc),
+        path: clipPath,
+      );
+      _recordedFrom = DateTime.now();
+      setState(() => _recording = true);
+    } catch (err) {
+      // A recorder that cannot start or stop (audio session taken by a call,
+      // storage full…) must surface in the UI, not as an unhandled async
+      // error from the tap handler.
+      if (mounted) {
+        setState(() => _recording = false);
+        _snack('$err');
+      }
+    } finally {
+      _micBusy = false;
+    }
+  }
+
+  /// Appends the clip's text to the input box — never replaces what is there,
+  /// and never sends: the user reviews the transcript before hitting send.
+  Future<void> _dictate(String audioPath) async {
+    setState(() => _transcribing = true);
+    try {
+      final text =
+          (await ref
+                  .read(nutritionRepositoryProvider)
+                  .transcribeClip(
+                    await readClip(audioPath),
+                    mimeType: kIsWeb ? 'audio/webm' : 'audio/mp4',
+                  ))
+              .trim();
+      if (text.isEmpty || !mounted) return;
+      final current = _input.text.trimRight();
+      var joined = current.isEmpty ? text : '$current $text';
+      // The field's own cap: without this the next keystroke would re-apply
+      // the formatter and abruptly eat whatever landed past the limit.
+      if (joined.length > 4000) joined = joined.substring(0, 4000);
+      _input.value = TextEditingValue(
+        text: joined,
+        selection: TextSelection.collapsed(offset: joined.length),
+      );
+    } catch (err) {
+      if (mounted) _snack('$err');
+    } finally {
+      // The bytes are in memory by now (or the read failed); either way the
+      // temp file has no further purpose.
+      unawaited(deleteClip(audioPath));
+      if (mounted) setState(() => _transcribing = false);
+    }
+  }
+
   Future<void> _resolve(CoachAction action, {required bool confirm}) async {
     setState(() => _busyActions.add(action.id));
     try {
@@ -167,9 +281,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
 
       final waterMl = outcome.waterMl;
       if (waterMl != null) {
-        await ref
-            .read(waterProvider(outcome.waterDate!).notifier)
-            .add(waterMl);
+        await ref.read(waterProvider(outcome.waterDate!).notifier).add(waterMl);
       }
       if (confirm) _refreshData();
 
@@ -179,8 +291,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           if (!m.actions.any((a) => a.id == action.id)) continue;
           _messages[i] = m.copyWith(
             actions: [
-              for (final a in m.actions)
-                a.id == action.id ? outcome.action : a,
+              for (final a in m.actions) a.id == action.id ? outcome.action : a,
             ],
           );
         }
@@ -240,9 +351,8 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     }
   }
 
-  void _snack(String text) => ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text(text)));
+  void _snack(String text) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
   void _scrollToEnd({bool jump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -358,21 +468,57 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
               maxLines: 4,
               // The API's own cap; past it the send would only bounce.
               inputFormatters: [LengthLimitingTextInputFormatter(4000)],
-              decoration: const InputDecoration(
-                hintText: 'Hỏi về ăn uống, tập luyện, giấc ngủ…',
+              decoration: InputDecoration(
+                hintText: _recording
+                    ? 'Đang nghe… bấm mic để dừng'
+                    : _transcribing
+                    ? 'Đang chuyển giọng nói thành chữ…'
+                    : 'Hỏi về ăn uống, tập luyện, giấc ngủ…',
               ),
               onSubmitted: (_) => _send(),
             ),
           ),
           const SizedBox(width: 8),
+          _micButton(),
+          const SizedBox(width: 8),
           FilledButton(
-            onPressed: _sending ? null : _send,
+            onPressed: _sending || _recording || _transcribing ? null : _send,
             child: const Icon(Icons.send, size: 18),
           ),
         ],
       ),
     ),
   );
+
+  /// Mic dictation in the composer. Styled after the meal screen's mic — the
+  /// one other place in the app that records — so both mics read as the same
+  /// affordance: green circle at rest, accent and grown while listening,
+  /// spinner while the clip is being transcribed.
+  Widget _micButton() {
+    if (_transcribing) {
+      return const SizedBox(
+        height: 22,
+        width: 22,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    return Tooltip(
+      message: _recording ? 'Dừng nghe' : 'Nói',
+      child: GestureDetector(
+        onTap: _sending ? null : _toggleMic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          height: _recording ? 48 : 40,
+          width: _recording ? 48 : 40,
+          decoration: BoxDecoration(
+            color: _recording ? RetroTokens.accent : RetroTokens.action,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.mic, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
 }
 
 class _Bubble extends StatelessWidget {
@@ -396,7 +542,9 @@ class _Bubble extends StatelessWidget {
       // a tablet.
       constraints: const BoxConstraints(maxWidth: 312),
       decoration: BoxDecoration(
-        color: message.isUser ? RetroTokens.accentSoft : RetroTokens.paperRaised,
+        color: message.isUser
+            ? RetroTokens.accentSoft
+            : RetroTokens.paperRaised,
         border: Border.all(color: RetroTokens.ink, width: RetroTokens.border),
         borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
         boxShadow: const [RetroTokens.shadowSm],
@@ -436,7 +584,11 @@ class _ActionCard extends StatelessWidget {
   (String, Color, Color) get _status => switch (action.status) {
     'confirmed' => ('Đã thực hiện', RetroTokens.ok, RetroTokens.okSoft),
     'cancelled' => ('Đã huỷ', RetroTokens.inkFaint, RetroTokens.paperSunk),
-    'failed' => ('Không thực hiện được', RetroTokens.accent, RetroTokens.accentSoft),
+    'failed' => (
+      'Không thực hiện được',
+      RetroTokens.accent,
+      RetroTokens.accentSoft,
+    ),
     'expired' => ('Đã hết hạn', RetroTokens.inkFaint, RetroTokens.paperSunk),
     _ => ('Chờ xác nhận', RetroTokens.warn, RetroTokens.warnSoft),
   };
@@ -512,8 +664,7 @@ class _ActionCard extends StatelessWidget {
                     ),
                   ],
                 ),
-            ] else if (action.status == 'confirmed' &&
-                action.linkType != null)
+            ] else if (action.status == 'confirmed' && action.linkType != null)
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(onPressed: onOpen, child: const Text('Mở')),
@@ -639,13 +790,17 @@ class _HistorySheetState extends ConsumerState<_HistorySheet> {
                 child: FutureBuilder<List<CoachConversation>>(
                   future: _future,
                   builder: (_, snap) {
-                    if (snap.hasError) return Center(child: Text('${snap.error}'));
+                    if (snap.hasError) {
+                      return Center(child: Text('${snap.error}'));
+                    }
                     if (!snap.hasData) {
                       return const Center(child: CircularProgressIndicator());
                     }
                     final items = snap.data!;
                     if (items.isEmpty) {
-                      return const Center(child: Text('Chưa có cuộc trò chuyện'));
+                      return const Center(
+                        child: Text('Chưa có cuộc trò chuyện'),
+                      );
                     }
                     return ListView.builder(
                       itemCount: items.length,
