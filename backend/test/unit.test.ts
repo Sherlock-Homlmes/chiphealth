@@ -20,7 +20,7 @@ import { insertMany, D1_MAX_BOUND_PARAMS } from '../src/db/client';
 import { localDateTimeToEpoch } from '../src/lib/time';
 import { PROMPTS, renderPrompt, promptSections } from '../src/prompts';
 import { matchesInjectionPattern, leaksSystemPrompt, normaliseInput } from '../src/services/agent/guard';
-import { cleanReply, parseCompletion } from '../src/services/agent/agent';
+import { cleanReply, parseCompletion, promisesConfirmCard } from '../src/services/agent/agent';
 import { AGENT_TOOLS, toolDefinitions } from '../src/services/agent/tools';
 
 let passed = 0;
@@ -282,6 +282,22 @@ console.log('\n# assistant loop helpers');
   check('nested bullets keep their indent', cleanReply('* a\n    * b'), '- a\n    - b');
   check('spilled tool-call syntax is removed',
     cleanReply('<|tool_call>call:list_meals{from:<|"|>x<|"|>}<tool_call|>Xong'), 'Xong');
+}
+
+console.log('\n# phantom confirm-card promises');
+{
+  // The production sentence that shipped with no card behind it.
+  check('promises a card (production incident)',
+    promisesConfirmCard('Mình đề xuất thêm món này vào mục bữa ăn nhẹ (snack) của bạn, bạn hãy bấm Xác nhận trên thẻ bên dưới nhé.'), true);
+  check('imperative with diacritics variation',
+    promisesConfirmCard('Nhấn Xác nhận để lưu nhé.'), true);
+  check('an offer to propose is not a promise',
+    promisesConfirmCard('Bạn có muốn mình đề xuất thêm bữa phụ không?'), false);
+  check('confirm with a doctor is not the card',
+    promisesConfirmCard('Bạn nên xác nhận chẩn đoán với bác sĩ.'), false);
+  check('tap for something else is not the card',
+    promisesConfirmCard('Bấm vào đây để xem chi tiết buổi tập.'), false);
+  check('empty reply promises nothing', promisesConfirmCard(''), false);
 }
 
 console.log('\n# request body parsing');

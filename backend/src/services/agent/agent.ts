@@ -130,7 +130,7 @@ export function cleanReply(text: string): string {
   return text
     // Gemma-style control blocks: <|tool_call>…<tool_call|>, <|channel>thought…<channel|>
     .replace(/<\|(tool_call|channel)>[\s\S]*?<\1\|>/g, '')
-    .replace(/<\|[^<>|]*\|>|<\|[a-z_]+>|<[a-z_]+\|>/g, '')
+    .replace(/<\|[^<>|]*\|>|<\|[a-z_]+\|>|<[a-z_]+\|>/g, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
@@ -138,6 +138,16 @@ export function cleanReply(text: string): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, REPLY_MAX_CHARS);
+}
+
+/**
+ * A reply that tells the user to tap a confirm card ("bấm Xác nhận…") on a turn
+ * that filed no proposal: the model simulated the write protocol in prose. The
+ * card only exists when a write tool actually returned pending_confirmation, so
+ * such a reply promises UI that will never appear.
+ */
+export function promisesConfirmCard(text: string): boolean {
+  return /(bấm|nhấn|chạm|ấn)[^\n.!?]{0,60}xác nhận/i.test(text);
 }
 
 let toolMessages: Map<string, string> | null = null;
@@ -209,6 +219,9 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   let modelCalls = 0;
   let reply: string | null = null;
   let outcome: AgentTurnResult['outcome'] = 'answered';
+  // The card-promise correction runs at most once; a second offence falls
+  // through and the leak-checked reply ships as-is.
+  let cardFixUsed = false;
 
   const runTool = async (call: ToolCall): Promise<unknown> => {
     const tool = AGENT_TOOLS.get(call.name);
@@ -287,6 +300,16 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     for (let step = 0; step < agentMaxSteps; step++) {
       const { content, toolCalls } = await callModel(true);
       if (toolCalls.length === 0) {
+        // "Bấm Xác nhận bên dưới" with nothing filed this turn: the model
+        // narrated the write protocol instead of running it. One corrective
+        // round makes it actually call the tool (the card then exists) or
+        // answer without the phantom promise.
+        if (!cardFixUsed && actionIds.length === 0 && promisesConfirmCard(cleanReply(content ?? ''))) {
+          cardFixUsed = true;
+          messages.push({ role: 'assistant', content: content ?? '' });
+          messages.push({ role: 'user', content: renderPrompt(PROMPTS.agentCardFix) });
+          continue;
+        }
         reply = content;
         break;
       }

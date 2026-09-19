@@ -389,19 +389,25 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         ],
       ),
       body: PhoneFrame(
-        child: Column(
-          children: [
-            if (_error != null)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  '$_error',
-                  style: const TextStyle(color: RetroTokens.accent),
+        // Tapping outside the composer — a bubble, empty space — drops keyboard
+        // focus so the keyboard hides. Interactive children (buttons, the text
+        // field, selectable text) win their own taps first.
+        child: GestureDetector(
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Column(
+            children: [
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    '$_error',
+                    style: const TextStyle(color: RetroTokens.accent),
+                  ),
                 ),
-              ),
-            Expanded(child: _body()),
-            _composer(),
-          ],
+              Expanded(child: _body()),
+              _composer(),
+            ],
+          ),
         ),
       ),
     );
@@ -414,6 +420,8 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     }
     return ListView.builder(
       controller: _scroll,
+      // Scrolling the thread also puts the keyboard away, like messengers do.
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.all(16),
       itemCount: _messages.length + (_sending ? 1 : 0),
       itemBuilder: (_, i) {

@@ -1,17 +1,30 @@
-import { and, desc, eq, gte, inArray } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import {
   userProfiles, goals, chronicConditions, bodyMetricsLogs, workoutSessions,
   activityTypes, dailyNutritionSummaries, coachInsights,
+  mealLogs, mealItems, mealAiAnalyses,
 } from '../db/schema';
 import { modelConfig } from '../config/models';
 import { sleepDebtFor } from './sleepDebt';
-import { localDate, ageFromDob } from '../lib/time';
+import { effectiveAnalysis } from './mealAnalysis';
+import { localDate, localTime, ageFromDob } from '../lib/time';
 import { newId } from '../lib/ids';
 import { insertMany } from '../db/client';
 import type { Db } from '../db/client';
 import type { Bindings } from '../env';
 import { aiText } from '../lib/aiText';
 import { PROMPTS, renderPrompt } from '../prompts';
+
+/** One meal of the day as the snapshot shows it: enough to answer "trưa nay ăn gì" without a tool call. */
+export interface CoachContextMeal {
+  type: string;
+  /** Local wall-clock HH:mm. */
+  at: string;
+  dish: string | null;
+  kcal: number | null;
+  items: number;
+  analysis: string | null;
+}
 
 export interface CoachContext {
   profile: {
@@ -23,7 +36,19 @@ export interface CoachContext {
   };
   goals: Array<{ type: string; target: number | null; unit: string | null; deadline: string | null }>;
   conditions: string[];
-  today: { date: string; consumedKcal: number; tdeeKcal: number | null; balanceKcal: number | null };
+  today: {
+    date: string;
+    consumedKcal: number;
+    tdeeKcal: number | null;
+    balanceKcal: number | null;
+    /**
+     * The day's meals. Before this list existed the snapshot carried only the
+     * calorie totals, and a model that was asked "trưa nay ăn vậy đủ chưa"
+     * answered "bạn chưa liệt kê bữa nào" — flatly contradicting the
+     * consumedKcal next to it — instead of calling get_day_summary.
+     */
+    meals: CoachContextMeal[];
+  };
   training7d: { sessions: number; totalMinutes: number; totalKcal: number; types: string[] };
   sleep: { targetHours: number; debtHours: number };
 }
@@ -38,7 +63,7 @@ export async function buildCoachContext(
   const today = localDate(Date.now(), timezone);
   const weekAgoMs = Date.now() - 7 * 86_400_000;
 
-  const [profileRows, goalRows, conditionRows, metricRows, summaryRows, sessionRows, debt] =
+  const [profileRows, goalRows, conditionRows, metricRows, summaryRows, sessionRows, debt, mealRows] =
     await Promise.all([
       db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1),
       db.select().from(goals)
@@ -62,6 +87,10 @@ export async function buildCoachContext(
         gte(workoutSessions.startedAt, weekAgoMs),
       )),
       sleepDebtFor(db, env, userId, today),
+      db.select().from(mealLogs).where(and(
+        eq(mealLogs.userId, userId),
+        eq(mealLogs.localDate, today),
+      )).orderBy(mealLogs.loggedAt),
     ]);
 
   const profile = profileRows[0];
@@ -73,6 +102,30 @@ export async function buildCoachContext(
     ? await db.select({ id: activityTypes.id, code: activityTypes.code })
         .from(activityTypes).where(inArray(activityTypes.id, typeIds))
     : [];
+
+  // Item counts and the effective analysis status per meal (a hung run reads
+  // as failed after the 3-minute clock), same folding as the meals endpoint.
+  const dayMeals = mealRows.slice(0, 20);
+  const mealIds = dayMeals.map((m) => m.id);
+  const [itemCounts, mealAnalyses] = mealIds.length
+    ? await Promise.all([
+        db.select({ mealLogId: mealItems.mealLogId, n: sql<number>`count(*)` })
+          .from(mealItems).where(inArray(mealItems.mealLogId, mealIds))
+          .groupBy(mealItems.mealLogId),
+        db.select({
+          mealLogId: mealAiAnalyses.mealLogId,
+          status: mealAiAnalyses.status,
+          createdAt: mealAiAnalyses.createdAt,
+        }).from(mealAiAnalyses).where(inArray(mealAiAnalyses.mealLogId, mealIds))
+          .orderBy(desc(mealAiAnalyses.id)),
+      ])
+    : [[] as { mealLogId: string; n: number }[], [] as { mealLogId: string; status: string; createdAt: number }[]];
+  const itemsByMeal = new Map(itemCounts.map((r) => [r.mealLogId, Number(r.n)]));
+  const analysisByMeal = new Map<string, string>();
+  for (const a of mealAnalyses) {
+    if (analysisByMeal.has(a.mealLogId)) continue;
+    analysisByMeal.set(a.mealLogId, effectiveAnalysis({ status: a.status, createdAt: a.createdAt, errorMessage: null }).status);
+  }
 
   return {
     profile: {
@@ -91,6 +144,14 @@ export async function buildCoachContext(
       consumedKcal: summary?.caloriesConsumedKcal ?? 0,
       tdeeKcal: summary?.tdeeKcal ?? null,
       balanceKcal: summary?.calorieBalanceKcal ?? null,
+      meals: dayMeals.map((m) => ({
+        type: m.mealType,
+        at: localTime(m.loggedAt, timezone),
+        dish: m.dishName,
+        kcal: m.totalCaloriesKcal == null ? null : Math.round(m.totalCaloriesKcal),
+        items: itemsByMeal.get(m.id) ?? 0,
+        analysis: analysisByMeal.get(m.id) ?? null,
+      })),
     },
     training7d: {
       sessions: sessionRows.length,

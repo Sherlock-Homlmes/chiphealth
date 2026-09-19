@@ -14,6 +14,7 @@ import agentRefusalInjection from './agent/refusal_injection.md';
 import agentFallback from './agent/fallback.md';
 import agentFinalize from './agent/finalize.md';
 import agentProposalOnly from './agent/proposal_only.md';
+import agentCardFix from './agent/card_fix.md';
 import agentToolMessages from './agent/tool_messages.md';
 import coachSystem from './coach/system.md';
 import coachContext from './coach/context.md';
@@ -35,6 +36,7 @@ export const PROMPTS = {
   agentFallback,
   agentFinalize,
   agentProposalOnly,
+  agentCardFix,
   agentToolMessages,
   coachSystem,
   coachContext,
