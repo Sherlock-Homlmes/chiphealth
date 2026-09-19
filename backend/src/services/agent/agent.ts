@@ -340,6 +340,41 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
       outcome = 'budget_exhausted';
       messages.push({ role: 'user', content: renderPrompt(PROMPTS.agentFinalize) });
       reply = (await callModel(true)).content;
+      // Same phantom-card check as inside the loop, for the turn that ends
+      // here: every write has failed validation, so the finalize reply can
+      // still promise "bấm Xác nhận bên dưới" with no card behind it
+      // (production trace 2026-09-19, create_workout ×4 invalid started_at).
+      if (!cardFixUsed && actionIds.length === 0 && promisesConfirmCard(cleanReply(reply ?? ''))) {
+        cardFixUsed = true;
+        messages.push({ role: 'assistant', content: reply ?? '' });
+        messages.push({ role: 'user', content: renderPrompt(PROMPTS.agentCardFix) });
+        // Tools stay declared: with the argument error spelled out, this round
+        // usually lands the call and the card exists for real.
+        const fix = await callModel(true);
+        if (fix.toolCalls.length === 0) {
+          reply = fix.content;
+        } else {
+          messages.push({
+            role: 'assistant',
+            content: fix.content ?? '',
+            tool_calls: fix.toolCalls.map((c) => ({
+              id: c.id, type: 'function',
+              function: { name: c.name, arguments: JSON.stringify(c.arguments ?? {}) },
+            })),
+          });
+          for (const call of fix.toolCalls) {
+            const result = await runTool(call);
+            messages.push({
+              role: 'tool',
+              tool_call_id: call.id,
+              content: JSON.stringify(result).slice(0, TOOL_RESULT_MAX_CHARS),
+            });
+          }
+          // Whatever happened, answer now — no more tool rounds.
+          messages.push({ role: 'user', content: renderPrompt(PROMPTS.agentFinalize) });
+          reply = (await callModel(true)).content;
+        }
+      }
     }
   } catch (err) {
     console.error('assistant model call failed', err);

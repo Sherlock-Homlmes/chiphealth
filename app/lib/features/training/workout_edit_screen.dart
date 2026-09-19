@@ -34,6 +34,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
             title: draft.title.isEmpty ? null : draft.title,
             notes: draft.notes.isEmpty ? null : draft.notes,
             perceivedExertion: draft.perceivedExertion,
+            photoAssetIds: draft.photoAssetIds,
           );
       ref.invalidate(workoutDetailProvider(widget.sessionId));
       ref.invalidate(workoutFeedProvider);
@@ -65,6 +66,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
             title: session.title ?? defaultWorkoutTitle(session, type),
             notes: session.notes ?? '',
             perceivedExertion: session.perceivedExertion,
+            photoAssetIds: session.photoAssetIds,
           );
     final draft = _draft ?? initial;
 

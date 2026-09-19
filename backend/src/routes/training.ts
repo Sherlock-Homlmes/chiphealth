@@ -1,9 +1,10 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   workoutSessions, workoutStreams, workoutSplits, workoutStrengthSets,
   workoutZoneSummaries, heartRateZones, personalRecords, mediaAssets, activityTypes,
+  workoutPhotos,
 } from '../db/schema';
 import { parseBody, parseQuery, paginationSchema, page, isoDateSchema } from '../lib/http';
 import { ApiError, notFound } from '../lib/errors';
@@ -19,6 +20,9 @@ import { insertMany } from '../db/client';
 import type { AppEnv } from '../env';
 
 const app = new Hono<AppEnv>();
+
+/** Strava-style photo ceiling; the schema enforces it on every write path. */
+export const MAX_WORKOUT_PHOTOS = 5;
 
 const workoutSchema = z.object({
   id: z.string().uuid().optional(),
@@ -38,6 +42,7 @@ const workoutSchema = z.object({
   caloriesAreEstimated: z.boolean().default(true),
   perceivedExertion: z.number().int().min(1).max(10).nullish(),
   notes: z.string().max(1000).nullish(),
+  photoAssetIds: z.array(z.string().uuid()).max(MAX_WORKOUT_PHOTOS).optional(),
 });
 
 /** Used when nobody has logged a weight yet, so a workout still counts. */
@@ -171,10 +176,13 @@ app.post('/workouts', async (c) => {
       where: eq(workoutSessions.userId, user.id),
     });
 
+  if (body.photoAssetIds) await setWorkoutPhotos(db, user.id, id, body.photoAssetIds);
+
   await recomputeDailyNutritionSummary(db, c.env, user.id, day);
 
   const rows = await db.select().from(workoutSessions).where(eq(workoutSessions.id, id)).limit(1);
-  return c.json(rows[0], 201);
+  const photos = await photosBySession(db, [id]);
+  return c.json({ ...rows[0], photoAssetIds: photos.get(id) ?? [] }, 201);
 });
 
 app.get('/workouts', async (c) => {
@@ -199,7 +207,13 @@ app.get('/workouts', async (c) => {
     .from(workoutSessions)
     .leftJoin(workoutStreams, eq(workoutStreams.workoutSessionId, workoutSessions.id))
     .where(and(...filters)).orderBy(desc(workoutSessions.id)).limit(q.limit + 1);
-  return c.json(page(rows.map((r) => ({ ...r.session, polyline: r.polyline ?? null })), q.limit));
+  const paged = page(rows.map((r) => ({ ...r.session, polyline: r.polyline ?? null })), q.limit);
+  // Thumbnails for the cards: one query for the page, not one per session.
+  const photos = await photosBySession(c.get('db'), paged.items.map((s) => s.id));
+  return c.json({
+    ...paged,
+    items: paged.items.map((s) => ({ ...s, photoAssetIds: photos.get(s.id) ?? [] })),
+  });
 });
 
 async function ownedWorkout(db: AppEnv['Variables']['db'], userId: string, id: string) {
@@ -210,11 +224,89 @@ async function ownedWorkout(db: AppEnv['Variables']['db'], userId: string, id: s
   return session;
 }
 
+/**
+ * Full-replace, same semantics as PUT /sets: the client sends the ordered list
+ * it wants. New ids must be the caller's own `workout_photo` assets; ids that
+ * drop out are only unlinked — the asset row flips back to orphan and the
+ * sweeper reclaims the object, unless another session still points at it.
+ */
+async function setWorkoutPhotos(
+  db: AppEnv['Variables']['db'], userId: string, sessionId: string, ids: string[],
+) {
+  const unique = [...new Set(ids)];
+  const previous = (await db.select({ assetId: workoutPhotos.assetId })
+    .from(workoutPhotos).where(eq(workoutPhotos.workoutSessionId, sessionId)))
+    .map((r) => r.assetId);
+  const added = unique.filter((id) => !previous.includes(id));
+
+  if (added.length > 0) {
+    const assets = await db.select().from(mediaAssets)
+      .where(and(inArray(mediaAssets.id, added), eq(mediaAssets.userId, userId)));
+    if (assets.length !== added.length) throw notFound('Photo asset');
+    // Workout photos are uploaded as kind 'meal_photo': media_assets' kind
+    // CHECK cannot be widened on D1 (see 0008_coach_photo.sql), and that kind
+    // already gives exactly the rules needed — images only, owner-only reads.
+    if (assets.some((a) => a.kind !== 'meal_photo')) {
+      throw new ApiError('VALIDATION_ERROR', 'Only photo assets can be attached');
+    }
+  }
+
+  await db.delete(workoutPhotos).where(eq(workoutPhotos.workoutSessionId, sessionId));
+  if (unique.length > 0) {
+    await insertMany(
+      (chunk) => db.insert(workoutPhotos).values(chunk),
+      unique.map((assetId, sortOrder) => ({
+        workoutSessionId: sessionId,
+        assetId,
+        sortOrder,
+        createdAt: Date.now(),
+      })),
+    );
+    await db.update(mediaAssets).set({ isOrphan: false })
+      .where(inArray(mediaAssets.id, unique));
+  }
+
+  // Only now, with this session's links gone, does "still referenced" mean
+  // referenced by *another* session — those keep their object.
+  const removed = previous.filter((id) => !unique.includes(id));
+  if (removed.length > 0) {
+    const stillLinked = (await db.select({ assetId: workoutPhotos.assetId })
+      .from(workoutPhotos).where(inArray(workoutPhotos.assetId, removed)))
+      .map((r) => r.assetId);
+    const orphans = removed.filter((id) => !stillLinked.includes(id));
+    if (orphans.length > 0) {
+      await db.update(mediaAssets).set({ isOrphan: true })
+        .where(inArray(mediaAssets.id, orphans));
+    }
+  }
+}
+
+/** photoAssetIds per session, in sort order — one query for the whole page. */
+async function photosBySession(
+  db: AppEnv['Variables']['db'], sessionIds: string[],
+): Promise<Map<string, string[]>> {
+  if (sessionIds.length === 0) return new Map();
+  const rows = await db.select({
+    sessionId: workoutPhotos.workoutSessionId,
+    assetId: workoutPhotos.assetId,
+  }).from(workoutPhotos)
+    .where(inArray(workoutPhotos.workoutSessionId, sessionIds))
+    .orderBy(asc(workoutPhotos.sortOrder), asc(workoutPhotos.assetId));
+
+  const map = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = map.get(row.sessionId) ?? [];
+    list.push(row.assetId);
+    map.set(row.sessionId, list);
+  }
+  return map;
+}
+
 app.get('/workouts/:id', async (c) => {
   const db = c.get('db');
   const session = await ownedWorkout(db, c.get('user').id, c.req.param('id'));
 
-  const [stream, splits, zones, sets] = await Promise.all([
+  const [stream, splits, zones, sets, photos] = await Promise.all([
     db.select().from(workoutStreams)
       .where(eq(workoutStreams.workoutSessionId, session.id)).limit(1),
     db.select().from(workoutSplits)
@@ -226,9 +318,17 @@ app.get('/workouts/:id', async (c) => {
     db.select().from(workoutStrengthSets)
       .where(eq(workoutStrengthSets.workoutSessionId, session.id))
       .orderBy(asc(workoutStrengthSets.exerciseId), asc(workoutStrengthSets.setIndex)),
+    photosBySession(db, [session.id]),
   ]);
 
-  return c.json({ ...session, stream: stream[0] ?? null, splits, zones, sets });
+  return c.json({
+    ...session,
+    stream: stream[0] ?? null,
+    splits,
+    zones,
+    sets,
+    photoAssetIds: photos.get(session.id) ?? [],
+  });
 });
 
 app.patch('/workouts/:id', async (c) => {
@@ -252,12 +352,17 @@ app.patch('/workouts/:id', async (c) => {
   if (body.caloriesBurnedKcal !== undefined) patch.caloriesAreEstimated = body.caloriesBurnedKcal == null;
 
   await db.update(workoutSessions).set(patch).where(eq(workoutSessions.id, session.id));
+  if (body.photoAssetIds !== undefined) {
+    await setWorkoutPhotos(db, user.id, session.id, body.photoAssetIds);
+  }
   await refreshEstimatedCalories(db, user.id, session.id);
   await recomputeDailyNutritionSummary(db, c.env, user.id, session.localDate);
 
-  const rows = await db.select().from(workoutSessions)
-    .where(eq(workoutSessions.id, session.id)).limit(1);
-  return c.json(rows[0]);
+  const [rows, photos] = await Promise.all([
+    db.select().from(workoutSessions).where(eq(workoutSessions.id, session.id)).limit(1),
+    photosBySession(db, [session.id]),
+  ]);
+  return c.json({ ...rows[0], photoAssetIds: photos.get(session.id) ?? [] });
 });
 
 /**

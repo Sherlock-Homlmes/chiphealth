@@ -361,6 +361,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
         title: (draft?.title.isEmpty ?? true) ? null : draft!.title,
         notes: (draft?.notes.isEmpty ?? true) ? null : draft!.notes,
         perceivedExertion: draft?.perceivedExertion,
+        photoAssetIds: draft?.photoAssetIds ?? const [],
       );
 
       if (_samples.isNotEmpty) {

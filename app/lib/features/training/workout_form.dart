@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/models.dart';
 import '../../core/theme/tokens.dart';
 import 'activity_format.dart';
+import 'workout_photos.dart';
 
 /// What the athlete fills in after a recording, or edits later.
 class WorkoutDraft {
@@ -11,12 +12,16 @@ class WorkoutDraft {
     required this.title,
     required this.notes,
     this.perceivedExertion,
+    this.photoAssetIds = const [],
   });
 
   final ActivityType? activity;
   final String title;
   final String notes;
   final int? perceivedExertion;
+
+  /// The complete ordered list; the server full-replaces on save.
+  final List<String> photoAssetIds;
 }
 
 /// Title, sport, notes and perceived exertion — Strava's "Save activity" form.
@@ -45,6 +50,7 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
   late final _notes = TextEditingController(text: widget.initial.notes);
   late ActivityType? _activity = widget.initial.activity;
   late int? _rpe = widget.initial.perceivedExertion;
+  late List<String> _photos = [...widget.initial.photoAssetIds];
 
   /// True while the title is still the generated one for the current sport.
   late bool _titleIsDefault =
@@ -63,6 +69,7 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
       title: _title.text.trim(),
       notes: _notes.text.trim(),
       perceivedExertion: _rpe,
+      photoAssetIds: List.unmodifiable(_photos),
     ),
   );
 
@@ -71,6 +78,14 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        WorkoutPhotoPicker(
+          initialIds: _photos,
+          onChanged: (ids) {
+            _photos = ids;
+            _emit();
+          },
+        ),
+        const SizedBox(height: 16),
         TextField(
           controller: _title,
           decoration: const InputDecoration(labelText: 'Tiêu đề'),

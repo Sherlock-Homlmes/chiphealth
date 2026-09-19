@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -46,6 +48,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   final _recorder = AudioRecorder();
   bool _recording = false;
   bool _transcribing = false;
+
+  /// Photo waiting to go out with the next message, picked but not uploaded:
+  /// upload only happens when the user actually sends.
+  Uint8List? _photoBytes;
 
   /// Covers the async gap while the recorder starts or stops, where
   /// [_recording] does not yet reflect reality and a double tap would start a
@@ -146,11 +152,39 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
 
   Future<void> _send([String? preset]) async {
     final text = (preset ?? _input.text).trim();
-    // Locked while the mic works, so half-dictated text cannot go out.
-    if (text.isEmpty || _sending || _recording || _transcribing) return;
+    final photo = _photoBytes;
+    // Locked while the mic works, so half-dictated text cannot go out. A turn
+    // is text, a photo, or both — never an empty one.
+    if ((text.isEmpty && photo == null) || _sending || _recording || _transcribing) {
+      return;
+    }
+
+    // The photo uploads before the bubble appears, so the optimistic message
+    // carries the real asset id and renders the actual image; a text-only
+    // turn keeps appearing instantly.
+    String? photoAssetId;
+    if (photo != null) {
+      setState(() {
+        _sending = true;
+        _photoBytes = null;
+      });
+      try {
+        // Same kind and limits as the meal flow; the assistant route accepts
+        // the user's own photos of that kind (see backend migration 0008).
+        photoAssetId = await ref
+            .read(mediaRepositoryProvider)
+            .upload(photo, kind: 'meal_photo', mimeType: 'image/jpeg');
+      } catch (err) {
+        if (mounted) {
+          setState(() => _sending = false);
+          _snack('$err');
+        }
+        return;
+      }
+    }
 
     setState(() {
-      _messages.add(CoachMessage(role: 'user', content: text));
+      _messages.add(CoachMessage(role: 'user', content: text, photoAssetId: photoAssetId));
       if (preset == null) _input.clear();
       _sending = true;
     });
@@ -164,6 +198,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       final reply = await _repo.send(
         id,
         text,
+        photoAssetId: photoAssetId,
         waterMlToday: ref.read(waterProvider(today)),
         waterTargetMl: ref.read(waterTargetProvider),
       );
@@ -178,6 +213,21 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  /// Gallery pick, tuned like the meal photo flow: 1600 px and quality 85 is
+  /// what the vision model needs without shipping camera-sized files.
+  Future<void> _pickPhoto() async {
+    if (_sending || _recording || _transcribing) return;
+    final shot = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1600,
+    );
+    if (shot == null) return;
+    final bytes = await shot.readAsBytes();
+    if (!mounted) return;
+    setState(() => _photoBytes = bytes);
   }
 
   /// Tap-to-talk: one tap starts recording, the next stops it and dictates.
@@ -467,34 +517,80 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     ),
     child: SafeArea(
       top: false,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _input,
-              minLines: 1,
-              maxLines: 4,
-              // The API's own cap; past it the send would only bounce.
-              inputFormatters: [LengthLimitingTextInputFormatter(4000)],
-              decoration: InputDecoration(
-                hintText: _recording
-                    ? 'Đang nghe… bấm mic để dừng'
-                    : _transcribing
-                    ? 'Đang chuyển giọng nói thành chữ…'
-                    : 'Hỏi về ăn uống, tập luyện, giấc ngủ…',
+          if (_photoBytes != null) _photoChip(),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _input,
+                  minLines: 1,
+                  maxLines: 4,
+                  // The API's own cap; past it the send would only bounce.
+                  inputFormatters: [LengthLimitingTextInputFormatter(4000)],
+                  decoration: InputDecoration(
+                    hintText: _recording
+                        ? 'Đang nghe… bấm mic để dừng'
+                        : _transcribing
+                        ? 'Đang chuyển giọng nói thành chữ…'
+                        : 'Hỏi về ăn uống, tập luyện, giấc ngủ…',
+                  ),
+                  onSubmitted: (_) => _send(),
+                ),
               ),
-              onSubmitted: (_) => _send(),
-            ),
-          ),
-          const SizedBox(width: 8),
-          _micButton(),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: _sending || _recording || _transcribing ? null : _send,
-            child: const Icon(Icons.send, size: 18),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Gửi kèm ảnh',
+                onPressed: _sending || _recording || _transcribing
+                    ? null
+                    : _pickPhoto,
+                icon: const Icon(Icons.add_photo_alternate_outlined, size: 22),
+              ),
+              const SizedBox(width: 4),
+              _micButton(),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _sending || _recording || _transcribing ? null : _send,
+                child: const Icon(Icons.send, size: 18),
+              ),
+            ],
           ),
         ],
       ),
+    ),
+  );
+
+  /// The photo about to go out with the next message: thumbnail, a hint that
+  /// it can go out alone, and a remove button.
+  Widget _photoChip() => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.memory(
+            _photoBytes!,
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          ),
+        ),
+        const SizedBox(width: 8),
+        const Expanded(
+          child: Text(
+            'Ảnh sẽ gửi kèm — có thể bỏ trống lời nhắn',
+            style: TextStyle(fontSize: 12),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Bỏ ảnh',
+          onPressed: _sending ? null : () => setState(() => _photoBytes = null),
+          icon: const Icon(Icons.close, size: 18),
+        ),
+      ],
     ),
   );
 
@@ -529,7 +625,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   }
 }
 
-class _Bubble extends StatelessWidget {
+class _Bubble extends ConsumerWidget {
   const _Bubble({
     required this.message,
     required this.animate,
@@ -541,7 +637,7 @@ class _Bubble extends StatelessWidget {
   final VoidCallback onFinished;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
@@ -557,9 +653,60 @@ class _Bubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
         boxShadow: const [RetroTokens.shadowSm],
       ),
-      child: animate
-          ? TypewriterText(text: message.content, onFinished: onFinished)
-          : SelectableText(message.content),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Photo-only turns (empty text) must not leave an empty text node.
+          if (message.photoAssetId != null)
+            _BubblePhoto(assetId: message.photoAssetId!),
+          if (message.content.isNotEmpty)
+            animate
+                ? TypewriterText(text: message.content, onFinished: onFinished)
+                : SelectableText(message.content),
+        ],
+      ),
+    );
+  }
+}
+
+/// The photo inside a user bubble. Loaded through the API (private asset) via
+/// a provider, so scroll-throughs reuse the bytes instead of refetching.
+class _BubblePhoto extends ConsumerWidget {
+  const _BubblePhoto({required this.assetId});
+
+  final String assetId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bytes = ref.watch(mediaBytesProvider(assetId));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: bytes.when(
+          data: (b) => Image.memory(
+            b,
+            width: 220,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+          ),
+          loading: () => const SizedBox(
+            width: 220,
+            height: 140,
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          ),
+          error: (e, _) => SizedBox(
+            width: 220,
+            height: 56,
+            child: Center(
+              child: Text(
+                'Không tải được ảnh',
+                style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -589,17 +736,21 @@ class _ActionCard extends StatelessWidget {
     return Icons.monitor_weight;
   }
 
-  (String, Color, Color) get _status => switch (action.status) {
-    'confirmed' => ('Đã thực hiện', RetroTokens.ok, RetroTokens.okSoft),
-    'cancelled' => ('Đã huỷ', RetroTokens.inkFaint, RetroTokens.paperSunk),
-    'failed' => (
-      'Không thực hiện được',
-      RetroTokens.accent,
-      RetroTokens.accentSoft,
-    ),
-    'expired' => ('Đã hết hạn', RetroTokens.inkFaint, RetroTokens.paperSunk),
-    _ => ('Chờ xác nhận', RetroTokens.warn, RetroTokens.warnSoft),
-  };
+  (String, Color, Color) get _status {
+    // Confirmed, then the target was deleted — a record, nothing to open.
+    if (action.deleted) return ('Đã xóa', RetroTokens.inkFaint, RetroTokens.paperSunk);
+    return switch (action.status) {
+      'confirmed' => ('Đã thực hiện', RetroTokens.ok, RetroTokens.okSoft),
+      'cancelled' => ('Đã huỷ', RetroTokens.inkFaint, RetroTokens.paperSunk),
+      'failed' => (
+        'Không thực hiện được',
+        RetroTokens.accent,
+        RetroTokens.accentSoft,
+      ),
+      'expired' => ('Đã hết hạn', RetroTokens.inkFaint, RetroTokens.paperSunk),
+      _ => ('Chờ xác nhận', RetroTokens.warn, RetroTokens.warnSoft),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -672,7 +823,9 @@ class _ActionCard extends StatelessWidget {
                     ),
                   ],
                 ),
-            ] else if (action.status == 'confirmed' && action.linkType != null)
+            ] else if (action.status == 'confirmed' &&
+                action.linkType != null &&
+                !action.deleted)
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(onPressed: onOpen, child: const Text('Mở')),

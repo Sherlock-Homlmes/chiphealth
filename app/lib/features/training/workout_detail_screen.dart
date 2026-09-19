@@ -10,6 +10,7 @@ import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
 import 'route_map.dart';
 import 'route_replay.dart';
+import 'workout_photos.dart';
 
 enum _Action { edit, crop, delete }
 
@@ -101,6 +102,35 @@ class WorkoutDetailScreen extends ConsumerWidget {
               children: [
                 if (route.isNotEmpty)
                   RouteReplayMap(sessionId: sessionId, route: route),
+                // The session's photos, Strava-style: a swipeable row of
+                // tall tiles right under the header, tap for full screen.
+                if (session.photoAssetIds.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: SizedBox(
+                      height: 220,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: session.photoAssetIds.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 12),
+                        itemBuilder: (_, i) => GestureDetector(
+                          onTap: () => showWorkoutPhotoViewer(
+                            context,
+                            session.photoAssetIds,
+                            i,
+                          ),
+                          child: SizedBox(
+                            width: 220,
+                            child: WorkoutPhotoTile(
+                              assetId: session.photoAssetIds[i],
+                              size: 220,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(

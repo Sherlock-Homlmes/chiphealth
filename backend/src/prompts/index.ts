@@ -19,6 +19,7 @@ import agentToolMessages from './agent/tool_messages.md';
 import coachSystem from './coach/system.md';
 import coachContext from './coach/context.md';
 import coachInsights from './coach/insights.md';
+import coachVision from './coach/vision.md';
 import mealVision from './meal/vision.md';
 import mealVisionNote from './meal/vision_note.md';
 import mealSpeech from './meal/speech.md';
@@ -41,6 +42,7 @@ export const PROMPTS = {
   coachSystem,
   coachContext,
   coachInsights,
+  coachVision,
   mealVision,
   mealVisionNote,
   mealSpeech,

@@ -14,6 +14,7 @@ import {
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
 import { parseCsv } from '../src/routes/admin/foods';
+import { serializeAction, linkOf } from '../src/routes/coach';
 import { parseBody } from '../src/lib/http';
 import { ApiError } from '../src/lib/errors';
 import { insertMany, D1_MAX_BOUND_PARAMS } from '../src/db/client';
@@ -228,6 +229,8 @@ console.log('\n# prompt files');
   check('tool messages cover every key',
     ['pending_confirmation', 'duplicate_proposal', 'too_many_proposals', 'tool_budget',
       'invalid_args', 'unknown_tool', 'tool_failed'].every((k) => messages.has(k)), true);
+  check('chat photo vision prompt renders',
+    renderPrompt(PROMPTS.coachVision).includes('DỮ LIỆU'), true);
 }
 
 console.log('\n# assistant guard');
@@ -291,6 +294,8 @@ console.log('\n# phantom confirm-card promises');
     promisesConfirmCard('Mình đề xuất thêm món này vào mục bữa ăn nhẹ (snack) của bạn, bạn hãy bấm Xác nhận trên thẻ bên dưới nhé.'), true);
   check('imperative with diacritics variation',
     promisesConfirmCard('Nhấn Xác nhận để lưu nhé.'), true);
+  check('workout incident (production, quoted label)',
+    promisesConfirmCard('Bạn vui lòng bấm "Xác nhận" ở thẻ bên dưới để lưu buổi tập này nhé.'), true);
   check('an offer to propose is not a promise',
     promisesConfirmCard('Bạn có muốn mình đề xuất thêm bữa phụ không?'), false);
   check('confirm with a doctor is not the card',
@@ -298,6 +303,37 @@ console.log('\n# phantom confirm-card promises');
   check('tap for something else is not the card',
     promisesConfirmCard('Bấm vào đây để xem chi tiết buổi tập.'), false);
   check('empty reply promises nothing', promisesConfirmCard(''), false);
+}
+
+console.log('\n# agent tool datetime arguments');
+{
+  // Production 2026-09-19: create_workout sent "2026-09-19T19:33:00" (with
+  // seconds) 4×, each rejected as "started_at: Invalid", budget burned.
+  const workout = AGENT_TOOLS.get('create_workout')!;
+  const sleep = AGENT_TOOLS.get('log_sleep')!;
+  const seconds = workout.args.safeParse({
+    activity_type_id: 27, duration_min: 90, started_at: '2026-09-19T19:33:00',
+  });
+  check('create_workout accepts seconds', seconds.success, true);
+  check('seconds are normalised to HH:mm', seconds.success ? seconds.data.started_at : null, '2026-09-19T19:33');
+  const spaced = workout.args.safeParse({
+    activity_type_id: 27, duration_min: 90, started_at: '2026-09-19 18:03',
+  });
+  check('space separator accepted and normalised', spaced.success ? spaced.data.started_at : null, '2026-09-19T18:03');
+  const fractional = workout.args.safeParse({
+    activity_type_id: 27, duration_min: 90, started_at: '2026-09-19T19:33:00.123',
+  });
+  check('fractional seconds accepted', fractional.success ? fractional.data.started_at : null, '2026-09-19T19:33');
+  const night = sleep.args.safeParse({ bedtime: '2026-09-18T23:00:00', wake_time: '2026-09-19T06:30:00' });
+  check('log_sleep accepts seconds on both times',
+    night.success ? [night.data.bedtime, night.data.wake_time] : null,
+    ['2026-09-18T23:00', '2026-09-19T06:30']);
+  const bad = workout.args.safeParse({
+    activity_type_id: 27, duration_min: 90, started_at: '19/09/2026 19:33',
+  });
+  check('garbage datetime still rejected', bad.success, false);
+  check('rejection message teaches the format',
+    bad.success ? null : bad.error.issues[0].message.includes('YYYY-MM-DDTHH:mm'), true);
 }
 
 console.log('\n# request body parsing');
@@ -322,6 +358,36 @@ console.log('\n# request body parsing');
   try { await parseBody(stub('{"title":123}'), schema); } catch (e) { err = e; }
   check('schema violations still throw VALIDATION_ERROR',
     err instanceof ApiError && err.code === 'VALIDATION_ERROR' && err.message === 'Invalid request body', true);
+}
+
+console.log('\n# coach action cards vs deleted targets');
+{
+  // Production 2026-09-19: AI created a meal, user confirmed then deleted the
+  // meal; reopening the thread still showed "Mở" and the tap 404'd.
+  const row = {
+    id: 'a1', userId: 'u1', conversationId: 'c1', messageId: 1,
+    tool: 'create_meal', argsJson: '{}', summary: 'Ghi bữa trưa',
+    detailsJson: null, status: 'confirmed' as const,
+    resultJson: JSON.stringify({ result: { meal_id: 'm1' }, link: { type: 'meal', id: 'm1' } }),
+    errorMessage: null, createdAt: Date.now(), resolvedAt: Date.now(),
+  };
+  check('linkOf reads the stored link', linkOf(JSON.parse(row.resultJson)), { type: 'meal', id: 'm1' });
+  check('linkOf ignores results without a link', linkOf({ result: { meal_id: 'm1' } }), null);
+  check('linkOf ignores garbage', linkOf('nope'), null);
+  check('linkOf coerces a numeric id', linkOf({ link: { type: 'workout', id: 42 } }), { type: 'workout', id: '42' });
+
+  const gone = serializeAction(row, new Set(['meal:m1']));
+  check('deleted target flags the card', gone.deleted, true);
+  check('deleted target strips the result link', gone.result, null);
+  check('deleted target keeps summary and status',
+    [gone.summary, gone.status], ['Ghi bữa trưa', 'confirmed']);
+
+  const alive = serializeAction(row, new Set(['meal:m2'])) as { result: { link: { id: string } }; deleted?: boolean };
+  check('other targets deleted leaves this card alone',
+    [alive.deleted ?? false, alive.result.link.id], [false, 'm1']);
+  const noSet = serializeAction(row) as { result: { link: { type: string } }; deleted?: boolean };
+  check('no dead set keeps the link (confirm response path)',
+    [noSet.deleted ?? false, noSet.result.link.type], [false, 'meal']);
 }
 
 console.log('\n# local wall-clock to instant');

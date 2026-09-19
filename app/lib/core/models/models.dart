@@ -601,6 +601,7 @@ class WorkoutSession {
     this.polyline,
     this.notes,
     this.perceivedExertion,
+    this.photoAssetIds = const [],
   });
 
   final String id;
@@ -625,6 +626,9 @@ class WorkoutSession {
   /// 1–10, Strava's "perceived exertion".
   final int? perceivedExertion;
 
+  /// Attached photos, in the order the athlete arranged them (max 5).
+  final List<String> photoAssetIds;
+
   double get distanceKm => (distanceM ?? 0) / 1000;
 
   factory WorkoutSession.fromJson(Map<String, dynamic> json) => WorkoutSession(
@@ -645,6 +649,9 @@ class WorkoutSession {
     polyline: json['polyline'] as String?,
     notes: json['notes'] as String?,
     perceivedExertion: _intOrNull(json['perceivedExertion']),
+    photoAssetIds: (json['photoAssetIds'] as List? ?? const [])
+        .whereType<String>()
+        .toList(),
   );
 }
 
@@ -963,6 +970,7 @@ class CoachMessage {
     required this.content,
     this.id,
     this.createdAt,
+    this.photoAssetId,
     this.actions = const [],
   });
 
@@ -970,6 +978,10 @@ class CoachMessage {
   final String role;
   final String content;
   final int? createdAt;
+
+  /// Photo attached to a user message (media asset id). The assistant "sees"
+  /// it as a text description server-side; here it renders as the image.
+  final String? photoAssetId;
 
   /// Writes the assistant proposed in this reply; each waits for "Xác nhận".
   final List<CoachAction> actions;
@@ -981,6 +993,7 @@ class CoachMessage {
     role: role,
     content: content,
     createdAt: createdAt,
+    photoAssetId: photoAssetId,
     actions: actions ?? this.actions,
   );
 
@@ -989,6 +1002,7 @@ class CoachMessage {
     role: json['role'] as String,
     content: json['content'] as String,
     createdAt: _intOrNull(json['createdAt']),
+    photoAssetId: json['photoAssetId'] as String?,
     actions: ((json['actions'] as List?) ?? const [])
         .map((a) => CoachAction.fromJson((a as Map).cast<String, dynamic>()))
         .toList(),
@@ -1008,6 +1022,7 @@ class CoachAction {
     this.error,
     this.linkType,
     this.linkId,
+    this.deleted = false,
   });
 
   final String id;
@@ -1023,6 +1038,9 @@ class CoachAction {
   final String? linkType;
   final String? linkId;
 
+  /// The confirmed target (meal/workout/sleep) was deleted afterwards.
+  final bool deleted;
+
   bool get isPending => status == 'pending';
 
   factory CoachAction.fromJson(Map<String, dynamic> json) {
@@ -1037,6 +1055,7 @@ class CoachAction {
       error: json['error'] as String?,
       linkType: link?['type'] as String?,
       linkId: link?['id'] as String?,
+      deleted: json['deleted'] as bool? ?? false,
     );
   }
 }

@@ -1,0 +1,11 @@
+-- Chat photos: a user message can carry one photo (R2 media asset). The
+-- vision model's description of it is stored in coach_messages.context_json
+-- on the user row, so history keeps "seeing" it on later turns without
+-- re-running vision on old images.
+--
+-- Chat photos are uploaded with the existing kind 'meal_photo': that CHECK
+-- already admits it, and widening the kind list would mean rebuilding
+-- media_assets under the FKs of six tables — not possible through D1's
+-- migration runner (no PRAGMA foreign_keys=OFF, per-statement transactions
+-- drop defer_foreign_keys). Revisit if D1 grows ALTER CONSTRAINT.
+ALTER TABLE `coach_messages` ADD COLUMN `photo_asset_id` text;

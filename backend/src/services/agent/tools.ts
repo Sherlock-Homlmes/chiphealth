@@ -66,15 +66,26 @@ const write = <S extends z.ZodTypeAny>(t: Omit<WriteTool<S>, 'kind'>): WriteTool
 /* ------------------------------------------------------------ arg helpers */
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}$/;
+// Local wall-clock, strict form YYYY-MM-DDTHH:mm. Models keep appending :00
+// seconds (OpenAI-style datetimes); production trace 2026-09-19: create_workout
+// was rejected 4× on "started_at: Invalid" and burned the whole step budget.
+// Accept seconds (even fractional) and a space separator, then normalise.
+const DATETIME_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/;
+
+const dateTime = (d: string) =>
+  z.string()
+    .regex(DATETIME_RE, 'chưa đúng định dạng — giờ địa phương YYYY-MM-DDTHH:mm, ví dụ 2026-09-19T18:30 (không kèm giây)')
+    .transform((v) => {
+      const [day, clock] = v.split(/[T ]/) as [string, string];
+      return `${day}T${clock.slice(0, 5)}`;
+    })
+    .describe(`${d} (YYYY-MM-DDTHH:mm, giờ địa phương)`);
 
 /** Models send `null` for "not given" as often as they omit the key. */
 const opt = <T extends z.ZodTypeAny>(t: T) =>
   t.nullish().transform((v) => v ?? undefined).describe(t.description ?? '');
 
 const date = (d: string) => z.string().regex(DATE_RE).describe(`${d} (YYYY-MM-DD)`);
-const dateTime = (d: string) =>
-  z.string().regex(DATETIME_RE).describe(`${d} (YYYY-MM-DDTHH:mm, giờ địa phương)`);
 const id = (d: string) => z.string().trim().min(1).max(64).describe(d);
 const num = (d: string, min: number, max: number) => z.coerce.number().min(min).max(max).describe(d);
 const int = (d: string, min: number, max: number) =>

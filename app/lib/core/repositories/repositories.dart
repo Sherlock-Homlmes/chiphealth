@@ -450,6 +450,7 @@ class TrainingRepository {
     int? perceivedExertion,
     double? caloriesBurnedKcal,
     String source = 'in_app',
+    List<String>? photoAssetIds,
   }) async {
     final data = await _api.post<dynamic>(
       '/v1/workouts',
@@ -472,6 +473,7 @@ class TrainingRepository {
         'title': title,
         'notes': notes,
         'perceivedExertion': perceivedExertion,
+        if (photoAssetIds != null) 'photoAssetIds': photoAssetIds,
       },
     );
     return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
@@ -496,13 +498,15 @@ class TrainingRepository {
               as Map)
           .cast<String, dynamic>();
 
-  /// Edit what the athlete typed; the numbers come from the stream.
+  /// Edit what the athlete typed; the numbers come from the stream. Photos are
+  /// full-replace server-side, so this always sends the complete ordered list.
   Future<WorkoutSession> update(
     String id, {
     required int activityTypeId,
     String? title,
     String? notes,
     int? perceivedExertion,
+    List<String>? photoAssetIds,
   }) async {
     final data = await _api.patch<dynamic>(
       '/v1/workouts/$id',
@@ -511,6 +515,7 @@ class TrainingRepository {
         'title': title,
         'notes': notes,
         'perceivedExertion': perceivedExertion,
+        if (photoAssetIds != null) 'photoAssetIds': photoAssetIds,
       },
     );
     return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
@@ -697,10 +702,13 @@ class CoachRepository {
   ).map(CoachMessage.fromJson).toList();
 
   /// One assistant turn. The agent may look things up several times before it
-  /// answers, so this waits far longer than an ordinary request.
+  /// answers, so this waits far longer than an ordinary request. [photoAssetId]
+  /// is a media asset the user attached; the server describes it with the
+  /// vision model before the agent runs.
   Future<CoachMessage> send(
     String conversationId,
     String content, {
+    String? photoAssetId,
     int? waterMlToday,
     int? waterTargetMl,
   }) async {
@@ -709,6 +717,7 @@ class CoachRepository {
                   '/v1/coach/conversations/$conversationId/messages',
                   body: {
                     'content': content,
+                    if (photoAssetId != null) 'photo_asset_id': photoAssetId,
                     'device': {
                       if (waterMlToday != null) 'waterMlToday': waterMlToday,
                       if (waterTargetMl != null) 'waterTargetMl': waterTargetMl,

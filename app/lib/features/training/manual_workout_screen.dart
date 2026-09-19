@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/storage/uuid.dart';
 import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
+import 'workout_photos.dart';
 
 /// A session typed in after the fact: sport, when, how long and (optionally)
 /// how far and how many kcal. Left blank, the server estimates kcal from the
@@ -33,6 +34,7 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
   ActivityType? _activity;
   DateTime _start = DateTime.now().subtract(const Duration(minutes: 30));
   bool _saving = false;
+  List<String> _photoIds = const [];
 
   /// Server preview of what an empty kcal field will be saved as.
   Map<String, dynamic>? _estimate;
@@ -162,6 +164,7 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
             caloriesBurnedKcal: kcal == null || kcal <= 0 ? null : kcal,
             title: title.isEmpty ? defaultTitleFor(startedAt, activity) : title,
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
+            photoAssetIds: _photoIds,
           );
       ref.invalidate(workoutFeedProvider);
       ref.invalidate(personalRecordsProvider);
@@ -200,6 +203,11 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
           data: (list) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              WorkoutPhotoPicker(
+                initialIds: _photoIds,
+                onChanged: (ids) => _photoIds = ids,
+              ),
+              const SizedBox(height: 16),
               DropdownButtonFormField<ActivityType>(
                 initialValue: _activity,
                 decoration: const InputDecoration(labelText: 'Môn'),

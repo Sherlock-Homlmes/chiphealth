@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex, check, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { pkUuid, ts, tsNow, bool } from './_shared';
 import { users, mediaAssets } from './core';
@@ -45,6 +45,23 @@ export const workoutSessions = sqliteTable('workout_sessions', {
   index('workout_sessions_user_started_idx').on(t.userId, t.startedAt),
   uniqueIndex('workout_sessions_external_uq').on(t.source, t.externalId),
   check('workout_sessions_source_ck', sql`${t.source} in ('in_app','health_sync','manual_entry')`),
+]);
+
+/**
+ * Photos the athlete attaches to a session — up to five, ordered. Detaching
+ * only deletes the link; the media row flips back to orphan and the sweeper
+ * reclaims the R2 object, so nothing here ever deletes an asset directly.
+ */
+export const workoutPhotos = sqliteTable('workout_photos', {
+  workoutSessionId: text('workout_session_id').notNull()
+    .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+  assetId: text('asset_id').notNull()
+    .references(() => mediaAssets.id),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: tsNow('created_at'),
+}, (t) => [
+  primaryKey({ columns: [t.workoutSessionId, t.assetId] }),
+  index('workout_photos_order_idx').on(t.workoutSessionId, t.sortOrder),
 ]);
 
 /**

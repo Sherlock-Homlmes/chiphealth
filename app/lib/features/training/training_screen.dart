@@ -10,6 +10,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
 import 'route_map.dart';
+import 'workout_photos.dart';
 
 class TrainingScreen extends ConsumerWidget {
   const TrainingScreen({super.key});
@@ -248,6 +249,23 @@ class ActivityCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // The first photos of the session, like the meal diary's tile:
+                // enough to recognise the session, tap through for the rest.
+                if (session.photoAssetIds.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 56,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: session.photoAssetIds.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) => WorkoutPhotoTile(
+                        assetId: session.photoAssetIds[i],
+                        size: 56,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

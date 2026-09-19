@@ -26,7 +26,11 @@ export const coachMessages = sqliteTable('coach_messages', {
     .references(() => coachConversations.id, { onDelete: 'cascade' }),
   role: text('role', { enum: COACH_ROLES }).notNull(),
   content: text('content').notNull(),
-  /** Snapshot of the health data injected into this turn — makes answers reproducible. */
+  /** Photo the user attached to this message (media_assets.id, kind coach_photo). */
+  photoAssetId: text('photo_asset_id'),
+  /** Snapshot of the health data injected into this turn — makes answers reproducible.
+   *  On user messages it holds { photoDescription } so later turns' history still
+   *  "sees" a photo that has long scrolled out of the model's vision. */
   contextJson: text('context_json'),
   model: text('model'),
   promptTokens: integer('prompt_tokens'),
