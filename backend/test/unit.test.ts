@@ -13,6 +13,10 @@ import {
   extractJson, parseComponents, foodNameFits, effectiveAnalysis, MEAL_ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE,
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
+import { normaliseLocale, languageName, speechLanguage, SUPPORTED_LOCALES } from '../src/lib/language';
+import { asrFamily } from '../src/services/speech';
+import { firstTranscript } from '../src/services/speech/nova3';
+import { primaryLanguage } from '../src/services/speech/whisper';
 import { parseCsv } from '../src/routes/admin/foods';
 import { serializeAction, linkOf } from '../src/routes/coach';
 import { parseBody } from '../src/lib/http';
@@ -140,6 +144,35 @@ let threw = false;
 try { extractJson('no json at all'); } catch { threw = true; }
 check('missing JSON throws', threw, true);
 
+console.log('\n# language choice');
+check('a region tag narrows to the language', normaliseLocale('vi-VN'), 'vi');
+check('an underscore tag works too', normaliseLocale('en_US'), 'en');
+// An unsupported language is a reason to speak Vietnamese, not to fail.
+check('an unknown language falls back', normaliseLocale('fr-FR'), 'vi');
+check('null falls back', normaliseLocale(null), 'vi');
+check('only vi and en are offered', [...SUPPORTED_LOCALES], ['vi', 'en']);
+check('the prompt names the language in it', languageName('en'), 'English');
+check('vietnamese is named in vietnamese', languageName('vi-VN'), 'tiếng Việt');
+check('english speech gets a region', speechLanguage('en'), 'en-US');
+check('vietnamese speech stays bare', speechLanguage('vi'), 'vi');
+
+console.log('\n# speech backend selection');
+check('deepgram ids take the nova-3 shape', asrFamily('@cf/deepgram/nova-3'), 'deepgram');
+check('whisper ids take the whisper shape',
+  asrFamily('@cf/openai/whisper-large-v3-turbo'), 'whisper');
+check('an unknown vendor falls back to whisper', asrFamily('@cf/some/other'), 'whisper');
+// Whisper only reads the primary subtag, so a BCP-47 tag has to be trimmed.
+check('whisper gets a bare language code', primaryLanguage('en-US'), 'en');
+check('nova-3 transcript is read out of the channel',
+  firstTranscript({ results: { channels: [{ alternatives: [{ transcript: ' hai bát cơm ' }] }] } }),
+  'hai bát cơm');
+check('a body without the results wrapper still reads',
+  firstTranscript({ channels: [{ alternatives: [{ transcript: 'xin chào' }] }] }), 'xin chào');
+check('an empty alternative is skipped',
+  firstTranscript({ results: { channels: [{ alternatives: [{ transcript: '  ' }, { transcript: 'phở' }] }] } }),
+  'phở');
+check('nothing heard reads as empty', firstTranscript({}), '');
+
 console.log('\n# food-base match must be the named food');
 check('same name is exact', foodNameFits('Cơm trắng', 'cơm trắng'), 'exact');
 check('a prefix is not a match ("trà" is not "Cơm trắng")', foodNameFits('Trà', 'Cơm trắng'), null);
@@ -224,9 +257,14 @@ console.log('\n# prompt files');
   // Every template renders with the variables its call site passes.
   const agentVars = {
     today: '2026-09-18', weekday: 'Thứ Sáu', now_local: '12:00', timezone: 'Asia/Ho_Chi_Minh',
-    canary: 'CH-1', context_json: '{}', device_json: '{}',
+    canary: 'CH-1', context_json: '{}', device_json: '{}', language: 'English',
   };
   check('agent system prompt renders', renderPrompt(PROMPTS.agentSystem, agentVars).includes('CH-1'), true);
+  // The reply language is a variable, not a word baked into the prompt.
+  check('agent system prompt carries the chosen language',
+    renderPrompt(PROMPTS.agentSystem, agentVars).includes('English'), true);
+  check('coach system prompt carries the chosen language',
+    renderPrompt(PROMPTS.coachSystem, { language: 'English' }).includes('English'), true);
   check('meal plan prompt renders',
     renderPrompt(PROMPTS.nutritionMealPlan, { date: '2026-09-18', meal_types: 'lunch' }).includes('lunch'), true);
 

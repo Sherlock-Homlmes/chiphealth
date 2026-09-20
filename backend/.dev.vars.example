@@ -88,7 +88,10 @@ AI_EMBEDDING_DIMENSIONS=1024
 #   @cf/baai/bge-base-en-v1.5    # 768  dims, English-only, cheaper
 
 # --- Speech to text (sleep-talk transcripts) -------------------------------
-AI_ASR_MODEL=@cf/openai/whisper-large-v3-turbo
+# Deepgram Nova-3 shape or Whisper shape, picked from the id:
+#   @cf/deepgram/nova-3                 (default)
+#   @cf/openai/whisper-large-v3-turbo   (previous model, still supported)
+AI_ASR_MODEL=@cf/deepgram/nova-3
 # options:
 #   @cf/openai/whisper           # older, cheaper, lower accuracy on Vietnamese
 

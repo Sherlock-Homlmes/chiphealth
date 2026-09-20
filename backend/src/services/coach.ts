@@ -7,6 +7,7 @@ import {
 import { modelConfig } from '../config/models';
 import { sleepDebtFor } from './sleepDebt';
 import { effectiveAnalysis } from './mealAnalysis';
+import { languageName } from '../lib/language';
 import { localDate, localTime, ageFromDob } from '../lib/time';
 import { newId } from '../lib/ids';
 import { insertMany } from '../db/client';
@@ -174,13 +175,23 @@ export function contextBlock(ctx: CoachContext): string {
 
 export interface ChatTurn { role: 'user' | 'assistant' | 'system'; content: string }
 
+/**
+ * [locale] is the language the user picked in Settings; everything the coach
+ * writes is read by them, so it is written in it. Defaults to Vietnamese for
+ * the callers that have no user row in hand.
+ */
 export async function completeCoachReply(
-  env: Bindings, ctx: CoachContext, history: ChatTurn[],
+  env: Bindings, ctx: CoachContext, history: ChatTurn[], locale?: string,
 ): Promise<string> {
   const { chat, chatMaxTokens, chatTemperature } = modelConfig(env);
   const res = await env.AI.run(chat as never, {
     messages: [
-      { role: 'system', content: renderPrompt(PROMPTS.coachSystem) },
+      {
+        role: 'system',
+        content: renderPrompt(PROMPTS.coachSystem, {
+          language: languageName(locale),
+        }),
+      },
       { role: 'system', content: contextBlock(ctx) },
       ...history,
     ],
@@ -195,7 +206,7 @@ export async function completeCoachReply(
  * large calorie gap must be reported even if the model says nothing useful.
  */
 export async function generateDailyInsights(
-  db: Db, env: Bindings, userId: string, timezone: string,
+  db: Db, env: Bindings, userId: string, timezone: string, locale?: string,
 ): Promise<number> {
   const ctx = await buildCoachContext(db, env, userId, timezone);
   const today = localDate(Date.now(), timezone);
@@ -224,7 +235,9 @@ export async function generateDailyInsights(
   }
 
   try {
-    const text = await completeCoachReply(env, ctx, [{ role: 'user', content: renderPrompt(PROMPTS.coachInsights) }]);
+    const text = await completeCoachReply(
+      env, ctx, [{ role: 'user', content: renderPrompt(PROMPTS.coachInsights) }], locale,
+    );
     const start = text.indexOf('[');
     const end = text.lastIndexOf(']');
     if (start !== -1 && end > start) {

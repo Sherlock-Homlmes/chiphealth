@@ -26,12 +26,18 @@ class _ChipHealthAppState extends ConsumerState<ChipHealthApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    // The account's language, not the device's: it is the same value the
+    // speech recogniser and the assistant read, so the app must not disagree
+    // with them. Vietnamese until a session says otherwise.
+    final locale = ref.watch(
+      authControllerProvider.select((s) => s.user?.locale ?? 'vi'),
+    );
     return MaterialApp.router(
       title: 'ChipHealth',
       debugShowCheckedModeBanner: false,
       theme: buildRetroTheme(),
       routerConfig: router,
-      locale: const Locale('vi'),
+      locale: Locale(locale == 'en' ? 'en' : 'vi'),
       supportedLocales: const [Locale('vi'), Locale('en')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

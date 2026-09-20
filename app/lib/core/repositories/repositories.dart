@@ -23,6 +23,12 @@ class ProfileRepository {
   Future<void> updateProfile(UserProfile profile) =>
       _api.put<dynamic>('/v1/me/profile', body: profile.toJson());
 
+  /// The account's language. One value drives three things: the app's own
+  /// strings, what the speech recogniser listens for, and the language the
+  /// assistant answers in — so it is stored on the account, not on the device.
+  Future<void> setLocale(String locale) =>
+      _api.patch<dynamic>('/v1/me', body: {'locale': locale});
+
   /// Writes only the given fields; the server leaves every other one alone.
   Future<void> patchProfile(Map<String, dynamic> fields) =>
       _api.put<dynamic>('/v1/me/profile', body: fields);

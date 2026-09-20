@@ -66,6 +66,15 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
+  /// Changes the account's language and keeps the session in step, so the app
+  /// re-renders in it without a round trip through /v1/me.
+  Future<void> setLocale(String locale) async {
+    final user = state.user;
+    if (user == null || user.locale == locale) return;
+    await _ref.read(profileRepositoryProvider).setLocale(locale);
+    state = state.copyWith(user: user.copyWith(locale: locale));
+  }
+
   /// Debug builds can be handed a refresh token (--dart-define) or, on web, ask
   /// the dev proxy for one. Refresh tokens rotate on first use, so a baked-in
   /// token would only ever log in one browser once — the endpoint hands each

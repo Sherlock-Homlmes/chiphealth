@@ -41,6 +41,17 @@ class AppUser {
   final UnitSystem unitSystem;
   final String timezone;
 
+  AppUser copyWith({String? locale}) => AppUser(
+    id: id,
+    email: email,
+    displayName: displayName,
+    avatarUrl: avatarUrl,
+    role: role,
+    locale: locale ?? this.locale,
+    unitSystem: unitSystem,
+    timezone: timezone,
+  );
+
   factory AppUser.fromJson(Map<String, dynamic> json) => AppUser(
     id: json['id'] as String,
     email: json['email'] as String,

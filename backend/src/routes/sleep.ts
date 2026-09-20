@@ -9,7 +9,8 @@ import { ApiError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { localDate } from '../lib/time';
 import { recomputeSleepDebt, sleepDebtFor } from '../services/sleepDebt';
-import { modelConfig } from '../config/models';
+import { speechLanguage } from '../lib/language';
+import { transcribeAudio } from '../services/speech';
 import { insertMany } from '../db/client';
 import type { AppEnv } from '../env';
 
@@ -357,11 +358,15 @@ app.post('/events/:id/transcribe', async (c) => {
   const object = await c.env.MEDIA.get(row.asset.r2Key);
   if (!object) throw notFound('Audio object');
 
-  const audio = [...new Uint8Array(await object.arrayBuffer())];
-  const result = (await c.env.AI.run(modelConfig(c.env).asr as never, { audio } as never)) as
-    unknown as { text?: string };
+  // Sleep talk is the user's own voice in their own language, so it listens
+  // for the language they set rather than guessing per clip.
+  const { text } = await transcribeAudio(
+    c.env,
+    new Uint8Array(await object.arrayBuffer()),
+    { language: speechLanguage(c.get('user').locale), mimeType: row.asset.mimeType },
+  );
 
-  const transcript = result.text ?? '';
+  const transcript = text;
   await db.update(sleepAudioEvents).set({ transcript })
     .where(eq(sleepAudioEvents.id, eventId));
 

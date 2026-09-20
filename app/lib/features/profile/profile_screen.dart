@@ -53,6 +53,9 @@ class ProfileScreen extends ConsumerWidget {
               key: ValueKey((identityHashCode(info), identityHashCode(data))),
               info: info,
               me: data,
+              // The language sits above the form rather than inside it: it
+              // saves on the tap, while everything below waits for "Lưu".
+              header: const _LanguageCard(),
             ),
           ),
         ),
@@ -173,11 +176,91 @@ class _ConditionDraft {
 
 /// Everything on the page is edited locally; nothing reaches the server until
 /// the save bar that slides up on the first change is pressed.
+/// Account language. Saved the moment it is picked, because the app has to
+/// re-render in it to show that anything happened — and because it is the same
+/// value the speech recogniser and the assistant read, so leaving it pending
+/// behind a "Lưu" would have the three of them disagree in the meantime.
+class _LanguageCard extends ConsumerStatefulWidget {
+  const _LanguageCard();
+
+  @override
+  ConsumerState<_LanguageCard> createState() => _LanguageCardState();
+}
+
+class _LanguageCardState extends ConsumerState<_LanguageCard> {
+  static const _languages = {'vi': 'Tiếng Việt', 'en': 'English'};
+
+  bool _saving = false;
+
+  Future<void> _pick(String locale) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await ref.read(authControllerProvider.notifier).setLocale(locale);
+    } catch (err) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$err')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final current = ref.watch(
+      authControllerProvider.select((s) => s.user?.locale ?? 'vi'),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle('Ngôn ngữ'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Dùng cho giao diện, cho nhận dạng giọng nói và cho câu trả '
+                'lời của Trợ lý AI.',
+                style: TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final entry in _languages.entries)
+                    ChoiceChip(
+                      label: Text(entry.value),
+                      selected: current == entry.key,
+                      onSelected: _saving ? null : (_) => _pick(entry.key),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _SettingsForm extends ConsumerStatefulWidget {
-  const _SettingsForm({super.key, required this.info, required this.me});
+  const _SettingsForm({
+    super.key,
+    required this.info,
+    required this.me,
+    this.header,
+  });
 
   final Map<String, dynamic> info;
   final Map<String, dynamic> me;
+
+  /// Settings that save on the spot, above the form's own fields.
+  final Widget? header;
 
   @override
   ConsumerState<_SettingsForm> createState() => _SettingsFormState();
@@ -409,6 +492,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           // Room for the save bar, so it never hides the last card.
           padding: const EdgeInsets.only(bottom: 96),
           children: [
+            ?widget.header,
             const SectionTitle('Thông tin cá nhân'),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

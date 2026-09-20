@@ -4,6 +4,7 @@ import { modelConfig } from '../../config/models';
 import { ApiError } from '../../lib/errors';
 import { aiText, withTimeout } from '../../lib/aiText';
 import { newId } from '../../lib/ids';
+import { languageName } from '../../lib/language';
 import { localDate, localTime, localWeekday } from '../../lib/time';
 import { PROMPTS, promptSections, renderPrompt } from '../../prompts';
 import { buildCoachContext, type ChatTurn, type CoachContext } from '../coach';
@@ -195,6 +196,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
         weekday: WEEKDAY_VI[localWeekday(now, tz)] ?? '',
         now_local: localTime(now, tz),
         timezone: tz,
+        language: languageName(input.user.locale),
         canary,
         context_json: JSON.stringify(context),
         device_json: JSON.stringify(device),

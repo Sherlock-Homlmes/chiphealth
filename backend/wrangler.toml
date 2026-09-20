@@ -64,7 +64,9 @@ AI_CHAT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 AI_CHAT_MAX_TOKENS = "4096"
 AI_EMBEDDING_MODEL = "@cf/baai/bge-m3"
 AI_EMBEDDING_DIMENSIONS = "1024"
-AI_ASR_MODEL = "@cf/openai/whisper-large-v3-turbo"
+# Switch back with "@cf/openai/whisper-large-v3-turbo" — both request
+# shapes live in src/services/speech/ and are picked from this id.
+AI_ASR_MODEL = "@cf/deepgram/nova-3"
 AI_RERANK_MODEL = "@cf/baai/bge-reranker-base"
 RERANK_ENABLED = "false"
 AI_AGENT_MAX_STEPS = "6"

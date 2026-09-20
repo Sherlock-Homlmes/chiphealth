@@ -215,7 +215,7 @@ async function nightlyRollups(db: Db, env: Bindings): Promise<number> {
       await recomputeDailyNutritionSummary(db, env, person.id, yesterday);
       await recomputeDailyNutritionSummary(db, env, person.id, today);
       await recomputeSleepDebt(db, env, person.id, today);
-      await generateDailyInsights(db, env, person.id, person.timezone);
+      await generateDailyInsights(db, env, person.id, person.timezone, person.locale);
       processed++;
     });
   }

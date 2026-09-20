@@ -11,6 +11,8 @@ import { newId } from '../lib/ids';
 import { localDate } from '../lib/time';
 import { hybridFoodSearch } from '../services/foodSearch';
 import { effectiveAnalysis, recomputeMealTotals } from '../services/mealAnalysis';
+import { speechLanguage } from '../lib/language';
+import { transcribeAudio } from '../services/speech';
 import type { MealAnalysisJob } from '../queue';
 import {
   loadTdeeInputs, computeBmrTdee, recomputeDailyNutritionSummary,
@@ -350,7 +352,7 @@ app.post('/meals/:id/voice', async (c) => {
   const contentType = c.req.header('content-type') ?? '';
 
   let transcript: string | null = null;
-  let audio: number[] | null = null;
+  let audio: Uint8Array | null = null;
 
   if (contentType.startsWith('audio/')) {
     const buf = await c.req.arrayBuffer();
@@ -359,7 +361,7 @@ app.post('/meals/:id/voice', async (c) => {
     if (buf.byteLength > maxBytes) {
       throw new ApiError('UPLOAD_TOO_LARGE', `Max ${maxBytes} bytes for a voice clip`);
     }
-    audio = [...new Uint8Array(buf)];
+    audio = new Uint8Array(buf);
   } else {
     const body = await parseBody(c, z.object({
       transcript: z.string().trim().min(1).max(2000),
@@ -380,7 +382,10 @@ app.post('/meals/:id/voice', async (c) => {
 
   let text: string;
   try {
-    text = transcript ?? await transcribe(c.env, audio!);
+    text = transcript ?? await transcribe(c.env, audio!, {
+      language: speechLanguage(c.get('user').locale),
+      mimeType: contentType.split(';')[0]!.trim(),
+    });
   } catch (err) {
     // The pipeline closes its own row; a failure in ASR happens before it is
     // ever reached, so that case is closed out here.
@@ -439,23 +444,23 @@ app.post('/meals/transcribe', async (c) => {
   if (buf.byteLength > maxBytes) {
     throw new ApiError('UPLOAD_TOO_LARGE', `Max ${maxBytes} bytes for a voice clip`);
   }
-  const transcript = await transcribe(c.env, [...new Uint8Array(buf)]);
+  const transcript = await transcribe(c.env, new Uint8Array(buf), {
+    language: speechLanguage(c.get('user').locale),
+    mimeType: contentType.split(';')[0]!.trim(),
+  });
   return c.json({ transcript });
 });
 
-/** Whisper on the raw clip. Same model the sleep-talk transcripts use. */
-async function transcribe(env: Bindings, audio: number[]): Promise<string> {
-  // whisper-large-v3-turbo takes the clip as base64, not a byte array.
-  let binary = '';
-  for (let i = 0; i < audio.length; i += 0x8000) {
-    binary += String.fromCharCode(...audio.slice(i, i + 0x8000));
-  }
-  const result = (await env.AI.run(
-    modelConfig(env).asr as never,
-    { audio: btoa(binary), language: 'vi' } as never,
-  )) as unknown as { text?: string };
-  const text = (result.text ?? '').trim();
-  if (!text) throw new ApiError('UPSTREAM_AI_ERROR', 'Không nghe rõ nội dung');
+/**
+ * The configured ASR model on the raw clip — the same call the sleep-talk
+ * transcripts make. Which model, and which request shape, is decided in
+ * services/speech; this only says what language to listen for and what the
+ * clip is.
+ */
+async function transcribe(
+  env: Bindings, audio: Uint8Array, opts: { language: string; mimeType?: string },
+): Promise<string> {
+  const { text } = await transcribeAudio(env, audio, opts);
   return text;
 }
 
@@ -887,7 +892,9 @@ app.post('/meal-plans/generate', async (c) => {
     meal_types: body.mealTypes.join(', '),
   });
 
-  const text = await completeCoachReply(c.env, ctx, [{ role: 'user', content: prompt }]);
+  const text = await completeCoachReply(
+    c.env, ctx, [{ role: 'user', content: prompt }], c.get('user').locale,
+  );
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');
   if (start === -1 || end <= start) {
