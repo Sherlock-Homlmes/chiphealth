@@ -78,3 +78,12 @@ Lịch sử cân nặng, chiều cao, % mỡ, khối cơ, vòng eo trong một k
 
 ## log_body_metrics
 ĐỀ XUẤT ghi chỉ số cơ thể: cân nặng, chiều cao, % mỡ, khối cơ, vòng eo — cần ít nhất một chỉ số (chờ xác nhận).
+
+## remember_fact
+Ghi nhớ lâu dài một thông tin cá nhân người dùng vừa nói và sẽ còn đúng ở những cuộc trò chuyện sau: dị ứng, bệnh nền, chấn thương, món ghét/kiêng, lịch tập, thiết bị đang dùng, lý do đang giảm cân. Viết thành MỘT câu ngắn. Dùng expires_in_days khi thông tin chỉ đúng một thời gian ("nghỉ chạy 3 tuần" → 21); bỏ trống khi đúng mãi mãi (dị ứng, bệnh mạn tính). Nhớ lại đúng câu cũ sẽ cập nhật chứ không tạo bản trùng. KHÔNG ghi số liệu đã có trong app (cân nặng, calo, buổi tập) và không ghi chuyện chỉ đúng hôm nay.
+
+## search_facts
+Tìm trong những điều đã ghi nhớ về người dùng. Phần ngữ cảnh đã kèm sẵn các điều quan trọng nhất; chỉ gọi tool này khi cần tìm thêm theo từ khoá hoặc theo nhóm.
+
+## forget_fact
+Xoá một điều đã nhớ khi người dùng nói nó không còn đúng hoặc yêu cầu quên. Cần fact_id.

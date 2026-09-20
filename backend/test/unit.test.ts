@@ -15,6 +15,7 @@ import {
 import { toFtsQuery } from '../src/services/foodSearch';
 import { normaliseLocale, languageName, speechLanguage, SUPPORTED_LOCALES } from '../src/lib/language';
 import { asrFamily } from '../src/services/speech';
+import { factKey, expiryFromDays, MAX_TTL_DAYS } from '../src/services/agent/memory';
 import { firstTranscript } from '../src/services/speech/nova3';
 import { primaryLanguage } from '../src/services/speech/whisper';
 import { parseCsv } from '../src/routes/admin/foods';
@@ -156,6 +157,40 @@ check('vietnamese is named in vietnamese', languageName('vi-VN'), 'tiếng Việ
 check('english speech gets a region', speechLanguage('en'), 'en-US');
 check('vietnamese speech stays bare', speechLanguage('vi'), 'vi');
 
+console.log('\n# assistant memory: expiry and dedupe');
+{
+  const DAY = 86_400_000;
+  const NOW = Date.UTC(2026, 8, 20);
+  // No TTL means the fact never expires — an allergy is not a three-week note.
+  check('no ttl means forever', expiryFromDays(undefined, NOW), null);
+  check('an explicit null means forever', expiryFromDays(null, NOW), null);
+  check('a ttl becomes an absolute deadline', expiryFromDays(21, NOW), NOW + 21 * DAY);
+  check('a fractional day still lands ahead of now',
+    expiryFromDays(0.5, NOW), NOW + 0.5 * DAY);
+  check('a ttl is capped', expiryFromDays(9_999, NOW), NOW + MAX_TTL_DAYS * DAY);
+  // Zero or negative days would write a fact that is already dead on arrival —
+  // that is a mistake in the call, not a fact with a short life.
+  for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    let threw = false;
+    try { expiryFromDays(bad, NOW); } catch { threw = true; }
+    check(`ttl ${bad} is rejected`, threw, true);
+  }
+
+  // The dedupe key: the same sentence said twice is one fact.
+  check('case does not make a second fact', factKey('Dị ứng hải sản'), 'dị ứng hải sản');
+  check('spacing does not make a second fact',
+    factKey('  tập  gym   tối thứ 3 '), 'tập gym tối thứ 3');
+  check('a trailing full stop does not make a second fact',
+    factKey('ghét ăn cá.'), 'ghét ăn cá');
+  check('trailing punctuation of any kind is dropped',
+    factKey('ghét ăn cá!!'), 'ghét ăn cá');
+  // Diacritics are NOT folded: these are different sentences in Vietnamese.
+  check('diacritics still separate facts',
+    factKey('bị đau gối') === factKey('bi dau goi'), false);
+  check('two spellings of the same character are one fact',
+    factKey('cà phê'.normalize('NFD')), factKey('cà phê'.normalize('NFC')));
+}
+
 console.log('\n# speech backend selection');
 check('deepgram ids take the nova-3 shape', asrFamily('@cf/deepgram/nova-3'), 'deepgram');
 check('whisper ids take the whisper shape',
@@ -258,6 +293,7 @@ console.log('\n# prompt files');
   const agentVars = {
     today: '2026-09-18', weekday: 'Thứ Sáu', now_local: '12:00', timezone: 'Asia/Ho_Chi_Minh',
     canary: 'CH-1', context_json: '{}', device_json: '{}', language: 'English',
+    facts_json: '[]',
   };
   check('agent system prompt renders', renderPrompt(PROMPTS.agentSystem, agentVars).includes('CH-1'), true);
   // The reply language is a variable, not a word baked into the prompt.
@@ -265,6 +301,13 @@ console.log('\n# prompt files');
     renderPrompt(PROMPTS.agentSystem, agentVars).includes('English'), true);
   check('coach system prompt carries the chosen language',
     renderPrompt(PROMPTS.coachSystem, { language: 'English' }).includes('English'), true);
+  // Remembered facts are user-authored text, so they have to land inside a
+  // block the prompt has already declared to be data, not instructions.
+  check('remembered facts go in their own data block',
+    renderPrompt(PROMPTS.agentSystem, { ...agentVars, facts_json: '[{"fact":"dị ứng hải sản"}]' })
+      .includes('<remembered_facts>\n[{"fact":"dị ứng hải sản"}]\n</remembered_facts>'), true);
+  check('the injection rule names the facts block',
+    renderPrompt(PROMPTS.agentSystem, agentVars).includes('<remembered_facts>/'), true);
   check('meal plan prompt renders',
     renderPrompt(PROMPTS.nutritionMealPlan, { date: '2026-09-18', meal_types: 'lunch' }).includes('lunch'), true);
 

@@ -11,6 +11,7 @@ import { buildCoachContext, type ChatTurn, type CoachContext } from '../coach';
 import {
   leaksSystemPrompt, normaliseInput, refusalFor, screenInput, type GuardResult,
 } from './guard';
+import { listFacts } from './memory';
 import { AGENT_TOOLS, ToolError, toolDefinitions, type ToolContext } from './tools';
 import type { ApiCaller } from '../../lib/internalApi';
 import type { Db } from '../../db/client';
@@ -188,6 +189,12 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     water_target_ml: input.device.waterTargetMl ?? null,
   };
 
+  // What the assistant already knows about this person, permanent facts first
+  // and expired ones already dropped. Riding along in the prompt rather than
+  // waiting for a tool call is what makes the assistant *start* a conversation
+  // knowing about the shellfish allergy.
+  const facts = await listFacts(db, user.id, { limit: modelConfig(env).agentFactLimit });
+
   const messages: AgentMessage[] = [
     {
       role: 'system',
@@ -200,6 +207,17 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
         canary,
         context_json: JSON.stringify(context),
         device_json: JSON.stringify(device),
+        facts_json: JSON.stringify(
+          facts.map((f) => ({
+            fact_id: f.id,
+            category: f.category,
+            fact: f.fact,
+            // Spelled out, so the model can weigh it against today's date.
+            expires_at: f.expiresAt === null
+              ? null
+              : localDate(f.expiresAt, tz),
+          })),
+        ),
       }),
     },
     ...input.history
@@ -213,7 +231,12 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     chat, chatMaxTokens, chatTemperature, agentMaxSteps, agentMaxToolCalls, agentThinking,
     agentCallTimeoutMs,
   } = modelConfig(env);
-  const ctx: ToolContext = { caller: input.caller, user, memo: new Map() };
+  const ctx: ToolContext = {
+    caller: input.caller,
+    user,
+    conversationId: input.conversationId,
+    memo: new Map(),
+  };
   const trace: TraceStep[] = [];
   const actionIds: string[] = [];
   const proposed = new Set<string>();

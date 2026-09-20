@@ -21,6 +21,8 @@ import type { AuthUser } from '../../env';
 export interface ToolContext {
   caller: ApiCaller;
   user: AuthUser;
+  /** The conversation this turn belongs to, recorded on anything it remembers. */
+  conversationId?: string;
   /** Per-turn memo for lookups several tools share (the sport catalogue). */
   memo: Map<string, Promise<unknown>>;
 }
@@ -226,6 +228,27 @@ function mealLabel(m: MealRow, tz: string): string {
   return `${MEAL_LABEL[m.mealType] ?? m.mealType} ${human(m.loggedAt, tz)}${dish}`;
 }
 
+interface FactRow extends Row {
+  id: string;
+  category: string;
+  fact: string;
+  expiresAt: number | null;
+}
+
+/**
+ * A remembered fact as the model sees it. The expiry is spelled out rather
+ * than left as an epoch: "đến 2026-10-12" is something the model can reason
+ * about against today's date, a millisecond count is not.
+ */
+function factBrief(f: FactRow, tz: string) {
+  return {
+    fact_id: f.id,
+    category: f.category,
+    fact: f.fact,
+    expires_at: f.expiresAt === null ? null : at(f.expiresAt, tz),
+  };
+}
+
 function workoutBrief(w: WorkoutRow, types: Map<number, ActivityType>, tz: string) {
   return {
     workout_id: w.id,
@@ -311,8 +334,13 @@ const getWorkout = (ctx: ToolContext, workoutId: string) =>
 const getSleep = (ctx: ToolContext, sleepId: string) =>
   api<SleepRow>(ctx, 'GET', `/v1/sleep/sessions/${encodeURIComponent(sleepId)}`);
 
-const q = (params: Record<string, string | number>) =>
-  new URLSearchParams(Object.entries(params).map(([k, v]): [string, string] => [k, String(v)])).toString();
+const q = (params: Record<string, string | number | undefined>) =>
+  new URLSearchParams(
+    Object.entries(params)
+      // An omitted optional argument must not become "?q=undefined".
+      .filter((e): e is [string, string | number] => e[1] !== undefined)
+      .map(([k, v]): [string, string] => [k, String(v)]),
+  ).toString();
 
 /* --------------------------------------------------------------- tools */
 
@@ -919,6 +947,68 @@ const TOOLS: AgentTool[] = [
         waistCm: a.waist_cm,
       });
       return {};
+    },
+  }),
+
+  /* ------------------------------------------------------------- memory */
+
+  read({
+    name: 'remember_fact',
+    args: z.object({
+      fact: z.string().trim().min(3).max(300)
+        .describe('một câu ngắn, ngôi thứ ba, vd "dị ứng hải sản" hoặc "tập gym tối thứ 3, 5, 7"'),
+      category: z.enum(['health', 'nutrition', 'training', 'sleep', 'preference', 'other'])
+        .default('other')
+        .describe('health | nutrition | training | sleep | preference | other'),
+      expires_in_days: z.number().positive().max(730).nullish()
+        .describe('số ngày thông tin còn đúng; bỏ trống nếu đúng mãi mãi'),
+    }),
+    async run(ctx, a) {
+      const saved = await api<{ id: string; fact: string; expiresAt: number | null }>(
+        ctx, 'POST', '/v1/me/facts',
+        {
+          fact: a.fact,
+          category: a.category,
+          expiresInDays: a.expires_in_days ?? null,
+          conversationId: ctx.conversationId ?? null,
+        },
+      );
+      return {
+        fact_id: saved.id,
+        fact: saved.fact,
+        expires_at: saved.expiresAt === null
+          ? null
+          : at(saved.expiresAt, ctx.user.timezone),
+      };
+    },
+  }),
+
+  read({
+    name: 'search_facts',
+    args: z.object({
+      query: z.string().trim().max(200).optional()
+        .describe('từ khoá cần tìm trong các điều đã nhớ; bỏ trống để lấy tất cả'),
+      category: z.enum(['health', 'nutrition', 'training', 'sleep', 'preference', 'other'])
+        .optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    }),
+    async run(ctx, a) {
+      const res = await api<{ items: FactRow[] }>(
+        ctx, 'GET',
+        `/v1/me/facts?${q({ q: a.query, category: a.category, limit: a.limit ?? 30 })}`,
+      );
+      return { facts: res.items.map((f) => factBrief(f, ctx.user.timezone)) };
+    },
+  }),
+
+  read({
+    name: 'forget_fact',
+    args: z.object({
+      fact_id: z.string().describe('id lấy từ search_facts hoặc phần đã nhớ trong ngữ cảnh'),
+    }),
+    async run(ctx, a) {
+      await api(ctx, 'DELETE', `/v1/me/facts/${encodeURIComponent(a.fact_id)}`);
+      return { forgotten: true };
     },
   }),
 ];

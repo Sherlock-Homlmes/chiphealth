@@ -31,6 +31,7 @@ export interface Bindings {
   AI_ASR_MODEL?: string;
   AI_RERANK_MODEL?: string;
   RERANK_ENABLED?: string;
+  AI_AGENT_FACT_LIMIT?: string;
   AI_AGENT_MAX_STEPS?: string;
   AI_AGENT_MAX_TOOL_CALLS?: string;
   AI_AGENT_THINKING?: string;

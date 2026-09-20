@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, check } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { pkUuid, ts, tsNow, bool } from './_shared';
 import { users } from './core';
@@ -88,4 +88,44 @@ export const coachActions = sqliteTable('coach_actions', {
   index('coach_actions_conversation_idx').on(t.conversationId),
   index('coach_actions_user_idx').on(t.userId, t.createdAt),
   check('coach_actions_status_ck', sql`${t.status} in ('pending','confirmed','cancelled','failed','expired')`),
+]);
+
+export const FACT_CATEGORIES = [
+  'health', 'nutrition', 'training', 'sleep', 'preference', 'other',
+] as const;
+
+/**
+ * What the assistant has learned about this user and should still know next
+ * week: allergies, injuries, chronic conditions, what they hate eating, when
+ * they train, why they are cutting.
+ *
+ * Two lifetimes live in one table. A fact with `expires_at` null is permanent
+ * ("dị ứng hải sản"); one with a timestamp is true only for a while ("đang
+ * chấn thương gối, nghỉ chạy 3 tuần"), and every read filters the expired ones
+ * out rather than trusting a sweeper to have run — see services/agent/memory.ts.
+ *
+ * `fact_key` is the normalised text, unique per user: remembering the same
+ * thing twice updates the row (and can extend or clear its expiry) instead of
+ * stacking near-duplicates the model then has to read past.
+ */
+export const userFacts = sqliteTable('user_facts', {
+  id: pkUuid(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  category: text('category', { enum: FACT_CATEGORIES }).notNull().default('other'),
+  /** One sentence, in the user's own terms. */
+  fact: text('fact').notNull(),
+  /** Normalised `fact`, for the per-user uniqueness above. */
+  factKey: text('fact_key').notNull(),
+  /** Null means it never expires. */
+  expiresAt: ts('expires_at'),
+  /** Where it came from — only the assistant writes facts today. */
+  source: text('source').notNull().default('assistant'),
+  conversationId: text('conversation_id'),
+  createdAt: tsNow('created_at'),
+  updatedAt: tsNow('updated_at'),
+}, (t) => [
+  uniqueIndex('user_facts_key_uq').on(t.userId, t.factKey),
+  index('user_facts_user_idx').on(t.userId, t.expiresAt),
+  check('user_facts_category_ck',
+    sql`${t.category} in ('health','nutrition','training','sleep','preference','other')`),
 ]);

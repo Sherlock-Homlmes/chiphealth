@@ -7,6 +7,7 @@ import { localDate, localTime, localWeekday, addDays } from './lib/time';
 import { recomputeSleepDebt } from './services/sleepDebt';
 import { recomputeDailyNutritionSummary } from './services/nutritionMath';
 import { generateDailyInsights } from './services/coach';
+import { purgeExpiredFacts } from './services/agent/memory';
 import { sendPush } from './services/push';
 import { upsertVector } from './services/vectorize';
 import { modelConfig } from './config/models';
@@ -230,7 +231,10 @@ export async function runScheduled(
   const work = async () => {
     if (event.cron === '0 19 * * *') {
       const processed = await nightlyRollups(db, env);
-      console.log(`cron nightly: ${processed} users`);
+      // Housekeeping only: every read already filters expired facts out, so a
+      // night this does not run costs space, never correctness.
+      const facts = await purgeExpiredFacts(db).catch(() => 0);
+      console.log(`cron nightly: ${processed} users, ${facts} expired facts purged`);
       return;
     }
 

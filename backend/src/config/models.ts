@@ -34,6 +34,12 @@ export function modelConfig(env: Bindings) {
     rerank: env.AI_RERANK_MODEL ?? '@cf/baai/bge-reranker-base',
     rerankEnabled: env.RERANK_ENABLED === 'true',
     promptVersion: env.PROMPT_VERSION ?? 'meal-v1',
+    /**
+     * Assistant agent: remembered facts carried in the system prompt each turn.
+     * Permanent facts come first, so raising this only reaches further down the
+     * temporary ones — see services/agent/memory.ts.
+     */
+    agentFactLimit: num(env.AI_AGENT_FACT_LIMIT, 15),
     /** Assistant agent: model rounds per user turn before it must answer. */
     agentMaxSteps: num(env.AI_AGENT_MAX_STEPS, 6),
     /** Assistant agent: tool executions per user turn, across all rounds. */

@@ -19,6 +19,11 @@ import {
 import { newId } from '../lib/ids';
 import { isoDateSchema, page, paginationSchema, parseBody, parseQuery } from '../lib/http';
 import { ApiError, notFound } from '../lib/errors';
+import { SUPPORTED_LOCALES } from '../lib/language';
+import {
+  expiryFromDays, forgetFact, listFacts, rememberFact, MAX_FACT_LENGTH, MAX_TTL_DAYS,
+} from '../services/agent/memory';
+import { FACT_CATEGORIES } from '../db/schema';
 import { addDays, localDate } from '../lib/time';
 import {
   computeBmrTdee,
@@ -129,7 +134,10 @@ function safeJson(raw: string): unknown {
 
 const patchMeSchema = z.object({
   displayName: z.string().min(1).max(120).nullable().optional(),
-  locale: z.string().min(2).max(16).optional(),
+  // Only the languages the app can actually speak: the ARB files, the
+  // assistant's replies and the speech recogniser all key off this one value,
+  // so a locale with no translation behind it would be a half-translated app.
+  locale: z.enum(SUPPORTED_LOCALES).optional(),
   unitSystem: z.enum(['metric', 'imperial']).optional(),
   timezone: z.string().min(1).max(64).optional(),
   avatarAssetId: z.string().uuid().nullable().optional(),
@@ -735,6 +743,63 @@ me.get('/tdee', async (c) => {
       workoutCaloriesKcal: workoutKcal,
     },
   });
+});
+
+/* -------------------------------------------------------------------------- */
+/* /v1/me/facts — what the assistant remembers about this user                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The assistant's long-term memory, behind the same API everything else uses:
+ * its tools call these endpoints with the user's own token, so it can read and
+ * write exactly its own memory and nothing else.
+ *
+ * Expired facts are never returned. The list is the live set, permanent facts
+ * first — see services/agent/memory.ts for why the filter lives in the query
+ * rather than in a sweeper.
+ */
+me.get('/facts', async (c) => {
+  const q = parseQuery(c, z.object({
+    q: z.string().trim().max(200).optional(),
+    category: z.enum(FACT_CATEGORIES).optional(),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+  }));
+
+  const items = await listFacts(c.get('db'), c.get('user').id, {
+    query: q.q,
+    category: q.category,
+    limit: q.limit,
+  });
+  return c.json({ items });
+});
+
+const factSchema = z.object({
+  fact: z.string().trim().min(3).max(MAX_FACT_LENGTH),
+  category: z.enum(FACT_CATEGORIES).default('other'),
+  /**
+   * How long the fact stays true. Omitted (or null) means forever — that is
+   * the right answer for an allergy and the wrong one for a three-week injury,
+   * which is why the caller has to decide rather than getting a default TTL.
+   */
+  expiresInDays: z.number().positive().max(MAX_TTL_DAYS).nullish(),
+  conversationId: z.string().uuid().nullish(),
+}).strict();
+
+me.post('/facts', async (c) => {
+  const body = await parseBody(c, factSchema);
+  const fact = await rememberFact(c.get('db'), c.get('user').id, {
+    fact: body.fact,
+    category: body.category,
+    expiresAt: expiryFromDays(body.expiresInDays),
+    conversationId: body.conversationId ?? null,
+  });
+  return c.json(fact, 201);
+});
+
+me.delete('/facts/:id', async (c) => {
+  const gone = await forgetFact(c.get('db'), c.get('user').id, c.req.param('id'));
+  if (!gone) throw notFound('Fact');
+  return c.body(null, 204);
 });
 
 export default me;
