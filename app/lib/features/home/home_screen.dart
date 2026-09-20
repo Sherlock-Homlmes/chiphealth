@@ -12,6 +12,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import '../moments/moment_tile.dart';
 import '../moments/moments_feed.dart';
+import '../training/activity_format.dart';
 import 'add_water_sheet.dart';
 import 'home_widgets.dart';
 import 'water_controller.dart';
@@ -107,11 +108,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  _WaterCard(date: iso),
+                  _WaterCard(date: iso, nutrition: nutrition),
                   const SizedBox(height: 12),
                   _MealsCard(nutrition: nutrition),
                   const SizedBox(height: 12),
-                  _ActivityCard(nutrition: nutrition),
+                  _ActivityCard(date: iso, nutrition: nutrition),
                   // Same reason the cards above wait for the session:
                   // watching the feed before the stored token is exchanged
                   // only earns a 401, which would then sit in the card until
@@ -639,9 +640,13 @@ class _EnergyLine extends StatelessWidget {
 /// Water is device-local (see WaterController) and always renders its cups on a
 /// single row, however narrow the phone is.
 class _WaterCard extends ConsumerWidget {
-  const _WaterCard({required this.date});
+  const _WaterCard({required this.date, required this.nutrition});
 
   final String date;
+
+  /// The day's meals, for the fluid they carried — a glass of orange juice is
+  /// water whether it was tapped into this card or logged as a meal.
+  final AsyncValue<DailyNutrition> nutrition;
 
   static final _ml = NumberFormat('#,##0');
 
@@ -651,6 +656,12 @@ class _WaterCard extends ConsumerWidget {
     final target = ref.watch(waterTargetProvider);
     final controller = ref.read(waterProvider(date).notifier);
     final cups = (target / WaterController.cupMl).ceil().clamp(4, 12).toInt();
+    // What the analysis estimated across the day's meals: drinks in full, plus
+    // broth and the water inside the food.
+    final fromMeals = (nutrition.valueOrNull?.meals ?? const <MealLog>[])
+        .fold<double>(0, (s, m) => s + (m.totalWaterMl ?? 0))
+        .round();
+    final total = drunk + fromMeals;
 
     return HomeCard(
       child: Column(
@@ -662,16 +673,22 @@ class _WaterCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Nước',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: RetroTokens.inkFaint,
-                      ),
+                    Row(
+                      children: [
+                        const Text(
+                          'Nước',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: RetroTokens.inkFaint,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        _WaterHelp(drunk: drunk, fromMeals: fromMeals),
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${_ml.format(drunk)} ml',
+                      '${_ml.format(total)} ml',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ],
@@ -701,8 +718,13 @@ class _WaterCard extends ConsumerWidget {
                     child: _Cup(
                       // Filled to the millilitre, not by whole glasses: 380 ml
                       // is one full glass and a second one just over half.
-                      fill: cupFillRatio(i, drunk),
-                      onTap: () => i == 0 && drunk == 0
+                      // The glasses count the whole day's fluid, meals
+                      // included, so they agree with the number above them.
+                      fill: cupFillRatio(i, total),
+                      // Tapping glass n still means "I have drunk n glasses in
+                      // total" — what the meals already contributed is taken
+                      // off, so only the hand-logged part is stored.
+                      onTap: () => i == 0 && total == 0
                           ? addWater(
                               context,
                               ref,
@@ -710,7 +732,7 @@ class _WaterCard extends ConsumerWidget {
                               drunk: drunk,
                               target: target,
                             )
-                          : controller.setCups(i + 1),
+                          : controller.setCups(i + 1, alreadyMl: fromMeals),
                     ),
                   ),
                 ),
@@ -721,7 +743,11 @@ class _WaterCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Mục tiêu: ${_ml.format(target)} ml',
+                  fromMeals > 0
+                      ? 'Mục tiêu ${_ml.format(target)} ml · '
+                            'tự ghi ${_ml.format(drunk)} · '
+                            'đồ ăn ${_ml.format(fromMeals)}'
+                      : 'Mục tiêu: ${_ml.format(target)} ml',
                   style: const TextStyle(
                     fontSize: 12,
                     color: RetroTokens.inkSoft,
@@ -752,6 +778,46 @@ class _WaterCard extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The "?" next to the water total. What the number means is not obvious —
+/// it is not only what the user tapped in — so the card says so on demand
+/// rather than spending a line of the card on it.
+class _WaterHelp extends StatelessWidget {
+  const _WaterHelp({required this.drunk, required this.fromMeals});
+
+  final int drunk;
+  final int fromMeals;
+
+  static final _ml = NumberFormat('#,##0');
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: () => showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nước hôm nay'),
+        content: Text(
+          'Tổng lượng nước gồm cả nước bạn tự ghi ở đây và lượng nước có '
+          'trong đồ ăn, đồ uống của các bữa đã ghi — AI ước tính phần đó khi '
+          'phân tích bữa ăn (nước lọc, trà, nước canh, nước trong cơm, rau…).'
+          '\n\nHôm nay: tự ghi ${_ml.format(drunk)} ml · '
+          'từ bữa ăn ${_ml.format(fromMeals)} ml.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Đã hiểu'),
+          ),
+        ],
+      ),
+    ),
+    customBorder: const CircleBorder(),
+    child: const Padding(
+      padding: EdgeInsets.all(2),
+      child: Icon(Icons.help_outline, size: 14, color: RetroTokens.inkFaint),
+    ),
+  );
 }
 
 /// A glass filled from the bottom to [fill] (0..1).
@@ -904,43 +970,126 @@ class _MealRow extends StatelessWidget {
   );
 }
 
-/// Activity mirrors the meals card: burned calories and a "+" that starts a
-/// recording.
-class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.nutrition});
+/// Activity mirrors the meals card: the day's sessions themselves, with the
+/// calories they burned in the header and a "+" that starts a recording.
+class _ActivityCard extends ConsumerWidget {
+  const _ActivityCard({required this.date, required this.nutrition});
 
+  final String date;
   final AsyncValue<DailyNutrition> nutrition;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final burned = nutrition.valueOrNull?.burnedKcal ?? 0;
+    final workouts = ref.watch(workoutsOnDayProvider(date)).valueOrNull;
+    final types = {
+      for (final t
+          in ref.watch(activityTypesProvider).valueOrNull ??
+              const <ActivityType>[])
+        t.id: t,
+    };
+    final sessions = [...?workouts]
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
-    // The card body opens the activity feed; only "+" jumps straight into a
-    // new recording.
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => context.go('/training'),
-      child: HomeCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _CardHead(
-              label: 'Hoạt động',
-              value: '${burned.round()}',
-              unit: 'kcal',
-              // Full-screen route, not a tab: push so the recorder can be backed
-              // out of.
-              onAdd: () => context.push('/record'),
-            ),
-            if (burned <= 0)
-              const EmptyHint(text: 'Ghi lại hoạt động đầu tiên!')
-            else ...[
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => context.go('/training'),
-                child: const Text('Xem buổi tập hôm nay'),
+    return HomeCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardHead(
+            label: 'Hoạt động',
+            value: '${burned.round()}',
+            unit: 'kcal',
+            // Full-screen route, not a tab: push so the recorder can be backed
+            // out of.
+            onAdd: () => context.push('/record'),
+          ),
+          if (sessions.isEmpty)
+            // The header can already show calories from a source with no
+            // session behind it (a watch import), so the hint speaks to the
+            // list, not to the day.
+            const EmptyHint(text: 'Ghi lại hoạt động đầu tiên!')
+          else ...[
+            const SizedBox(height: 12),
+            for (final s in sessions)
+              // push, not go: the detail screen lives outside the shell.
+              _WorkoutRow(
+                session: s,
+                type: types[s.activityTypeId],
+                onTap: () => context.push('/workouts/${s.id}'),
               ),
-            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One session on the home card: what it was, when, and the two numbers worth
+/// reading at a glance. The full stats live on the detail screen.
+class _WorkoutRow extends StatelessWidget {
+  const _WorkoutRow({
+    required this.session,
+    required this.type,
+    required this.onTap,
+  });
+
+  final WorkoutSession session;
+  final ActivityType? type;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final at = DateTime.fromMillisecondsSinceEpoch(session.startedAt);
+    final time =
+        '${at.hour.toString().padLeft(2, '0')}:'
+        '${at.minute.toString().padLeft(2, '0')}';
+    final distance = (session.distanceM ?? 0) > 0
+        ? ' · ${(session.distanceM! / 1000).toStringAsFixed(2)} km'
+        : '';
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              activityIcon(type?.code),
+              size: 18,
+              color: RetroTokens.inkSoft,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    session.title?.trim().isNotEmpty == true
+                        ? session.title!.trim()
+                        : defaultWorkoutTitle(session, type),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$time · ${Units.duration(session.durationSeconds)}'
+                    '$distance',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: RetroTokens.inkFaint,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if ((session.caloriesBurnedKcal ?? 0) > 0)
+              Text(
+                Units.kcal(session.caloriesBurnedKcal!),
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
           ],
         ),
       ),

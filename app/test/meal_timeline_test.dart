@@ -3,33 +3,40 @@ import 'package:chiphealth/features/nutrition/meal_timeline.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 MealLog _meal(String id, String date, int hour, double kcal) => MealLog(
-      id: id,
-      mealType: 'lunch',
-      loggedAt: DateTime(2026, 9, 9, hour).millisecondsSinceEpoch,
-      localDate: date,
-      totalCaloriesKcal: kcal,
-    );
+  id: id,
+  mealType: 'lunch',
+  loggedAt: DateTime(2026, 9, 9, hour).millisecondsSinceEpoch,
+  localDate: date,
+  totalCaloriesKcal: kcal,
+);
 
-MealItem _item(int id, String name, double kcal,
-        {double protein = 0, double carbs = 0, double fat = 0}) =>
-    MealItem(
-      id: id,
-      ingredientName: name,
-      quantityG: 100,
-      caloriesKcal: kcal,
-      proteinG: protein,
-      carbsG: carbs,
-      fatG: fat,
-    );
+MealItem _item(
+  int id,
+  String name,
+  double kcal, {
+  double protein = 0,
+  double carbs = 0,
+  double fat = 0,
+}) => MealItem(
+  id: id,
+  ingredientName: name,
+  quantityG: 100,
+  caloriesKcal: kcal,
+  proteinG: protein,
+  carbsG: carbs,
+  fatG: fat,
+);
 
 void main() {
   group('meal timeline', () {
     test('groups the diary by day, newest day first', () {
-      final state = MealTimelineState(meals: [
-        _meal('c', '2026-09-10', 8, 300),
-        _meal('b', '2026-09-09', 19, 700),
-        _meal('a', '2026-09-09', 7, 400),
-      ]);
+      final state = MealTimelineState(
+        meals: [
+          _meal('c', '2026-09-10', 8, 300),
+          _meal('b', '2026-09-09', 19, 700),
+          _meal('a', '2026-09-09', 7, 400),
+        ],
+      );
 
       final days = state.days;
       expect(days.map((d) => d.date), ['2026-09-10', '2026-09-09']);
@@ -38,20 +45,24 @@ void main() {
 
     test('a day lists the latest-eaten meal first, not the latest created', () {
       // 'z' was created last but eaten first (breakfast typed up at noon).
-      final state = MealTimelineState(meals: [
-        _meal('a', '2026-09-09', 12, 500),
-        _meal('z', '2026-09-09', 7, 300),
-        _meal('m', '2026-09-09', 19, 700),
-      ]);
+      final state = MealTimelineState(
+        meals: [
+          _meal('a', '2026-09-09', 12, 500),
+          _meal('z', '2026-09-09', 7, 300),
+          _meal('m', '2026-09-09', 19, 700),
+        ],
+      );
 
       expect(state.days.single.meals.map((m) => m.id), ['m', 'a', 'z']);
     });
 
     test('a day heading carries what that day added up to', () {
-      final state = MealTimelineState(meals: [
-        _meal('b', '2026-09-09', 19, 700.5),
-        _meal('a', '2026-09-09', 7, 400.25),
-      ]);
+      final state = MealTimelineState(
+        meals: [
+          _meal('b', '2026-09-09', 19, 700.5),
+          _meal('a', '2026-09-09', 7, 400.25),
+        ],
+      );
 
       expect(state.days.single.meals.length, 2);
       expect(state.days.single.totalKcal, closeTo(1100.75, 0.001));
@@ -96,11 +107,7 @@ void main() {
         'loggedAt': 0,
         'localDate': '2026-09-09',
         'totalCaloriesKcal': 0,
-        'analysis': {
-          'status': 'failed',
-          'timedOut': true,
-          'createdAt': 123,
-        },
+        'analysis': {'status': 'failed', 'timedOut': true, 'createdAt': 123},
       });
 
       final staged = meal.withItems(const []);
@@ -116,16 +123,16 @@ void main() {
 
   group('analysis timeout', () {
     MealLog analysing(int startedAt) => MealLog.fromJson({
-          'id': 'm',
-          'mealType': 'lunch',
-          'loggedAt': 0,
-          'localDate': '2026-09-09',
-          'totalCaloriesKcal': 0,
-          'analysis': {'status': 'running', 'createdAt': startedAt},
-        });
+      'id': 'm',
+      'mealType': 'lunch',
+      'loggedAt': 0,
+      'localDate': '2026-09-09',
+      'totalCaloriesKcal': 0,
+      'analysis': {'status': 'running', 'createdAt': startedAt},
+    });
 
-    test('the deadline is three minutes', () {
-      expect(MealLog.analysisTimeout, const Duration(minutes: 3));
+    test('the deadline is five minutes', () {
+      expect(MealLog.analysisTimeout, const Duration(minutes: 5));
     });
 
     test('the server verdict is parsed and marks a failed draft', () {
@@ -149,9 +156,15 @@ void main() {
       final meal = analysing(started);
 
       // One millisecond short of the deadline: still waiting.
-      expect(meal.timedOutAt(started + MealLog.analysisTimeout.inMilliseconds - 1), false);
+      expect(
+        meal.timedOutAt(started + MealLog.analysisTimeout.inMilliseconds - 1),
+        false,
+      );
       // At and past it: the wait is over even though the server said running.
-      expect(meal.timedOutAt(started + MealLog.analysisTimeout.inMilliseconds), true);
+      expect(
+        meal.timedOutAt(started + MealLog.analysisTimeout.inMilliseconds),
+        true,
+      );
       expect(meal.timedOutAt(started + 10 * 60 * 1000), true);
     });
 
@@ -164,7 +177,12 @@ void main() {
         'totalCaloriesKcal': 0,
         'analysis': {'status': 'running'},
       });
-      expect(noStart.timedOutAt(DateTime.now().millisecondsSinceEpoch + 10 * 60 * 1000), false);
+      expect(
+        noStart.timedOutAt(
+          DateTime.now().millisecondsSinceEpoch + 10 * 60 * 1000,
+        ),
+        false,
+      );
 
       final done = MealLog.fromJson({
         'id': 'm',

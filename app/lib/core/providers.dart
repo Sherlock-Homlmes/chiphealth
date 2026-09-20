@@ -102,6 +102,15 @@ final workoutFeedProvider = FutureProvider<List<WorkoutSession>>(
   (ref) => ref.watch(trainingRepositoryProvider).feed(),
 );
 
+/// The day's workouts (`YYYY-MM-DD`), for the home screen's activity card.
+/// Separate from [workoutFeedProvider], which is the unbounded feed: asking the
+/// API for one day is cheaper than paging the feed until it reaches that date.
+final workoutsOnDayProvider =
+    FutureProvider.family<List<WorkoutSession>, String>(
+      (ref, date) =>
+          ref.watch(trainingRepositoryProvider).feed(from: date, to: date),
+    );
+
 final workoutDetailProvider =
     FutureProvider.family<Map<String, dynamic>, String>(
       (ref, id) => ref.watch(trainingRepositoryProvider).detail(id),

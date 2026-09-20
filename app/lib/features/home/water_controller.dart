@@ -37,11 +37,19 @@ class WaterController extends StateNotifier<int> {
   /// entry is taken back, so the total floors at zero rather than going below.
   Future<void> add(int ml) => _persist((state + ml).clamp(0, 20000));
 
-  /// Tapping cup n means "I have drunk n cups"; tapping the last filled cup
-  /// again empties it, which is the only undo the row needs.
-  Future<void> setCups(int cups) {
-    final next = (cups * cupMl).clamp(0, 100 * cupMl);
-    return _persist(next == state ? next - cupMl : next);
+  /// Tapping cup n means "I have drunk n cups in total"; tapping the last
+  /// filled cup again empties it, which is the only undo the row needs.
+  ///
+  /// [alreadyMl] is fluid the day already has from somewhere this controller
+  /// does not own — the water the analysis found in the meals. The glasses on
+  /// screen count that too, so it comes off the target before the rest is
+  /// stored here; otherwise tapping the glass under the cursor would quietly
+  /// add the meals' water a second time.
+  Future<void> setCups(int cups, {int alreadyMl = 0}) {
+    final next = (cups * cupMl - alreadyMl).clamp(0, 100 * cupMl);
+    return _persist(
+      next == state ? (next - cupMl).clamp(0, 100 * cupMl) : next,
+    );
   }
 
   Future<void> reset() => _persist(0);

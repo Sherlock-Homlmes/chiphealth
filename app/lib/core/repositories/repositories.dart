@@ -229,11 +229,15 @@ class NutritionRepository {
   NutritionRepository(this._api);
   final ApiClient _api;
 
+  /// [loggedAt] is when the meal was *eaten*, which is not always when it is
+  /// typed up — a breakfast entered at noon still belongs to breakfast time.
+  /// Defaults to now, which is what every caller that does not ask means.
   Future<MealLog> createMeal({
     required String mealType,
     String? photoAssetId,
     String? note,
     String? id,
+    int? loggedAt,
   }) async {
     final data = await _api.post<dynamic>(
       '/v1/meals',
@@ -242,7 +246,7 @@ class NutritionRepository {
         'id': id ?? uuidV7(),
         'mealType': mealType,
         'photoAssetId': photoAssetId,
-        'loggedAt': DateTime.now().millisecondsSinceEpoch,
+        'loggedAt': loggedAt ?? DateTime.now().millisecondsSinceEpoch,
         'note': note,
       },
     );

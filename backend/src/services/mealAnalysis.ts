@@ -38,9 +38,9 @@ export interface DetectedComponent {
  * leaves the row `running` forever, so every reader applies the same clock:
  * past this point a still-active attempt is reported as failed (timed out).
  */
-export const MEAL_ANALYSIS_TIMEOUT_MS = 3 * 60_000;
+export const MEAL_ANALYSIS_TIMEOUT_MS = 5 * 60_000;
 
-export const ANALYSIS_TIMEOUT_MESSAGE = 'Phân tích kéo dài quá 3 phút';
+export const ANALYSIS_TIMEOUT_MESSAGE = 'Phân tích kéo dài quá 5 phút';
 
 export interface AnalysisLike {
   status: string;

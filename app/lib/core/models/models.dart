@@ -326,7 +326,7 @@ class MealLog {
 
   /// One analysis attempt may run this long before every reader treats it as
   /// failed — the same clock the server applies to `meal_ai_analyses`.
-  static const Duration analysisTimeout = Duration(minutes: 3);
+  static const Duration analysisTimeout = Duration(minutes: 5);
 
   final String id;
   final String mealType;

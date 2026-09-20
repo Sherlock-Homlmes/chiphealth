@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../core/format/units.dart';
 import '../../core/providers.dart';
 import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
@@ -39,6 +40,11 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
   final _typed = TextEditingController();
 
   Uint8List? _photo;
+
+  /// When the meal was eaten. Defaults to now, because that is the usual case,
+  /// but a meal typed up hours later belongs to the hour it was eaten — both
+  /// for the diary and for the meal type guessed from it.
+  DateTime _at = DateTime.now();
   bool _picking = false;
   bool _recording = false;
   bool _transcribing = false;
@@ -55,12 +61,53 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     super.dispose();
   }
 
+  /// From the chosen hour, not the clock: a dinner logged at midnight is still
+  /// dinner. The user can change it on the detail screen either way.
   String _guessMealType() {
-    final hour = DateTime.now().hour;
+    final hour = _at.hour;
     if (hour < 10) return 'breakfast';
     if (hour < 15) return 'lunch';
     if (hour < 21) return 'dinner';
     return 'snack';
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _at,
+      // A meal is logged after it is eaten, so the future is not a date it can
+      // land on; a year back is more history than the diary needs.
+      firstDate: DateTime(now.year - 1),
+      lastDate: now,
+      helpText: 'Ngày ăn',
+      cancelText: 'Huỷ',
+      confirmText: 'Chọn',
+    );
+    if (picked == null) return;
+    setState(() {
+      _at = DateTime(
+        picked.year,
+        picked.month,
+        picked.day,
+        _at.hour,
+        _at.minute,
+      );
+    });
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_at),
+      helpText: 'Giờ ăn',
+      cancelText: 'Huỷ',
+      confirmText: 'Chọn',
+    );
+    if (picked == null) return;
+    setState(() {
+      _at = DateTime(_at.year, _at.month, _at.day, picked.hour, picked.minute);
+    });
   }
 
   /// Shutter or library — the same picker either way, so the photo lands in
@@ -203,6 +250,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
           mealType: _guessMealType(),
           photoAssetId: assetId,
           note: text.isEmpty ? null : text,
+          loggedAt: _at.millisecondsSinceEpoch,
         );
         // A failure to *start* the analysis is not a failure to log the meal:
         // the row exists either way, so the detail screen is opened regardless
@@ -217,7 +265,10 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
         return;
       }
 
-      final meal = await repo.createMeal(mealType: _guessMealType());
+      final meal = await repo.createMeal(
+        mealType: _guessMealType(),
+        loggedAt: _at.millisecondsSinceEpoch,
+      );
       await repo.logSpoken(meal.id, transcript: text);
       ref.invalidate(dailyNutritionProvider);
       if (mounted) context.pushReplacement('/meals/${meal.id}');
@@ -341,6 +392,35 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     );
   }
 
+  /// When it was eaten. Two buttons rather than a single field: the date is
+  /// almost always today and the time almost never now, so they are tapped at
+  /// very different rates.
+  Widget _whenRow() => Row(
+    children: [
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: _busy ? null : _pickDate,
+          icon: const Icon(Icons.event, size: 18),
+          label: Text(
+            Units.dayHeading(
+              '${_at.year.toString().padLeft(4, '0')}-'
+              '${_at.month.toString().padLeft(2, '0')}-'
+              '${_at.day.toString().padLeft(2, '0')}',
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: _busy ? null : _pickTime,
+          icon: const Icon(Icons.schedule, size: 18),
+          label: Text(Units.timeOfDay(_at.millisecondsSinceEpoch)),
+        ),
+      ),
+    ],
+  );
+
   Widget _micButton() {
     if (_transcribing) {
       return const Padding(
@@ -384,7 +464,9 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             _photoPanel(),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
+            _whenRow(),
+            const SizedBox(height: 10),
             TextField(
               controller: _typed,
               maxLines: 4,

@@ -132,7 +132,7 @@ async function summariseMeals(
 
   const countByMeal = new Map(counts.map((r) => [r.mealLogId, r.n]));
   // Ordered newest first, so the first row seen for a meal is its latest run.
-  // The effective status folds the 3-minute timeout in, so a meal whose model
+  // The effective status folds the 5-minute timeout in, so a meal whose model
   // hung reads as failed here too, not just on the detail endpoint.
   const statusByMeal = new Map<string, { status: string; timedOut: boolean }>();
   for (const a of analyses) {
@@ -210,7 +210,7 @@ app.get('/meals/:id', async (c) => {
   ]);
 
   // The poll endpoint applies the timeout clock, so a run whose model hung is
-  // reported as failed (timedOut) here the moment it passes 3 minutes — that
+  // reported as failed (timedOut) here the moment it passes 5 minutes — that
   // is what flips the client from "Đang phân tích…" to the retry screen.
   return c.json({
     ...meal,

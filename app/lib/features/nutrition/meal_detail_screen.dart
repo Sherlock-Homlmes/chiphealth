@@ -21,7 +21,7 @@ import 'moment_compose_dialog.dart';
 /// Until the analysis lands the meal is a draft: if it fails there is nothing
 /// worth keeping, so the user is offered a retry, and walking away throws the
 /// row out rather than leaving a 0 kcal ghost in the day. A run that is still
-/// going after 3 minutes counts as failed — the server reports it as such, and
+/// going after 5 minutes counts as failed — the server reports it as such, and
 /// the local clock ends the wait if that verdict never arrives.
 class MealDetailScreen extends ConsumerStatefulWidget {
   const MealDetailScreen({super.key, required this.mealId});
@@ -39,7 +39,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   bool _discarded = false;
   bool _kept = false;
 
-  /// The local half of the 3-minute analysis timeout: set when the deadline
+  /// The local half of the 5-minute analysis timeout: set when the deadline
   /// passed but the server still says `running`, so the wait ends here rather
   /// than depending on the next poll delivering the verdict.
   bool _localTimeout = false;
@@ -85,7 +85,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         _error = null;
       });
       // Analysis runs in the background on the server; poll until it lands.
-      // The server reports a run past the 3-minute deadline as failed inside
+      // The server reports a run past the 5-minute deadline as failed inside
       // this very poll; the local clock below is only the backstop for a
       // verdict that arrives late or never — the wait is bounded either way.
       if (meal.isAnalysing) {
@@ -536,7 +536,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
               text: !canRetry
                   ? 'Bữa ăn này chưa được phân tích và không chạy lại được — hãy ghi lại.'
                   : timedOut
-                  ? 'Phân tích kéo dài quá 3 phút. Hãy thử lại nhé.'
+                  ? 'Phân tích kéo dài quá 5 phút. Hãy thử lại nhé.'
                   : never
                   ? 'Chưa phân tích được bữa ăn này — không kết nối được máy chủ.'
                   : 'Không phân tích được bữa ăn này.',

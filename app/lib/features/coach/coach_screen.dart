@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -745,8 +744,9 @@ class _ActionCard extends StatelessWidget {
 
   (String, Color, Color) get _status {
     // Confirmed, then the target was deleted — a record, nothing to open.
-    if (action.deleted)
+    if (action.deleted) {
       return ('Đã xóa', RetroTokens.inkFaint, RetroTokens.paperSunk);
+    }
     return switch (action.status) {
       'confirmed' => ('Đã thực hiện', RetroTokens.ok, RetroTokens.okSoft),
       'cancelled' => ('Đã huỷ', RetroTokens.inkFaint, RetroTokens.paperSunk),

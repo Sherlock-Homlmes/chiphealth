@@ -104,7 +104,7 @@ export async function buildCoachContext(
     : [];
 
   // Item counts and the effective analysis status per meal (a hung run reads
-  // as failed after the 3-minute clock), same folding as the meals endpoint.
+  // as failed after the 5-minute clock), same folding as the meals endpoint.
   const dayMeals = mealRows.slice(0, 20);
   const mealIds = dayMeals.map((m) => m.id);
   const [itemCounts, mealAnalyses] = mealIds.length
