@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import { insertMany } from '../db/client';
 import type { Db } from '../db/client';
 import {
@@ -225,6 +225,65 @@ const sameScope = (
   a.activityTypeId === b.activityTypeId &&
   a.exerciseId === b.exerciseId &&
   a.distanceM === b.distanceM;
+
+/**
+ * Drops every record a workout set, and hands each board it emptied back to
+ * the best record still standing.
+ *
+ * Deleting a workout has to take its records with it — a personal best set in
+ * a session that never happened is not a best. But the older record it beat is
+ * still sitting there with `is_current = 0`, and leaving it there would erase
+ * the board instead of rolling it back, so whatever remains in that scope is
+ * promoted.
+ *
+ * Strength records point at the set rather than the session, so they are found
+ * through the session's sets — and they have to go either way, since nothing
+ * cascades from personal_records and the session's sets are about to.
+ */
+export async function dropRecordsForSession(
+  db: Db, userId: string, sessionId: string,
+): Promise<number> {
+  const setIds = (await db.select({ id: workoutStrengthSets.id })
+    .from(workoutStrengthSets)
+    .where(eq(workoutStrengthSets.workoutSessionId, sessionId)))
+    .map((r) => r.id);
+
+  const removed = await db.delete(personalRecords)
+    .where(and(
+      eq(personalRecords.userId, userId),
+      setIds.length > 0
+        ? or(
+          eq(personalRecords.workoutSessionId, sessionId),
+          inArray(personalRecords.strengthSetId, setIds),
+        )
+        : eq(personalRecords.workoutSessionId, sessionId),
+    ))
+    .returning({
+      metric: personalRecords.metric,
+      activityTypeId: personalRecords.activityTypeId,
+      exerciseId: personalRecords.exerciseId,
+      distanceM: personalRecords.distanceM,
+      isCurrent: personalRecords.isCurrent,
+    });
+
+  // Only a board that just lost its holder needs a new one.
+  const emptied = removed.filter((r) => r.isCurrent);
+  if (emptied.length === 0) return removed.length;
+
+  const survivors = await db.select().from(personalRecords)
+    .where(eq(personalRecords.userId, userId));
+
+  for (const scope of emptied) {
+    const inScope = survivors.filter((r) => sameScope(r, scope));
+    if (inScope.length === 0) continue;
+    const best = inScope.reduce((a, b) =>
+      isBetter(scope.metric, b.value, a.value) ? b : a);
+    await db.update(personalRecords).set({ isCurrent: true })
+      .where(eq(personalRecords.id, best.id));
+  }
+
+  return removed.length;
+}
 
 export interface DetectedPr {
   id: string;

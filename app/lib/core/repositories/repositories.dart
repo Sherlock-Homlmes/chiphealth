@@ -531,9 +531,9 @@ class TrainingRepository {
     return WorkoutSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
-  /// Soft delete: the row stays for sync, the feed and totals drop it.
-  Future<void> delete(String id) =>
-      _api.patch<dynamic>('/v1/workouts/$id', body: {'isDeleted': true});
+  /// Gone for good, like deleting a meal: the session, its stream and splits,
+  /// and any personal record it set.
+  Future<void> delete(String id) => _api.delete<dynamic>('/v1/workouts/$id');
 
   /// Timed GPS points for replay and crop.
   Future<List<TrackPoint>> track(String id) async => _items(

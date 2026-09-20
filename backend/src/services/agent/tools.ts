@@ -845,7 +845,7 @@ const TOOLS: AgentTool[] = [
       return { summary: `Xoá buổi ${name} lúc ${human(w.startedAt, ctx.user.timezone)}${minutes}` };
     },
     async execute(ctx, a) {
-      await api(ctx, 'PATCH', `/v1/workouts/${encodeURIComponent(a.workout_id)}`, { isDeleted: true });
+      await api(ctx, 'DELETE', `/v1/workouts/${encodeURIComponent(a.workout_id)}`);
       return {};
     },
   }),

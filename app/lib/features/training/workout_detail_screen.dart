@@ -278,7 +278,10 @@ class WorkoutDetailScreen extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Xoá hoạt động?'),
-        content: const Text('Hoạt động này sẽ bị xoá và không thể khôi phục.'),
+        content: const Text(
+          'Hoạt động này sẽ bị xoá vĩnh viễn, cùng với lộ trình, các chặng và '
+          'kỷ lục cá nhân nó lập được.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -297,6 +300,10 @@ class WorkoutDetailScreen extends ConsumerWidget {
       await ref.read(trainingRepositoryProvider).delete(sessionId);
       ref.invalidate(workoutFeedProvider);
       ref.invalidate(personalRecordsProvider);
+      // The home screen lists the day's sessions and shows what they burned,
+      // both of which the deleted one was part of.
+      ref.invalidate(workoutsOnDayProvider);
+      ref.invalidate(dailyNutritionProvider);
       if (context.mounted) {
         // Straight after recording the detail replaced the recorder, so there
         // may be nothing to pop back to.

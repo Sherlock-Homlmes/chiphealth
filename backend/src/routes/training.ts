@@ -14,7 +14,7 @@ import {
   parseSampleStream, normaliseSamples, deriveFromSamples,
   insertZoneSet, zoneSetEffectiveAt, currentZoneSet,
 } from '../services/workoutStream';
-import { detectPersonalRecords } from '../services/personalRecords';
+import { detectPersonalRecords, dropRecordsForSession } from '../services/personalRecords';
 import { loadTdeeInputs, recomputeDailyNutritionSummary } from '../services/nutritionMath';
 import { insertMany } from '../db/client';
 import type { AppEnv } from '../env';
@@ -363,6 +363,34 @@ app.patch('/workouts/:id', async (c) => {
     photosBySession(db, [session.id]),
   ]);
   return c.json({ ...rows[0], photoAssetIds: photos.get(session.id) ?? [] });
+});
+
+/**
+ * Deleting a workout removes it, the way deleting a meal does.
+ *
+ * It used to be a flag: PATCH { isDeleted: true } hid the session from the
+ * feed and left everything it had produced behind — the personal records it
+ * set stayed on the board, so a run the user had thrown away kept holding
+ * their 5 km best and the assistant kept reading it back to them.
+ *
+ * Order matters. The photos are detached first, while the session still
+ * exists, because that is what decides whether an asset is still referenced
+ * anywhere. The records go next: nothing cascades from personal_records, and
+ * a strength record points at a set this delete is about to take with it.
+ */
+app.delete('/workouts/:id', async (c) => {
+  const db = c.get('db');
+  const user = c.get('user');
+  const session = await ownedWorkout(db, user.id, c.req.param('id'));
+
+  await setWorkoutPhotos(db, user.id, session.id, []);
+  await dropRecordsForSession(db, user.id, session.id);
+  // Streams, splits, zone summaries and strength sets cascade from here.
+  await db.delete(workoutSessions).where(eq(workoutSessions.id, session.id));
+  // The day's burned calories are a stored sum, not a view.
+  await recomputeDailyNutritionSummary(db, c.env, user.id, session.localDate);
+
+  return c.body(null, 204);
 });
 
 /**
