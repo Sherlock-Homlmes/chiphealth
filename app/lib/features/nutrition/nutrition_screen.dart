@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../core/format/date_range.dart';
 import '../../core/format/units.dart';
@@ -15,7 +14,6 @@ import '../home/home_widgets.dart';
 import '../home/water_controller.dart';
 import 'barcode_scan_screen.dart';
 import 'log_meal_sheet.dart';
-import 'meal_hint_sheet.dart';
 import 'meal_photo.dart';
 import 'meal_timeline.dart';
 
@@ -27,8 +25,6 @@ class NutritionScreen extends ConsumerStatefulWidget {
 }
 
 class _NutritionScreenState extends ConsumerState<NutritionScreen> {
-  bool _busy = false;
-
   /// Anything that changes a meal changes both the day card and the diary, so
   /// the two are always refreshed together.
   void _reload() {
@@ -36,70 +32,21 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     ref.read(mealTimelineProvider.notifier).refresh();
   }
 
-  /// Photo -> R2 -> meal row -> analysis. The analysis itself runs server-side in
-  /// the background, so we hand the user straight to the detail screen and let it
-  /// poll rather than blocking on the model.
-  Future<void> _logFromCamera(ImageSource source) async {
-    final picker = ImagePicker();
-    final shot = await picker.pickImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 1600,
-    );
-    if (shot == null) return;
-    final bytes = await shot.readAsBytes();
-    if (!mounted) return;
-    final hint = await showMealHintSheet(context, bytes);
-    if (hint == null || !mounted) return;
-
-    setState(() => _busy = true);
-    try {
-      final assetId = await ref
-          .read(mediaRepositoryProvider)
-          .upload(bytes, kind: 'meal_photo', mimeType: 'image/jpeg');
-      final repo = ref.read(nutritionRepositoryProvider);
-      final meal = await repo.createMeal(
-        mealType: _guessMealType(),
-        photoAssetId: assetId,
-        note: hint.isEmpty ? null : hint,
-      );
-      // A failure to *start* the analysis is not a failure to log the meal: the
-      // row exists either way, so the detail screen is opened regardless and
-      // owns the error — it is the screen with the retry on it.
-      try {
-        await repo.analyze(meal.id);
-      } catch (_) {
-        // Reported on the detail screen, which is about to open.
-      }
-      if (mounted) await context.push<void>('/meals/${meal.id}');
-      _reload();
-    } catch (err) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$err')));
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   /// Every way into a meal goes through the one "+": the entry points are
-  /// different inputs to the same analysis, not different features. Water rides
-  /// along because it is the other thing logged by hand during the day.
+  /// different inputs to the same analysis, not different features — which is
+  /// why the photo and the typed/spoken description share one screen. Water
+  /// rides along because it is the other thing logged by hand during the day.
   Future<void> _pickLogMethod() async {
     final method = await showLogMealSheet(context);
     if (method == null || !mounted) return;
 
     switch (method) {
-      case LogMealMethod.photo:
-        await _logFromCamera(ImageSource.camera);
+      case LogMealMethod.meal:
+        await context.push<void>('/meals/new');
       case LogMealMethod.barcode:
         await Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const BarcodeScanScreen()),
         );
-      case LogMealMethod.manual:
-        await context.push<void>('/meals/manual');
       case LogMealMethod.water:
         // Water is device-local and touches neither the day card nor the
         // diary, so it skips the reload the meal paths need.
@@ -132,15 +79,6 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       );
   }
 
-  /// Meal type from the clock — the user can change it on the detail screen.
-  String _guessMealType() {
-    final hour = DateTime.now().hour;
-    if (hour < 10) return 'breakfast';
-    if (hour < 15) return 'lunch';
-    if (hour < 21) return 'dinner';
-    return 'snack';
-  }
-
   /// A meal can be edited or thrown away on the detail screen, so both lists are
   /// refreshed on the way back rather than guessing what happened there.
   Future<void> _openMeal(String id) async {
@@ -159,19 +97,12 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Dinh dưỡng')),
       floatingActionButton: FloatingActionButton(
-        onPressed: _busy ? null : _pickLogMethod,
+        // The work all happens on the screen the "+" opens, so nothing here
+        // has a busy state to show.
+        onPressed: _pickLogMethod,
         backgroundColor: RetroTokens.accent,
         foregroundColor: Colors.white,
-        child: _busy
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(Icons.add, size: 30),
+        child: const Icon(Icons.add, size: 30),
       ),
       body: RefreshIndicator(
         onRefresh: () async => _reload(),

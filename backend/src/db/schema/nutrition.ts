@@ -175,6 +175,8 @@ export const mealLogs = sqliteTable('meal_logs', {
   totalFiberG: real('total_fiber_g'),
   totalSugarG: real('total_sugar_g'),
   totalSodiumMg: real('total_sodium_mg'),
+  /** Fluid the meal carried, summed from its items. Null until analysed. */
+  totalWaterMl: real('total_water_ml'),
   fromMealPlanId: text('from_meal_plan_id').references(() => mealPlans.id),
   createdAt: tsNow('created_at'),
   updatedAt: tsNow('updated_at'),
@@ -230,6 +232,12 @@ export const mealItems = sqliteTable('meal_items', {
   sugarG: real('sugar_g'),
   sodiumMg: real('sodium_mg'),
   cholesterolMg: real('cholesterol_mg'),
+  /**
+   * Fluid this component carries, in ml — the whole volume for a drink, the
+   * water content for a food. Estimated by the model rather than scaled from
+   * the food base, which holds no water column.
+   */
+  waterMl: real('water_ml'),
   source: text('source', { enum: FOOD_SOURCES }).notNull(),
   confidence: real('confidence'),
   aiPredictedJson: text('ai_predicted_json'),

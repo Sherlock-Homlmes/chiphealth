@@ -155,7 +155,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     final photo = _photoBytes;
     // Locked while the mic works, so half-dictated text cannot go out. A turn
     // is text, a photo, or both — never an empty one.
-    if ((text.isEmpty && photo == null) || _sending || _recording || _transcribing) {
+    if ((text.isEmpty && photo == null) ||
+        _sending ||
+        _recording ||
+        _transcribing) {
       return;
     }
 
@@ -184,7 +187,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     }
 
     setState(() {
-      _messages.add(CoachMessage(role: 'user', content: text, photoAssetId: photoAssetId));
+      _messages.add(
+        CoachMessage(role: 'user', content: text, photoAssetId: photoAssetId),
+      );
       if (preset == null) _input.clear();
       _sending = true;
     });
@@ -552,7 +557,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
               _micButton(),
               const SizedBox(width: 8),
               FilledButton(
-                onPressed: _sending || _recording || _transcribing ? null : _send,
+                onPressed: _sending || _recording || _transcribing
+                    ? null
+                    : _send,
                 child: const Icon(Icons.send, size: 18),
               ),
             ],
@@ -738,7 +745,8 @@ class _ActionCard extends StatelessWidget {
 
   (String, Color, Color) get _status {
     // Confirmed, then the target was deleted — a record, nothing to open.
-    if (action.deleted) return ('Đã xóa', RetroTokens.inkFaint, RetroTokens.paperSunk);
+    if (action.deleted)
+      return ('Đã xóa', RetroTokens.inkFaint, RetroTokens.paperSunk);
     return switch (action.status) {
       'confirmed' => ('Đã thực hiện', RetroTokens.ok, RetroTokens.okSoft),
       'cancelled' => ('Đã huỷ', RetroTokens.inkFaint, RetroTokens.paperSunk),

@@ -149,6 +149,7 @@ interface MealRow extends Row {
   totalProteinG: number | null;
   totalCarbsG: number | null;
   totalFatG: number | null;
+  totalWaterMl: number | null;
   itemCount?: number;
   analysis?: { status: string } | null;
 }
@@ -197,6 +198,8 @@ interface ActivityType { id: number; code: string; name: string }
 const NUTRIENTS = [
   'caloriesKcal', 'proteinG', 'carbsG', 'fatG', 'saturatedFatG',
   'fiberG', 'sugarG', 'sodiumMg', 'cholesterolMg',
+  // Fluid scales with the portion like everything else on the row.
+  'waterMl',
 ] as const;
 
 /* ------------------------------------------------------------- briefs */
@@ -212,6 +215,7 @@ function mealBrief(m: MealRow, tz: string) {
     protein_g: r1(m.totalProteinG),
     carbs_g: r1(m.totalCarbsG),
     fat_g: r1(m.totalFatG),
+    water_ml: r0(m.totalWaterMl),
     item_count: m.itemCount ?? (m as Partial<MealDetail>).items?.length ?? null,
     analysis: m.analysis?.status ?? null,
   };

@@ -8,6 +8,7 @@ import 'features/coach/coach_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/home/shell_scaffold.dart';
 import 'features/moments/moments_screen.dart';
+import 'features/nutrition/log_meal_screen.dart';
 import 'features/nutrition/meal_detail_screen.dart';
 import 'features/nutrition/nutrition_screen.dart';
 import 'features/progress/progress_screen.dart';
@@ -19,7 +20,6 @@ import 'features/training/training_screen.dart';
 import 'features/training/workout_crop_screen.dart';
 import 'features/training/workout_detail_screen.dart';
 import 'features/training/workout_edit_screen.dart';
-import 'features/nutrition/voice_log_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authControllerProvider);
@@ -58,10 +58,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) =>
             WorkoutDetailScreen(sessionId: state.pathParameters['id']!),
       ),
-      GoRoute(
-        path: '/meals/manual',
-        builder: (_, __) => const VoiceLogScreen(),
-      ),
+      GoRoute(path: '/meals/new', builder: (_, __) => const LogMealScreen()),
       GoRoute(
         path: '/meals/:id',
         builder: (_, state) =>

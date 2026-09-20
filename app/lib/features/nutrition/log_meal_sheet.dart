@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 
-/// What the one "+" can start. Water is not a meal, but it is the other thing
-/// a user reaches for on this screen, so it shares the button rather than
-/// forcing a trip back to the home screen.
-enum LogMealMethod { photo, barcode, manual, water }
+/// What the one "+" can start. Photo, typing and dictation are one entry —
+/// they are the same screen, not three ways in. Water is not a meal, but it is
+/// the other thing a user reaches for on this screen, so it shares the button
+/// rather than forcing a trip back to the home screen.
+enum LogMealMethod { meal, barcode, water }
 
 /// Bottom sheet the "+" opens. Kept separate from the screen so the same menu
 /// can be raised from anywhere that wants to start an entry.
@@ -20,9 +21,9 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
       // edge-to-edge on a tablet.
       constraints: const BoxConstraints(maxWidth: 400),
       builder: (ctx) => SafeArea(
-        // Four options plus the handle are taller than the sheet's half-screen
-        // budget on a short phone, so the list scrolls rather than clipping the
-        // last option away.
+        // The options plus the handle can be taller than the sheet's
+        // half-screen budget on a short phone, so the list scrolls rather than
+        // clipping the last option away.
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -39,10 +40,10 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
               const SizedBox(height: 8),
               _option(
                 ctx,
-                LogMealMethod.photo,
+                LogMealMethod.meal,
                 Icons.photo_camera,
-                'Chụp bữa ăn',
-                'AI nhận diện từng thành phần',
+                'Ghi bữa ăn',
+                'Chụp ảnh, chọn ảnh, gõ hoặc nói — AI tách thành phần',
               ),
               _option(
                 ctx,
@@ -50,13 +51,6 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
                 Icons.qr_code_scanner,
                 'Quét mã vạch',
                 'Sản phẩm đóng gói',
-              ),
-              _option(
-                ctx,
-                LogMealMethod.manual,
-                Icons.edit_note,
-                'Nhập tay / Nói',
-                'Gõ hoặc nói bữa ăn, máy tự tách thành phần',
               ),
               const Divider(height: 1, color: RetroTokens.paperSunk),
               _option(

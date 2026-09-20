@@ -382,9 +382,62 @@ class _WeekStrip extends StatelessWidget {
               onTap: () => onSelect(days[i]),
             ),
           ),
+        // The strip only reaches the current week; the calendar at its end is
+        // the way to any other day without swiping a week at a time.
+        _JumpToDay(selected: selected, today: today, onSelect: onSelect),
       ],
     );
   }
+}
+
+/// Calendar button at the end of the day strip: opens a month picker so a day
+/// outside this week can be reached in one tap.
+class _JumpToDay extends StatelessWidget {
+  const _JumpToDay({
+    required this.selected,
+    required this.today,
+    required this.onSelect,
+  });
+
+  final DateTime selected;
+  final DateTime today;
+  final ValueChanged<DateTime> onSelect;
+
+  Future<void> _pick(BuildContext context) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selected,
+      // Nothing was logged before the app existed, and a day that has not
+      // happened yet has nothing to show — two years back is more history
+      // than any card on this screen reads.
+      firstDate: DateTime(today.year - 2, today.month, today.day),
+      lastDate: today,
+      helpText: 'Chọn ngày',
+      cancelText: 'Huỷ',
+      confirmText: 'Xem',
+    );
+    if (picked == null) return;
+    onSelect(DateTime(picked.year, picked.month, picked.day));
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    // The pips carry a label above their ring; the icon sits on the ring row.
+    padding: const EdgeInsets.only(left: 2, top: 17),
+    child: SizedBox(
+      width: 34,
+      height: 34,
+      child: IconButton(
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        tooltip: 'Chọn ngày bất kỳ',
+        iconSize: 20,
+        color: RetroTokens.inkSoft,
+        icon: const Icon(Icons.calendar_month_outlined),
+        onPressed: () => _pick(context),
+      ),
+    ),
+  );
 }
 
 class _OverviewSkeleton extends StatelessWidget {

@@ -20,7 +20,11 @@ class WorkoutPhotoTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final radius = size >= 160 ? 28.0 : size >= 72 ? 20.0 : 12.0;
+    final radius = size >= 160
+        ? 28.0
+        : size >= 72
+        ? 20.0
+        : 12.0;
     final placeholder = Container(
       height: size,
       width: size,
@@ -30,7 +34,11 @@ class WorkoutPhotoTile extends ConsumerWidget {
       ),
       child: Icon(
         Icons.directions_run,
-        size: size >= 160 ? 56 : size >= 72 ? 24 : 18,
+        size: size >= 160
+            ? 56
+            : size >= 72
+            ? 24
+            : 18,
         color: RetroTokens.inkFaint,
       ),
     );

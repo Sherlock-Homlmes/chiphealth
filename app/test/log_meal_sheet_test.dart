@@ -7,18 +7,20 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Future<LogMealMethod?> open(WidgetTester tester, String tap) async {
     LogMealMethod? picked;
-    await tester.pumpWidget(MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () async => picked = await showLogMealSheet(context),
-              child: const Text('+'),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () async => picked = await showLogMealSheet(context),
+                child: const Text('+'),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.tap(find.text('+'));
     await tester.pumpAndSettle();
     await tester.tap(find.text(tap));
@@ -26,13 +28,17 @@ void main() {
     return picked;
   }
 
-  testWidgets('the sheet offers water alongside the meal entry points',
-      (tester) async {
+  testWidgets('the sheet offers water alongside the meal entry points', (
+    tester,
+  ) async {
     expect(await open(tester, 'Nước'), LogMealMethod.water);
   });
 
-  testWidgets('the meal entry points still answer for themselves',
-      (tester) async {
-    expect(await open(tester, 'Chụp bữa ăn'), LogMealMethod.photo);
+  testWidgets('photo, typing and dictation are one entry', (tester) async {
+    expect(await open(tester, 'Ghi bữa ăn'), LogMealMethod.meal);
+  });
+
+  testWidgets('the barcode scanner keeps its own entry', (tester) async {
+    expect(await open(tester, 'Quét mã vạch'), LogMealMethod.barcode);
   });
 }

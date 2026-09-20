@@ -127,6 +127,15 @@ check('braces inside a string do not end the object',
 check('components default to 100 g when absent',
   parseComponents([{ name: 'rau muống' }]), [{ name: 'rau muống', grams: 100, label: undefined, confidence: undefined }]);
 check('nameless entries are dropped', parseComponents([{ grams: 50 }, { name: 'gà', grams: 80 }]).length, 1);
+check('water comes through in ml',
+  parseComponents([{ name: 'nước cam', grams: 250, waterMl: 220 }])[0]?.waterMl, 220);
+check('snake_case water is read too',
+  parseComponents([{ name: 'canh rau', grams: 200, water_ml: 180 }])[0]?.waterMl, 180);
+// Unknown, not zero: "bone dry" is a claim the model never made.
+check('no water field stays unknown',
+  parseComponents([{ name: 'cơm', grams: 150 }])[0]?.waterMl, undefined);
+check('nonsense water is dropped',
+  parseComponents([{ name: 'cơm', grams: 150, waterMl: 'nhiều' }])[0]?.waterMl, undefined);
 let threw = false;
 try { extractJson('no json at all'); } catch { threw = true; }
 check('missing JSON throws', threw, true);

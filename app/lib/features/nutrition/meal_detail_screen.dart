@@ -720,6 +720,11 @@ class _NutritionCard extends StatelessWidget {
     final sugar = meal.items.fold<double>(0, (s, i) => s + (i.sugarG ?? 0));
     final sodium = meal.items.fold<double>(0, (s, i) => s + (i.sodiumMg ?? 0));
     final fiber = meal.items.fold<double>(0, (s, i) => s + (i.fiberG ?? 0));
+    // Null when nothing in the meal was ever given a water estimate — an
+    // un-analysed meal has not said "0 ml", it has said nothing.
+    final water = meal.items.any((i) => i.waterMl != null)
+        ? meal.items.fold<double>(0, (s, i) => s + (i.waterMl ?? 0))
+        : null;
 
     return _Panel(
       child: Column(
@@ -819,6 +824,12 @@ class _NutritionCard extends StatelessWidget {
               ),
             ],
           ),
+          if (water != null) ...[
+            const SizedBox(height: 14),
+            const Divider(color: RetroTokens.panelLine, height: 1),
+            const SizedBox(height: 12),
+            _WaterLine(millilitres: water),
+          ],
           if (meal.analysisStatus != null) ...[
             const SizedBox(height: 14),
             const Divider(color: RetroTokens.panelLine, height: 1),
@@ -829,6 +840,43 @@ class _NutritionCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// What the meal contributed to the day's fluid: the drinks in full, plus the
+/// broth and the water inside the food. It gets its own line rather than a
+/// column next to the macros — it is the one figure here measured in ml, and
+/// it is an estimate of a different thing than the nutrients above it.
+class _WaterLine extends StatelessWidget {
+  const _WaterLine({required this.millilitres});
+
+  final double millilitres;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      const Icon(Icons.water_drop, size: 15, color: RetroTokens.water),
+      const SizedBox(width: 6),
+      const Expanded(
+        child: Text(
+          'Nước',
+          style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 12),
+        ),
+      ),
+      Text(
+        millilitres.round().toString(),
+        style: const TextStyle(
+          color: RetroTokens.onPanel,
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      const SizedBox(width: 2),
+      const Text(
+        'ml',
+        style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 12),
+      ),
+    ],
+  );
 }
 
 /// Thumbs on the analysis, kept server-side on the analysis row it judges.
@@ -1008,7 +1056,11 @@ class _IngredientRow extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        '${item.quantityG.round()} g · ${Units.kcal(item.caloriesKcal)}',
+                        '${item.quantityG.round()} g · '
+                        '${Units.kcal(item.caloriesKcal)}'
+                        // Only where it is worth saying: a drink or a broth,
+                        // not the two millilitres inside a slice of pork.
+                        '${(item.waterMl ?? 0) >= 20 ? ' · ${item.waterMl!.round()} ml' : ''}',
                         style: const TextStyle(
                           color: RetroTokens.onPanelSoft,
                           fontSize: 12,
@@ -1560,6 +1612,7 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final _fiber = TextEditingController(text: _num(widget.item?.fiberG));
   late final _sugar = TextEditingController(text: _num(widget.item?.sugarG));
   late final _sodium = TextEditingController(text: _num(widget.item?.sodiumMg));
+  late final _water = TextEditingController(text: _num(widget.item?.waterMl));
 
   static String _num(double? v) => v == null ? '' : v.toStringAsFixed(0);
   static double? _parse(String s) =>
@@ -1596,6 +1649,8 @@ class _ItemEditorState extends State<_ItemEditor> {
                 Expanded(child: _field(_grams, 'Khối lượng (g)')),
                 const SizedBox(width: 8),
                 Expanded(child: _field(_kcal, 'Calo (kcal)')),
+                const SizedBox(width: 8),
+                Expanded(child: _field(_water, 'Nước (ml)')),
               ],
             ),
             const SizedBox(height: 8),
@@ -1635,6 +1690,7 @@ class _ItemEditorState extends State<_ItemEditor> {
                     fiberG: _parse(_fiber.text),
                     sugarG: _parse(_sugar.text),
                     sodiumMg: _parse(_sodium.text),
+                    waterMl: _parse(_water.text),
                     isUserCorrected: true,
                   ),
                 );

@@ -234,6 +234,7 @@ class MealItem {
     this.fiberG,
     this.sugarG,
     this.sodiumMg,
+    this.waterMl,
     this.source = 'ai_estimated',
     this.confidence,
     this.isUserCorrected = false,
@@ -250,6 +251,10 @@ class MealItem {
   final double? fiberG;
   final double? sugarG;
   final double? sodiumMg;
+
+  /// Fluid this component carries, in ml — the whole glass for a drink, the
+  /// water content for a food. Null when the analysis never estimated it.
+  final double? waterMl;
   final String source;
   final double? confidence;
   final bool isUserCorrected;
@@ -266,6 +271,7 @@ class MealItem {
     fiberG: _dbl(json['fiberG']),
     sugarG: _dbl(json['sugarG']),
     sodiumMg: _dbl(json['sodiumMg']),
+    waterMl: _dbl(json['waterMl']),
     source: json['source'] as String? ?? 'ai_estimated',
     confidence: _dbl(json['confidence']),
     isUserCorrected: _bool(json['isUserCorrected']),
@@ -282,6 +288,7 @@ class MealItem {
     'fiberG': fiberG,
     'sugarG': sugarG,
     'sodiumMg': sodiumMg,
+    'waterMl': waterMl,
   };
 }
 
@@ -308,6 +315,7 @@ class MealLog {
     this.totalProteinG = 0,
     this.totalCarbsG = 0,
     this.totalFatG = 0,
+    this.totalWaterMl,
     this.items = const [],
     this.analysisStatus,
     this.analysisFeedback,
@@ -337,6 +345,10 @@ class MealLog {
   final double totalProteinG;
   final double totalCarbsG;
   final double totalFatG;
+
+  /// Fluid the whole meal carried, summed from its components. Null until the
+  /// analysis has something to say — which is not the same as zero.
+  final double? totalWaterMl;
   final List<MealItem> items;
   final String? analysisStatus;
 
@@ -406,6 +418,9 @@ class MealLog {
       totalProteinG: sum((i) => i.proteinG),
       totalCarbsG: sum((i) => i.carbsG),
       totalFatG: sum((i) => i.fatG),
+      totalWaterMl: keep.any((i) => i.waterMl != null)
+          ? sum((i) => i.waterMl)
+          : null,
       items: keep,
       analysisStatus: analysisStatus,
       analysisFeedback: analysisFeedback,
@@ -431,6 +446,7 @@ class MealLog {
       totalProteinG: _dblOr(json['totalProteinG']),
       totalCarbsG: _dblOr(json['totalCarbsG']),
       totalFatG: _dblOr(json['totalFatG']),
+      totalWaterMl: _dbl(json['totalWaterMl']),
       items:
           (json['items'] as List?)
               ?.whereType<Map>()

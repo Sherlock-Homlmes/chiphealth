@@ -24,6 +24,13 @@ export interface DetectedComponent {
   grams: number;
   label?: string;
   confidence?: number;
+  /**
+   * Fluid this component carries, in ml. Comes from the model and is kept on
+   * the component rather than folded into [NUTRIENT_KEYS]: those are scaled
+   * from a food-base row, and the food base has no water column, so a matched
+   * food would silently lose the estimate.
+   */
+  waterMl?: number;
 }
 
 /**
@@ -115,11 +122,17 @@ export function parseComponents(raw: unknown): DetectedComponent[] {
     const name = typeof e.name === 'string' ? e.name.trim() : '';
     if (!name) return [];
     const grams = Number(e.grams ?? e.quantity_g ?? e.quantityG);
+    const waterMl = Number(e.waterMl ?? e.water_ml ?? e.water);
     return [{
       name,
       grams: Number.isFinite(grams) && grams > 0 ? grams : 100,
       label: typeof e.label === 'string' ? e.label : undefined,
       confidence: Number.isFinite(Number(e.confidence)) ? Number(e.confidence) : undefined,
+      // A model that says nothing about water leaves it unknown; 0 would be a
+      // claim that the component is bone dry.
+      waterMl: Number.isFinite(waterMl) && waterMl >= 0
+        ? Math.round(waterMl)
+        : undefined,
     }];
   });
 }
@@ -435,6 +448,7 @@ async function runAnalysis(
         sugarG: n.sugarG ?? null,
         sodiumMg: n.sodiumMg ?? null,
         cholesterolMg: n.cholesterolMg ?? null,
+        waterMl: comp.waterMl ?? null,
         source: resolution.source,
         confidence: resolution.confidence,
         // The immutable original guess for this item — never overwritten later.
@@ -442,6 +456,7 @@ async function runAnalysis(
           ingredientName: comp.name,
           quantityG: comp.grams,
           ...n,
+          waterMl: comp.waterMl ?? null,
           source: resolution.source,
           confidence: resolution.confidence,
         }),
@@ -539,6 +554,11 @@ export async function recomputeMealTotals(
     totalFiberG: sum((i) => i.fiberG),
     totalSugarG: sum((i) => i.sugarG),
     totalSodiumMg: sum((i) => i.sodiumMg),
+    // Null, not 0, when no item carries an estimate: an un-analysed meal has
+    // nothing to say about fluid, and a 0 would read as "you drank nothing".
+    totalWaterMl: items.some((i) => i.waterMl !== null)
+      ? sum((i) => i.waterMl)
+      : null,
     updatedAt: Date.now(),
   }).where(eq(mealLogs.id, mealLogId));
 

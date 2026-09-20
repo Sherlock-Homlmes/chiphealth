@@ -36,6 +36,8 @@ const nutrientFields = {
   sugarG: z.number().nonnegative().nullish(),
   sodiumMg: z.number().nonnegative().nullish(),
   cholesterolMg: z.number().nonnegative().nullish(),
+  /** Fluid the component carries, ml — the model's estimate, or the user's. */
+  waterMl: z.number().nonnegative().nullish(),
 };
 
 // ---------------------------------------------------------------- meals
@@ -483,6 +485,7 @@ function preserveAiPrediction(item: typeof mealItems.$inferSelect): string {
     sugarG: item.sugarG,
     sodiumMg: item.sodiumMg,
     cholesterolMg: item.cholesterolMg,
+    waterMl: item.waterMl,
     source: item.source,
     confidence: item.confidence,
   });
@@ -556,6 +559,7 @@ app.post('/meals/:id/items', async (c) => {
     sugarG: body.sugarG ?? null,
     sodiumMg: body.sodiumMg ?? null,
     cholesterolMg: body.cholesterolMg ?? null,
+    waterMl: body.waterMl ?? null,
     // Added by hand, so there is no AI prediction to preserve for this row.
     source: 'ai_estimated',
     isUserCorrected: true,
@@ -596,6 +600,9 @@ app.patch('/meals/:id/items/:itemId', async (c) => {
     sugarG: body.sugarG ?? null,
     sodiumMg: body.sodiumMg ?? null,
     cholesterolMg: body.cholesterolMg ?? null,
+    // A client that knows nothing about water (an older build, the agent's
+    // portion rescale) must not wipe the estimate the analysis made.
+    waterMl: body.waterMl === undefined ? item.waterMl : (body.waterMl ?? null),
     // Written once, then frozen: this is the ground-truth pair for fine-tuning.
     aiPredictedJson: preserveAiPrediction(item),
     isUserCorrected: true,

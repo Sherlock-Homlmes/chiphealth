@@ -146,6 +146,25 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
             encoder: AudioEncoder.pcm16bits,
             sampleRate: 16000, // YAMNet's expected input rate
             numChannels: 1,
+            // The phone is usually playing something itself all night — white
+            // noise, a podcast, an alarm's radio — and the mic hears its own
+            // speaker, which the classifier then scores as a room full of
+            // noise. Echo cancellation subtracts what the device is playing
+            // from what the mic picks up, so only the room is left.
+            //
+            // On Android that means the voice-communication source as well:
+            // AcousticEchoCanceler attaches to that capture path, and on the
+            // plain mic source it has nothing to cancel against.
+            //
+            // Noise suppression and auto-gain stay off on purpose — they are
+            // tuned for speech and would file a snore away as noise, or ride
+            // the gain until a quiet room sounds like a loud one.
+            echoCancel: true,
+            noiseSuppress: false,
+            autoGain: false,
+            androidConfig: AndroidRecordConfig(
+              audioSource: AndroidAudioSource.voiceCommunication,
+            ),
             // Resume after interruptions (a call, Siri) instead of pausing for
             // the rest of the night — the record plugin's own background
             // recipe, which requires mixWithOthers for the resume to stick.
