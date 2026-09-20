@@ -9,7 +9,7 @@ import { ApiError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { localDate } from '../lib/time';
 import { recomputeSleepDebt, sleepDebtFor } from '../services/sleepDebt';
-import { speechLanguage } from '../lib/language';
+import { accountLocale } from '../lib/language';
 import { transcribeAudio } from '../services/speech';
 import { insertMany } from '../db/client';
 import type { AppEnv } from '../env';
@@ -363,7 +363,10 @@ app.post('/events/:id/transcribe', async (c) => {
   const { text } = await transcribeAudio(
     c.env,
     new Uint8Array(await object.arrayBuffer()),
-    { language: speechLanguage(c.get('user').locale), mimeType: row.asset.mimeType },
+    {
+      locale: await accountLocale(db, c.get('user')),
+      mimeType: row.asset.mimeType,
+    },
   );
 
   const transcript = text;

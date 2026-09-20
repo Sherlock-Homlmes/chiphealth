@@ -92,6 +92,9 @@ AI_EMBEDDING_DIMENSIONS=1024
 #   @cf/deepgram/nova-3                 (default)
 #   @cf/openai/whisper-large-v3-turbo   (previous model, still supported)
 AI_ASR_MODEL=@cf/deepgram/nova-3
+# Nova-3 has no Vietnamese at all (a Vietnamese clip comes back empty),
+# so Vietnamese speech goes to Whisper instead.
+AI_ASR_MODEL_VI=@cf/openai/whisper-large-v3-turbo
 # options:
 #   @cf/openai/whisper           # older, cheaper, lower accuracy on Vietnamese
 

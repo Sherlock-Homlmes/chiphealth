@@ -29,7 +29,7 @@ export async function transcribeWithWhisper(
     audio: btoa(binary),
     // Whisper takes a bare ISO-639-1 code; a BCP-47 tag like "vi-VN" is not
     // one, so only the primary subtag is sent.
-    ...(opts.language ? { language: primaryLanguage(opts.language) } : {}),
+    ...(opts.locale ? { language: primaryLanguage(opts.locale) } : {}),
   } as never)) as unknown as { text?: string };
 
   const text = (result.text ?? '').trim();

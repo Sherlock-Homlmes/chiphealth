@@ -13,8 +13,9 @@ import {
   extractJson, parseComponents, foodNameFits, effectiveAnalysis, MEAL_ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE,
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
-import { normaliseLocale, languageName, speechLanguage, SUPPORTED_LOCALES } from '../src/lib/language';
-import { asrFamily } from '../src/services/speech';
+import { normaliseLocale, languageName, SUPPORTED_LOCALES } from '../src/lib/language';
+import { asrFamily, asrModelFor } from '../src/services/speech';
+import { deepgramLanguage } from '../src/services/speech/nova3';
 import { factKey, expiryFromDays, MAX_TTL_DAYS } from '../src/services/agent/memory';
 import { firstTranscript } from '../src/services/speech/nova3';
 import { primaryLanguage } from '../src/services/speech/whisper';
@@ -154,8 +155,10 @@ check('null falls back', normaliseLocale(null), 'vi');
 check('only vi and en are offered', [...SUPPORTED_LOCALES], ['vi', 'en']);
 check('the prompt names the language in it', languageName('en'), 'English');
 check('vietnamese is named in vietnamese', languageName('vi-VN'), 'tiếng Việt');
-check('english speech gets a region', speechLanguage('en'), 'en-US');
-check('vietnamese speech stays bare', speechLanguage('vi'), 'vi');
+check('nova-3 gets a region for english', deepgramLanguage('en'), 'en-US');
+// Nova-3 has no Vietnamese; routing sends Vietnamese to Whisper before this
+// is ever asked, and "multi" is the honest answer for anything else.
+check('nova-3 falls back to multilingual', deepgramLanguage('vi'), 'multi');
 
 console.log('\n# assistant memory: expiry and dedupe');
 {
@@ -196,6 +199,14 @@ check('deepgram ids take the nova-3 shape', asrFamily('@cf/deepgram/nova-3'), 'd
 check('whisper ids take the whisper shape',
   asrFamily('@cf/openai/whisper-large-v3-turbo'), 'whisper');
 check('an unknown vendor falls back to whisper', asrFamily('@cf/some/other'), 'whisper');
+// The pairing that matters: Vietnamese must never be handed to Nova-3, which
+// returns an empty transcript for it.
+check('vietnamese is routed to whisper',
+  asrFamily(asrModelFor({} as never, 'vi')), 'whisper');
+check('english keeps the configured default',
+  asrFamily(asrModelFor({ AI_ASR_MODEL: '@cf/deepgram/nova-3' } as never, 'en')), 'deepgram');
+check('an unknown language is treated as vietnamese',
+  asrFamily(asrModelFor({ AI_ASR_MODEL: '@cf/deepgram/nova-3' } as never, 'fr')), 'whisper');
 // Whisper only reads the primary subtag, so a BCP-47 tag has to be trimmed.
 check('whisper gets a bare language code', primaryLanguage('en-US'), 'en');
 check('nova-3 transcript is read out of the channel',

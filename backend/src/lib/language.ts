@@ -1,3 +1,7 @@
+import { eq } from 'drizzle-orm';
+import { users } from '../db/schema';
+import type { Db } from '../db/client';
+
 /**
  * The languages the app is offered in. One list, used by everything that has
  * to speak to the user: the speech recogniser listens in it, the assistant and
@@ -31,11 +35,18 @@ export function languageName(raw: string | null | undefined): string {
 }
 
 /**
- * The BCP-47 tag the speech models take. Deepgram wants a region for English
- * ("en" alone is accepted but "en-US" is its trained default); Whisper only
- * ever reads the primary subtag, and services/speech/whisper.ts strips the
- * rest, so one tag serves both.
+ * The language on the account right now.
+ *
+ * The access token carries a copy of it and lives for an hour, so a user who
+ * has just changed the setting would otherwise keep being transcribed — and
+ * answered — in the old language until their token rolled over. Everything
+ * that speaks to the user reads it here instead, which costs one indexed
+ * lookup next to an AI call.
  */
-export function speechLanguage(raw: string | null | undefined): string {
-  return normaliseLocale(raw) === 'en' ? 'en-US' : 'vi';
+export async function accountLocale(
+  db: Db, user: { id: string; locale: string },
+): Promise<SupportedLocale> {
+  const rows = await db.select({ locale: users.locale }).from(users)
+    .where(eq(users.id, user.id)).limit(1);
+  return normaliseLocale(rows[0]?.locale ?? user.locale);
 }

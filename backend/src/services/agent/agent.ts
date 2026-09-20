@@ -4,7 +4,7 @@ import { modelConfig } from '../../config/models';
 import { ApiError } from '../../lib/errors';
 import { aiText, withTimeout } from '../../lib/aiText';
 import { newId } from '../../lib/ids';
-import { languageName } from '../../lib/language';
+import { accountLocale, languageName } from '../../lib/language';
 import { localDate, localTime, localWeekday } from '../../lib/time';
 import { PROMPTS, promptSections, renderPrompt } from '../../prompts';
 import { buildCoachContext, type ChatTurn, type CoachContext } from '../coach';
@@ -194,6 +194,8 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   // waiting for a tool call is what makes the assistant *start* a conversation
   // knowing about the shellfish allergy.
   const facts = await listFacts(db, user.id, { limit: modelConfig(env).agentFactLimit });
+  // From the account, not the token: the token's copy can be an hour stale.
+  const locale = await accountLocale(db, user);
 
   const messages: AgentMessage[] = [
     {
@@ -203,7 +205,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
         weekday: WEEKDAY_VI[localWeekday(now, tz)] ?? '',
         now_local: localTime(now, tz),
         timezone: tz,
-        language: languageName(input.user.locale),
+        language: languageName(locale),
         canary,
         context_json: JSON.stringify(context),
         device_json: JSON.stringify(device),

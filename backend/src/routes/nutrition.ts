@@ -11,7 +11,7 @@ import { newId } from '../lib/ids';
 import { localDate } from '../lib/time';
 import { hybridFoodSearch } from '../services/foodSearch';
 import { effectiveAnalysis, recomputeMealTotals } from '../services/mealAnalysis';
-import { speechLanguage } from '../lib/language';
+import { accountLocale } from '../lib/language';
 import { transcribeAudio } from '../services/speech';
 import type { MealAnalysisJob } from '../queue';
 import {
@@ -383,7 +383,7 @@ app.post('/meals/:id/voice', async (c) => {
   let text: string;
   try {
     text = transcript ?? await transcribe(c.env, audio!, {
-      language: speechLanguage(c.get('user').locale),
+      locale: await accountLocale(db, c.get('user')),
       mimeType: contentType.split(';')[0]!.trim(),
     });
   } catch (err) {
@@ -445,7 +445,7 @@ app.post('/meals/transcribe', async (c) => {
     throw new ApiError('UPLOAD_TOO_LARGE', `Max ${maxBytes} bytes for a voice clip`);
   }
   const transcript = await transcribe(c.env, new Uint8Array(buf), {
-    language: speechLanguage(c.get('user').locale),
+    locale: await accountLocale(c.get('db'), c.get('user')),
     mimeType: contentType.split(';')[0]!.trim(),
   });
   return c.json({ transcript });
@@ -458,7 +458,7 @@ app.post('/meals/transcribe', async (c) => {
  * clip is.
  */
 async function transcribe(
-  env: Bindings, audio: Uint8Array, opts: { language: string; mimeType?: string },
+  env: Bindings, audio: Uint8Array, opts: { locale: string; mimeType?: string },
 ): Promise<string> {
   const { text } = await transcribeAudio(env, audio, opts);
   return text;
@@ -893,7 +893,8 @@ app.post('/meal-plans/generate', async (c) => {
   });
 
   const text = await completeCoachReply(
-    c.env, ctx, [{ role: 'user', content: prompt }], c.get('user').locale,
+    c.env, ctx, [{ role: 'user', content: prompt }],
+    await accountLocale(c.get('db'), c.get('user')),
   );
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');

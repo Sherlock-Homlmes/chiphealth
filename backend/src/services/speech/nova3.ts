@@ -1,4 +1,5 @@
 import { ApiError } from '../../lib/errors';
+import { normaliseLocale } from '../../lib/language';
 import type { Bindings } from '../../env';
 import type { TranscribeOptions, TranscribeResult } from './types';
 
@@ -11,6 +12,16 @@ import type { TranscribeOptions, TranscribeResult } from './types';
  * shape instead of a flat `text`. That is the whole reason this lives in its
  * own file — see ./index.ts for the switch.
  */
+/**
+ * Nova-3's own language tags. It takes BCP-47, but its coverage is narrow:
+ * English is its trained default and everything else has to go through the
+ * multilingual mode — which does not include Vietnamese, so Vietnamese never
+ * reaches this file (see ./index.ts).
+ */
+export function deepgramLanguage(locale: string | null | undefined): string {
+  return normaliseLocale(locale) === 'en' ? 'en-US' : 'multi';
+}
+
 export async function transcribeWithNova3(
   env: Bindings,
   model: string,
@@ -19,16 +30,18 @@ export async function transcribeWithNova3(
 ): Promise<TranscribeResult> {
   const result = (await env.AI.run(model as never, {
     audio: {
-      // A fresh Uint8Array copy: the binding serialises the buffer, and a view
-      // onto a larger pooled buffer would carry the rest of it along.
-      body: new Uint8Array(audio),
+      // A stream, not the bytes: the binding validates `body` against
+      // Deepgram's schema and a Uint8Array does not survive the trip — it
+      // arrives as "required properties at '/audio' are 'body,contentType'".
+      body: new Response(new Uint8Array(audio)).body,
       // Deepgram picks the decoder from this; an empty string makes it guess.
       contentType: opts.mimeType && opts.mimeType.length > 0
         ? opts.mimeType
         : 'audio/mpeg',
     },
-    // Nova-3 takes a BCP-47 tag and understands "multi" for mixed speech.
-    ...(opts.language ? { language: opts.language } : { detect_language: true }),
+    ...(opts.locale
+      ? { language: deepgramLanguage(opts.locale) }
+      : { detect_language: true }),
     // Raw Deepgram output is lowercase and unpunctuated. The transcript is
     // shown to the user for review and fed to a model that has to split a
     // meal into components, so both want sentences.

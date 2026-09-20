@@ -29,6 +29,7 @@ export interface Bindings {
   AI_EMBEDDING_MODEL?: string;
   AI_EMBEDDING_DIMENSIONS?: string;
   AI_ASR_MODEL?: string;
+  AI_ASR_MODEL_VI?: string;
   AI_RERANK_MODEL?: string;
   RERANK_ENABLED?: string;
   AI_AGENT_FACT_LIMIT?: string;
