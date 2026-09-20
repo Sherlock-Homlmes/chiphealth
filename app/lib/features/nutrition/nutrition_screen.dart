@@ -12,6 +12,7 @@ import '../../widgets/retro_widgets.dart';
 import '../home/add_water_sheet.dart';
 import '../home/home_widgets.dart';
 import '../home/water_controller.dart';
+import '../home/water_info.dart';
 import 'barcode_scan_screen.dart';
 import 'log_meal_sheet.dart';
 import 'meal_photo.dart';
@@ -348,25 +349,23 @@ class _TodayCard extends ConsumerWidget {
           const _CardRule(),
           // Read-only here: water is added from the "+" at the foot of the
           // screen like everything else, so this card is a summary of the day
-          // rather than a second place to log from.
-          MacroBar(
-            label: 'Nước',
-            value: (drunk + fromMeals).toDouble(),
-            target: waterTarget.toDouble(),
-            unit: 'ml',
-            color: RetroTokens.water,
-          ),
-          if (fromMeals > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                'Gồm $fromMeals ml từ đồ ăn, đồ uống đã ghi',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: RetroTokens.inkSoft,
+          // rather than a second place to log from. The "i" carries the same
+          // split as the home card.
+          Row(
+            children: [
+              Expanded(
+                child: MacroBar(
+                  label: 'Nước',
+                  value: (drunk + fromMeals).toDouble(),
+                  target: waterTarget.toDouble(),
+                  unit: 'ml',
+                  color: RetroTokens.water,
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              WaterInfoButton(drunk: drunk, fromMeals: fromMeals),
+            ],
+          ),
         ],
       ),
     );

@@ -16,6 +16,7 @@ import '../training/activity_format.dart';
 import 'add_water_sheet.dart';
 import 'home_widgets.dart';
 import 'water_controller.dart';
+import 'water_info.dart';
 
 /// The day the home screen is reading. Kept as a provider so the week strip and
 /// every card below it can never disagree about which date they are showing.
@@ -671,18 +672,12 @@ class _WaterCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Nước',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: RetroTokens.inkFaint,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        _WaterHelp(drunk: drunk, fromMeals: fromMeals),
-                      ],
+                    const Text(
+                      'Nước',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: RetroTokens.inkFaint,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -739,19 +734,16 @@ class _WaterCard extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  fromMeals > 0
-                      ? 'Mục tiêu ${_ml.format(target)} ml · '
-                            'tự ghi ${_ml.format(drunk)} · '
-                            'đồ ăn ${_ml.format(fromMeals)}'
-                      : 'Mục tiêu: ${_ml.format(target)} ml',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: RetroTokens.inkSoft,
-                  ),
+              Text(
+                'Mục tiêu ${_ml.format(target)} ml',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: RetroTokens.inkSoft,
                 ),
               ),
+              const SizedBox(width: 4),
+              WaterInfoButton(drunk: drunk, fromMeals: fromMeals),
+              const Spacer(),
               PopupMenuButton<int>(
                 tooltip: 'Tuỳ chọn nước',
                 icon: const Icon(Icons.more_horiz, color: RetroTokens.inkSoft),
@@ -776,46 +768,6 @@ class _WaterCard extends ConsumerWidget {
       ),
     );
   }
-}
-
-/// The "?" next to the water total. What the number means is not obvious —
-/// it is not only what the user tapped in — so the card says so on demand
-/// rather than spending a line of the card on it.
-class _WaterHelp extends StatelessWidget {
-  const _WaterHelp({required this.drunk, required this.fromMeals});
-
-  final int drunk;
-  final int fromMeals;
-
-  static final _ml = NumberFormat('#,##0');
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: () => showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Nước hôm nay'),
-        content: Text(
-          'Tổng lượng nước gồm cả nước bạn tự ghi ở đây và lượng nước có '
-          'trong đồ ăn, đồ uống của các bữa đã ghi — AI ước tính phần đó khi '
-          'phân tích bữa ăn (nước lọc, trà, nước canh, nước trong cơm, rau…).'
-          '\n\nHôm nay: tự ghi ${_ml.format(drunk)} ml · '
-          'từ bữa ăn ${_ml.format(fromMeals)} ml.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đã hiểu'),
-          ),
-        ],
-      ),
-    ),
-    customBorder: const CircleBorder(),
-    child: const Padding(
-      padding: EdgeInsets.all(2),
-      child: Icon(Icons.help_outline, size: 14, color: RetroTokens.inkFaint),
-    ),
-  );
 }
 
 /// A glass filled from the bottom to [fill] (0..1).
