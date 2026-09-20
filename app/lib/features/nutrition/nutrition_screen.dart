@@ -124,7 +124,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
                   child: asyncBody(
                     daily,
                     onRetry: () => ref.invalidate(dailyNutritionProvider),
-                    data: (d) => _TodayCard(d, onAddWater: _logWater),
+                    data: (d) => _TodayCard(d),
                   ),
                 ),
                 ..._diary(timeline),
@@ -221,16 +221,19 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
 /// number the user is actually steering — and water rides in the same card
 /// rather than a second one, because it is the same day being measured.
 class _TodayCard extends ConsumerWidget {
-  const _TodayCard(this.d, {required this.onAddWater});
+  const _TodayCard(this.d);
 
   final DailyNutrition d;
-  final VoidCallback onAddWater;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final targets = DailyTargets.fromDaily(d);
     final date = DateRange.iso(DateTime.now());
+    // The same total the home screen shows: what was tapped in by hand plus
+    // the fluid the analysis found in today's meals. "Đặt lại hôm nay" only
+    // clears the hand-logged half, so the meals' water survives it.
     final drunk = ref.watch(waterProvider(date));
+    final fromMeals = d.waterFromMealsMl.round();
     final waterTarget = ref.watch(waterTargetProvider);
 
     return RetroBox(
@@ -343,31 +346,27 @@ class _TodayCard extends ConsumerWidget {
             ],
           ),
           const _CardRule(),
-          // Water is the one number here the API does not hold; it reads off the
-          // device, and the row doubles as the way to add to it.
-          GestureDetector(
-            onTap: onAddWater,
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                Expanded(
-                  child: MacroBar(
-                    label: 'Nước',
-                    value: drunk.toDouble(),
-                    target: waterTarget.toDouble(),
-                    unit: 'ml',
-                    color: RetroTokens.water,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Icon(
-                  Icons.add_circle,
-                  color: RetroTokens.water,
-                  size: 26,
-                ),
-              ],
-            ),
+          // Read-only here: water is added from the "+" at the foot of the
+          // screen like everything else, so this card is a summary of the day
+          // rather than a second place to log from.
+          MacroBar(
+            label: 'Nước',
+            value: (drunk + fromMeals).toDouble(),
+            target: waterTarget.toDouble(),
+            unit: 'ml',
+            color: RetroTokens.water,
           ),
+          if (fromMeals > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Gồm $fromMeals ml từ đồ ăn, đồ uống đã ghi',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
+            ),
         ],
       ),
     );

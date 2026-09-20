@@ -502,7 +502,14 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                 children: [
                   // The photo is what is being analysed, so while the model runs
                   // it is the whole screen rather than a thumbnail in a corner.
-                  MealPhotoThumb(assetId: meal.photoAssetId, size: 240),
+                  MealPhotoThumb(
+                    assetId: meal.photoAssetId,
+                    size: 240,
+                    onTap: meal.photoAssetId == null
+                        ? null
+                        : () =>
+                              showMealPhotoViewer(context, meal.photoAssetId!),
+                  ),
                   const SizedBox(height: 28),
                   const CircularProgressIndicator(),
                   const SizedBox(height: 14),
@@ -627,7 +634,13 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
               ),
               const SizedBox(width: 14),
               // Next to the name it belongs to, not floating off the header.
-              MealPhotoThumb(assetId: meal.photoAssetId, size: 88),
+              MealPhotoThumb(
+                assetId: meal.photoAssetId,
+                size: 88,
+                onTap: meal.photoAssetId == null
+                    ? null
+                    : () => showMealPhotoViewer(context, meal.photoAssetId!),
+              ),
             ],
           ),
         ),

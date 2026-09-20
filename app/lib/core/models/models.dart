@@ -509,6 +509,15 @@ class DailyNutrition {
 
   bool get isDeficit => (balanceKcal ?? 0) < 0;
 
+  /// Fluid the day's meals carried, in ml — drinks in full, plus broth and the
+  /// water inside the food, as the analysis estimated it.
+  ///
+  /// Lives here so every screen that shows "nước hôm nay" adds up the same
+  /// number: the day card on home and the summary on the diary disagreed about
+  /// this once already.
+  double get waterFromMealsMl =>
+      meals.fold<double>(0, (s, m) => s + (m.totalWaterMl ?? 0));
+
   factory DailyNutrition.fromJson(Map<String, dynamic> json) {
     final summary = (json['summary'] as Map?)?.cast<String, dynamic>();
     final energy = (json['energy'] as Map?)?.cast<String, dynamic>();

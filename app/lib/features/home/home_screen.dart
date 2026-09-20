@@ -658,9 +658,7 @@ class _WaterCard extends ConsumerWidget {
     final cups = (target / WaterController.cupMl).ceil().clamp(4, 12).toInt();
     // What the analysis estimated across the day's meals: drinks in full, plus
     // broth and the water inside the food.
-    final fromMeals = (nutrition.valueOrNull?.meals ?? const <MealLog>[])
-        .fold<double>(0, (s, m) => s + (m.totalWaterMl ?? 0))
-        .round();
+    final fromMeals = (nutrition.valueOrNull?.waterFromMealsMl ?? 0).round();
     final total = drunk + fromMeals;
 
     return HomeCard(
