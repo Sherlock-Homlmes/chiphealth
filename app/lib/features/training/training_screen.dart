@@ -85,7 +85,6 @@ class _ActivityFeed extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feed = ref.watch(workoutFeedProvider);
-    final records = ref.watch(personalRecordsProvider);
     final units = Units(ref.watch(unitSystemProvider));
     final user = ref.watch(authControllerProvider).user;
     final types = {
@@ -96,39 +95,10 @@ class _ActivityFeed extends ConsumerWidget {
     };
 
     return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(workoutFeedProvider);
-        ref.invalidate(personalRecordsProvider);
-      },
+      onRefresh: () async => ref.invalidate(workoutFeedProvider),
       child: PhoneFrame(
         child: ListView(
           children: [
-            SectionTitle(AppL10n.of(context).kyLucCaNhan),
-            SizedBox(
-              // Tall enough for a two-word caption under the value; 96 clipped it.
-              height: 108,
-              child: asyncBody(
-                records,
-                emptyWhen: (list) => list.isEmpty,
-                emptyText: AppL10n.of(context).chuaCoPrNaoTapMot,
-                data: (list) => ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) {
-                    final pr = list[i];
-                    return SizedBox(
-                      width: 160,
-                      child: StatTile(
-                        value: _prValue(pr.metric, pr.value, units),
-                        label: _prLabel(context, pr.metric, pr.distanceM),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
             SectionTitle(AppL10n.of(context).hoatDong),
             asyncBody(
               feed,
@@ -327,30 +297,3 @@ class _Avatar extends StatelessWidget {
     ),
   );
 }
-
-String _prValue(String metric, double value, Units units) => switch (metric) {
-  'fastest_distance' || 'longest_duration' => Units.duration(value.round()),
-  'longest_distance' => units.distance(value),
-  'max_weight' => units.weight(value),
-  'best_pace' => units.pace(value),
-  _ => value.toStringAsFixed(0),
-};
-
-String _prLabel(BuildContext context, String metric, double? distanceM) =>
-    switch (metric) {
-      'fastest_distance' => AppL10n.of(context).prFastestDistance(
-        ((distanceM ?? 0) / 1000).toStringAsFixed(
-          distanceM == 21097 || distanceM == 42195 ? 1 : 0,
-        ),
-      ),
-      'longest_distance' => AppL10n.of(context).quangDuongDaiNhat,
-      'longest_duration' => AppL10n.of(context).buoiDaiNhat,
-      'max_weight' => AppL10n.of(context).taNangNhat,
-      'max_reps' => AppL10n.of(context).soRepNhieuNhat,
-      'max_volume' => AppL10n.of(context).khoiLuongLonNhat,
-      'best_pace' => AppL10n.of(context).paceTotNhat,
-      // Every metric the server can send needs a case here: without one the raw
-      // column name ("max_elevation_gain") went straight onto the card.
-      'max_elevation_gain' => AppL10n.of(context).doCaoLonNhat,
-      _ => metric,
-    };

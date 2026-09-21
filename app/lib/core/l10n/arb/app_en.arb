@@ -87,7 +87,6 @@
   "buaTrua": "Lunch",
   "buoiChieu": "afternoon",
   "buoiDaTapTinhKcalVao": "Workout done — its calories count towards",
-  "buoiDaiNhat": "longest session",
   "buoiNayTheNaoChiaSe": "How did it go? Say a little more…",
   "buoiSang": "morning",
   "buoiTap": "Workout",
@@ -267,7 +266,6 @@
   "dinhDuong": "Nutrition",
   "dinhDuongLuyenTapGiacNgu": "Food, training and sleep — one place, one coach.",
   "doCao": "elevation",
-  "doCaoLonNhat": "highest elevation gain",
   "doCaoTang": "Elevation gain",
   "doanGhiQuaNganBamMic": "That clip was too short — tap the mic, speak, then tap again when you are done.",
   "dobWithAge": "{date} · {age} years old",
@@ -337,7 +335,6 @@
   "explainMainProgress": "Each point is one week's total, weeks starting on Monday. A week with nothing in it is still drawn at zero, so the axis stays evenly spaced. Switching the sport chip changes the chart and the three figures with it.",
   "explainMonthly": "Training time accumulated day by day. The bold line is this month and stops at today; the thin one is last month, drawn in full for comparison.",
   "explainPrediction": "Riegel's formula: a time over one distance predicts another, t2 = t1 × (d2/d1)^1.06. Only runs of 1.5 km or more in the last 30 days count. Each point is the best prediction so far, which is why the line only moves the faster way.",
-  "explainRecap": "A wrap of the last month that has finished.",
   "explainRecords": "Your standing bests at the classic distances, read from each run's distance data. One current record per distance.",
   "explainStreak": "Consecutive weeks with at least one session, counted backwards. An empty current week does not break the streak — it has not happened yet.",
   "explainSuggestion": "Sized from your running volume over the last four weeks and how many days you have rested — not from a coaching plan. Trained yesterday means a recovery run; a weekend with enough volume behind it means a long one.",
@@ -452,7 +449,6 @@
   "khoanhKhac": "Moments",
   "khoeManh": "Healthy",
   "khoiLuongG": "Amount (g)",
-  "khoiLuongLonNhat": "heaviest load",
   "khong": "No",
   "khongChupDuocThuLai": "The shot failed. Try again.",
   "khongCoAnhThiChiCan": "With no photo, just type or speak it — the app splits out the components.",
@@ -468,7 +464,6 @@
   "khongThucHienDuoc": "Could not be done",
   "khongTimThayCamera": "No camera found.",
   "kiemSoatBenhNen": "Manage a condition",
-  "kyLucCaNhan": "Personal records",
   "kyLucMoi": "New record!",
   "kySau": "Next",
   "kyTruoc": "Previous",
@@ -612,7 +607,6 @@
       }
     }
   },
-  "paceTotNhat": "best pace",
   "phanBiCatSeBiXoa": "The trimmed part is deleted for good; distance, time and splits are recalculated.",
   "phanGiacNguGiaiDoanVa": "Sleep, stages and clips outside the new times are cut away.",
   "phanTich": "Analyse",
@@ -628,17 +622,8 @@
   "phienDangNhapHetHanDang": "Your session expired. Sign in again, then post.",
   "phut2": "Minutes",
   "phut3": "min",
-  "prFastestDistance": "fastest {km} km",
-  "@prFastestDistance": {
-    "placeholders": {
-      "km": {
-        "type": "String"
-      }
-    }
-  },
   "quangDuong": "Distance",
   "quangDuong2": "distance",
-  "quangDuongDaiNhat": "longest distance",
   "quangDuongKmTuyChon": "Distance (km) — optional",
   "quetMaVach": "Scan a barcode",
   "ratNangDong": "Very active",
@@ -696,7 +681,6 @@
     }
   },
   "soGioNgu": "Hours slept",
-  "soRepNhieuNhat": "most reps",
   "stepOneBmr": "1. BMR — the energy burned lying completely still",
   "stepTwoActivityFactor": "2. Multiplied by your daily activity factor",
   "suaGioNgu": "Edit sleep times",
@@ -720,7 +704,6 @@
       }
     }
   },
-  "taNangNhat": "heaviest weight",
   "taiLaiAnh": "Reload photo",
   "taiThem": "Load more",
   "tamDung": "Pause",
@@ -826,7 +809,6 @@
   "toiDa": "Max",
   "toiDayRoi": "I am awake",
   "toiQuaMinhNguCoDu": "Did I sleep enough last night?",
-  "tongKetThang": "Month in review",
   "troLyAi": "AI assistant",
   "trong1ThangQua": "Over the last month",
   "trongMucTieu": "On target",

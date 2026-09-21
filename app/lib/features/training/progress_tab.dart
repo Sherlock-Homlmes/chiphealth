@@ -61,8 +61,6 @@ class TrainingProgressTab extends ConsumerWidget {
             const SizedBox(height: 12),
             _RecordsCard(progress: progress),
             const SizedBox(height: 12),
-            _RecapCard(progress: progress),
-            const SizedBox(height: 12),
             _MonthlyCard(progress: progress),
           ],
         ),
@@ -119,10 +117,6 @@ String _roundDistance(Units units, double meters) {
   return '$text km';
 }
 
-/// "tháng 9" on the recap card.
-String _monthLong(BuildContext context, String month) =>
-    DateFormat('MMMM', _language(context)).format(DateTime.parse('$month-01'));
-
 /* -------------------------------------------------------------------------- */
 /* Card chrome                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -136,7 +130,6 @@ class _ProgressCard extends StatelessWidget {
     required this.child,
     this.scope,
     this.onOpen,
-    this.trailing,
   });
 
   final IconData icon;
@@ -146,9 +139,6 @@ class _ProgressCard extends StatelessWidget {
   /// "Tuần này", "Trong 1 tháng qua" — the period the card covers.
   final String? scope;
   final VoidCallback? onOpen;
-
-  /// Replaces the chevron, for the focus card's pencil.
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -181,9 +171,7 @@ class _ProgressCard extends StatelessWidget {
                     ),
                   ),
                 ),
-              if (trailing != null)
-                trailing!
-              else if (onOpen != null)
+              if (onOpen != null)
                 const Icon(
                   Icons.chevron_right,
                   size: 18,
@@ -525,36 +513,62 @@ class _FocusCard extends ConsumerWidget {
     }
   }
 
+  /// A one-line strip rather than a full card: the focus is a setting the user
+  /// picks once and then reads at a glance, so it introduces the page instead
+  /// of competing with the numbers under it. The description that used to sit
+  /// here lives in the picker, next to each option, which is where it is
+  /// actually being decided.
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppL10n.of(context);
     final current = progress.valueOrNull?.focus ?? 'stay_active';
-    return _ProgressCard(
-      icon: Icons.flag_outlined,
-      title: AppL10n.of(context).trongTamCuaBan,
-      trailing: IconButton(
-        tooltip: AppL10n.of(context).chinhSuaTrongTam,
-        icon: const Icon(Icons.edit_outlined, size: 18),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-        onPressed: () => _pick(context, ref, current),
-      ),
-      child: _cardBody(
-        progress,
-        skeletonHeight: 30,
-        onRetry: () => ref.invalidate(trainingProgressProvider),
-        data: (p) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _focusText(context, p.focus).label,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _focusText(context, p.focus).note,
-              style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
-            ),
-          ],
+    final loading = progress.isLoading && !progress.hasValue;
+
+    return HomeCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () => _pick(context, ref, current),
+        borderRadius: BorderRadius.circular(RetroTokens.radiusLg),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.flag_outlined,
+                size: 16,
+                color: RetroTokens.inkSoft,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                l.trongTamCuaBan,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: loading
+                    ? const _Skeleton(height: 16)
+                    : Text(
+                        _focusText(context, current).label,
+                        textAlign: TextAlign.end,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+              const SizedBox(width: 4),
+              Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: RetroTokens.inkFaint,
+                semanticLabel: l.chinhSuaTrongTam,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1839,152 +1853,7 @@ class _Medal extends StatelessWidget {
 }
 
 /* -------------------------------------------------------------------------- */
-/* 8. Tổng kết tháng                                                           */
-/* -------------------------------------------------------------------------- */
-
-class _RecapCard extends ConsumerWidget {
-  const _RecapCard({required this.progress});
-
-  final AsyncValue<TrainingProgress> progress;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppL10n.of(context);
-    final month = progress.valueOrNull?.recapMonth ?? '';
-
-    return _ProgressCard(
-      icon: Icons.auto_awesome_outlined,
-      title: l.tongKetThang,
-      onOpen: month.isEmpty
-          ? null
-          : () => _explain(
-              context,
-              title: l.tongKetThang,
-              explanation: l.explainRecap,
-              rows: [
-                (
-                  _monthLong(context, month),
-                  _duration(
-                    context,
-                    progress.valueOrNull?.lastMonth.totalSeconds ?? 0,
-                  ),
-                ),
-              ],
-            ),
-      child: _cardBody(
-        progress,
-        skeletonHeight: 84,
-        onRetry: () => ref.invalidate(trainingProgressProvider),
-        data: (p) => Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      _monthLong(context, p.recapMonth),
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    p.recapMonth.split('-').first,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: RetroTokens.inkFaint,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            const _RecapPreview(),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The stacked-cards flourish on the recap tile. Decoration, not data — it
-/// stands for "there is a story inside", and is deliberately static.
-class _RecapPreview extends StatelessWidget {
-  const _RecapPreview();
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 64,
-    height: 76,
-    child: Stack(
-      children: [
-        Positioned(
-          left: 8,
-          top: 4,
-          child: Container(
-            width: 52,
-            height: 68,
-            decoration: BoxDecoration(
-              color: RetroTokens.paperSunk,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: RetroTokens.inkFaint),
-            ),
-          ),
-        ),
-        Positioned(
-          left: 0,
-          top: 0,
-          child: Container(
-            width: 52,
-            height: 68,
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: RetroTokens.paperRaised,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: RetroTokens.ink),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Container(width: 6, color: RetroTokens.accentSoft),
-                ),
-                const SizedBox(height: 6),
-                const _DashedRule(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _DashedRule extends StatelessWidget {
-  const _DashedRule();
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 1,
-    width: double.infinity,
-    child: Row(
-      children: [
-        for (var i = 0; i < 6; i++) ...[
-          if (i > 0) const SizedBox(width: 3),
-          Container(width: 3, height: 1, color: RetroTokens.inkFaint),
-        ],
-      ],
-    ),
-  );
-}
-
-/* -------------------------------------------------------------------------- */
-/* 9. Hoạt động hàng tháng                                                     */
+/* 8. Hoạt động hàng tháng                                                     */
 /* -------------------------------------------------------------------------- */
 
 class _MonthlyCard extends ConsumerWidget {
