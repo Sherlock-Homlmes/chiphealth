@@ -31,16 +31,7 @@ class ProfileScreen extends ConsumerWidget {
     final tdee = ref.watch(tdeeInfoProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppL10n.of(context).caNhan),
-        actions: [
-          TextButton(
-            onPressed: () =>
-                ref.read(authControllerProvider.notifier).signOut(),
-            child: Text(AppL10n.of(context).dangXuat),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(AppL10n.of(context).caNhan)),
       body: PhoneFrame(
         child: asyncBody(
           tdee,
@@ -54,6 +45,9 @@ class ProfileScreen extends ConsumerWidget {
               key: ValueKey((identityHashCode(info), identityHashCode(data))),
               info: info,
               me: data,
+              // Last thing on the screen, not a button in the corner next to
+              // the title — and it asks first.
+              footer: const _SignOutButton(),
               // The language sits above the form rather than inside it: it
               // saves on the tap, while everything below waits for "Lưu".
               header: const _LanguageCard(),
@@ -297,6 +291,51 @@ class _LanguageCardState extends ConsumerState<_LanguageCard> {
   }
 }
 
+/// Signing out, at the foot of the settings. It asks first: the one thing on
+/// this screen that throws away the session, and a mis-tap used to do it
+/// silently from a corner of the app bar.
+class _SignOutButton extends ConsumerWidget {
+  const _SignOutButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
+    child: OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: RetroTokens.accent,
+        side: const BorderSide(color: RetroTokens.accent),
+        minimumSize: const Size.fromHeight(48),
+      ),
+      icon: const Icon(Icons.logout, size: 18),
+      label: Text(AppL10n.of(context).dangXuat),
+      onPressed: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: Text(AppL10n.of(dialogContext).dangXuat),
+            content: Text(AppL10n.of(dialogContext).dangXuatXacNhan),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(AppL10n.of(dialogContext).thoi),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: RetroTokens.accent,
+                ),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(AppL10n.of(dialogContext).dangXuat),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        await ref.read(authControllerProvider.notifier).signOut();
+      },
+    ),
+  );
+}
+
 /// One language, picked on the tap. The flag carries the recognition; the
 /// tick, not a chip outline, says which one is on — the rest of this screen
 /// is rows in a card, and the language belongs in the same shape.
@@ -348,6 +387,7 @@ class _SettingsForm extends ConsumerStatefulWidget {
     required this.info,
     required this.me,
     this.header,
+    this.footer,
   });
 
   final Map<String, dynamic> info;
@@ -355,6 +395,9 @@ class _SettingsForm extends ConsumerStatefulWidget {
 
   /// Settings that save on the spot, above the form's own fields.
   final Widget? header;
+
+  /// Shown under everything else.
+  final Widget? footer;
 
   @override
   ConsumerState<_SettingsForm> createState() => _SettingsFormState();
@@ -837,6 +880,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                   ),
                 ),
               ),
+            ?widget.footer,
           ],
         ),
         Positioned(

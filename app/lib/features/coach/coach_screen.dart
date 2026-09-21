@@ -18,6 +18,7 @@ import '../../core/repositories/repositories.dart';
 import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/clip_reader.dart';
+import '../../widgets/dictation_mic.dart';
 import '../../widgets/retro_widgets.dart';
 import '../home/water_controller.dart';
 import '../nutrition/meal_timeline.dart';
@@ -71,6 +72,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
 
   /// Action ids with a confirm/cancel request in flight.
   final _busyActions = <String>{};
+
+  /// Live input level while the mic is open; null when it is not.
+  Stream<Amplitude>? _amplitudes;
 
   static List<String> _suggestions(BuildContext context) => [
     AppL10n.of(context).homNayMinhAnDuChua,
@@ -222,10 +226,48 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
 
   /// Gallery pick, tuned like the meal photo flow: 1600 px and quality 85 is
   /// what the vision model needs without shipping camera-sized files.
-  Future<void> _pickPhoto() async {
+  /// Asks where the photo comes from, then picks it. The sheet is the whole
+  /// difference from before: attaching used to jump straight to the library,
+  /// with no way to shoot what is actually on the table.
+  Future<void> _attachPhoto() async {
     if (_sending || _recording || _transcribing) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: RetroTokens.paperRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: const BoxConstraints(maxWidth: 400),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.photo_camera, color: RetroTokens.ink),
+              title: Text(AppL10n.of(sheetContext).chupAnh),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.photo_library_outlined,
+                color: RetroTokens.ink,
+              ),
+              title: Text(AppL10n.of(sheetContext).thuVien),
+              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    await _pickPhoto(source);
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
     final shot = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
+      source: source,
       imageQuality: 85,
       maxWidth: 1600,
     );
@@ -247,7 +289,10 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           if (path != null) unawaited(deleteClip(path));
           return;
         }
-        setState(() => _recording = false);
+        setState(() {
+          _recording = false;
+          _amplitudes = null;
+        });
         // A tap-length burst is not speech; transcribing it would only earn
         // a "không nghe rõ".
         if (spokenFor < const Duration(milliseconds: 500)) {
@@ -279,13 +324,23 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         path: clipPath,
       );
       _recordedFrom = DateTime.now();
-      setState(() => _recording = true);
+      setState(() {
+        _recording = true;
+        // Read straight from the recorder so the bars move with the voice
+        // rather than to a timer.
+        _amplitudes = _recorder.onAmplitudeChanged(
+          const Duration(milliseconds: 120),
+        );
+      });
     } catch (err) {
       // A recorder that cannot start or stop (audio session taken by a call,
       // storage full…) must surface in the UI, not as an unhandled async
       // error from the tap handler.
       if (mounted) {
-        setState(() => _recording = false);
+        setState(() {
+          _recording = false;
+          _amplitudes = null;
+        });
         _snack('$err');
       }
     } finally {
@@ -527,7 +582,17 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         children: [
           if (_photoBytes != null) _photoChip(),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
+              // Attaching sits at the head of the input, one "+" that asks
+              // where the photo comes from rather than assuming the library.
+              IconButton(
+                tooltip: AppL10n.of(context).guiKemAnh,
+                onPressed: _sending || _recording || _transcribing
+                    ? null
+                    : _attachPhoto,
+                icon: const Icon(Icons.add, size: 24),
+              ),
               Expanded(
                 child: TextField(
                   controller: _input,
@@ -541,20 +606,24 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                         : _transcribing
                         ? AppL10n.of(context).dangChuyenGiongNoiThanhChu
                         : AppL10n.of(context).hoiVeAnUongTapLuyen,
+                    // The mic belongs to the box it writes into.
+                    suffixIcon: DictationMicButton(
+                      recording: _recording,
+                      transcribing: _transcribing,
+                      amplitudes: _amplitudes,
+                      tooltip: _recording
+                          ? AppL10n.of(context).dungNghe
+                          : AppL10n.of(context).noi,
+                      onTap: _sending ? null : _toggleMic,
+                    ),
+                    suffixIconConstraints: const BoxConstraints(
+                      minHeight: 40,
+                      minWidth: 40,
+                    ),
                   ),
                   onSubmitted: (_) => _send(),
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: AppL10n.of(context).guiKemAnh,
-                onPressed: _sending || _recording || _transcribing
-                    ? null
-                    : _pickPhoto,
-                icon: const Icon(Icons.add_photo_alternate_outlined, size: 22),
-              ),
-              const SizedBox(width: 4),
-              _micButton(),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _sending || _recording || _transcribing
@@ -605,33 +674,6 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   /// one other place in the app that records — so both mics read as the same
   /// affordance: green circle at rest, accent and grown while listening,
   /// spinner while the clip is being transcribed.
-  Widget _micButton() {
-    if (_transcribing) {
-      return const SizedBox(
-        height: 22,
-        width: 22,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    return Tooltip(
-      message: _recording
-          ? AppL10n.of(context).dungNghe
-          : AppL10n.of(context).noi,
-      child: GestureDetector(
-        onTap: _sending ? null : _toggleMic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: _recording ? 48 : 40,
-          width: _recording ? 48 : 40,
-          decoration: BoxDecoration(
-            color: _recording ? RetroTokens.accent : RetroTokens.action,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.mic, color: Colors.white, size: 20),
-        ),
-      ),
-    );
-  }
 }
 
 class _Bubble extends ConsumerWidget {

@@ -14,6 +14,7 @@ import '../../core/providers.dart';
 import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/clip_reader.dart';
+import '../../widgets/dictation_mic.dart';
 import '../../widgets/retro_widgets.dart';
 import '../../core/l10n/gen/app_localizations.dart';
 
@@ -44,8 +45,10 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
   bool _picking = false;
   bool _recording = false;
   bool _transcribing = false;
-  bool _held = false;
-  bool _starting = false;
+  bool _micBusy = false;
+
+  /// Live input level while the mic is open; null when it is not.
+  Stream<Amplitude>? _amplitudes;
   DateTime _startedAt = DateTime.now();
   bool _busy = false;
   String? _error;
@@ -90,19 +93,42 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     }
   }
 
-  /// Push-to-talk: recording lasts exactly as long as the finger is down.
-  /// [_held] tracks the finger, since the permission prompt and recorder start
-  /// are async and the user may already have let go when they finish.
-  Future<void> _pressStart() async {
-    _held = true;
-    if (_busy || _transcribing || _recording || _starting) return;
-    _starting = true;
+  /// Tap to start listening, tap again to stop and dictate. The same gesture
+  /// as the assistant's input, so neither screen has its own idea of how the
+  /// mic works.
+  Future<void> _toggleMic() async {
+    if (_busy || _transcribing || _micBusy) return;
+    _micBusy = true;
     try {
-      if (!await _recorder.hasPermission()) {
-        setState(() => _error = AppL10n.of(context).chuaDuocCapQuyenMicro);
+      if (_recording) {
+        final path = await _recorder.stop();
+        final spokenFor = DateTime.now().difference(_startedAt);
+        if (!mounted) {
+          if (path != null) unawaited(deleteClip(path));
+          return;
+        }
+        setState(() {
+          _recording = false;
+          _amplitudes = null;
+        });
+        // A tap-length burst is not speech; sending it would only earn a
+        // "không nghe rõ".
+        if (spokenFor < const Duration(milliseconds: 500)) {
+          setState(() => _error = AppL10n.of(context).doanGhiQuaNganBamMic);
+          if (path != null) unawaited(deleteClip(path));
+          return;
+        }
+        if (path != null) await _dictate(path);
         return;
       }
-      if (!_held || !mounted) return;
+
+      if (!await _recorder.hasPermission()) {
+        if (mounted) {
+          setState(() => _error = AppL10n.of(context).chuaDuocCapQuyenMicro);
+        }
+        return;
+      }
+      if (!mounted) return;
       // `record` ignores the path on web and hands back a blob: URL, but on a
       // phone it writes exactly this file — an empty path there never creates
       // one and reading the clip back dies with PathNotFoundException. The
@@ -123,32 +149,25 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
       setState(() {
         _recording = true;
         _error = null;
+        // Straight from the recorder, so the bars move with the voice.
+        _amplitudes = _recorder.onAmplitudeChanged(
+          const Duration(milliseconds: 120),
+        );
       });
     } catch (err) {
-      // A recorder that cannot start (audio session taken by a call, storage
-      // full…) must surface in the UI, not as an unhandled async error from
-      // the pointer listener.
-      if (mounted) setState(() => _error = '$err');
-      return;
+      // A recorder that cannot start or stop (audio session taken by a call,
+      // storage full…) must surface in the UI, not as an unhandled async
+      // error from the tap handler.
+      if (mounted) {
+        setState(() {
+          _recording = false;
+          _amplitudes = null;
+          _error = '$err';
+        });
+      }
     } finally {
-      _starting = false;
+      _micBusy = false;
     }
-    if (!_held) await _pressEnd();
-  }
-
-  Future<void> _pressEnd() async {
-    _held = false;
-    if (!_recording) return;
-    final path = await _recorder.stop();
-    final heldFor = DateTime.now().difference(_startedAt);
-    setState(() => _recording = false);
-    // A tap is not speech; sending it would only earn a "không nghe rõ".
-    if (heldFor < const Duration(milliseconds: 500)) {
-      setState(() => _error = AppL10n.of(context).nhanVaGiuNutMicTrong);
-      if (path != null) unawaited(deleteClip(path));
-      return;
-    }
-    if (path != null) await _dictate(path);
   }
 
   /// Appends the clip's text to the box — never replaces what is there.
@@ -332,34 +351,6 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     );
   }
 
-  Widget _micButton() {
-    if (_transcribing) {
-      return const Padding(
-        padding: EdgeInsets.all(12),
-        child: SizedBox(
-          height: 22,
-          width: 22,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    }
-    return Listener(
-      onPointerDown: _busy ? null : (_) => _pressStart(),
-      onPointerUp: (_) => _pressEnd(),
-      onPointerCancel: (_) => _pressEnd(),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        height: _recording ? 56 : 48,
-        width: _recording ? 56 : 48,
-        decoration: BoxDecoration(
-          color: _recording ? RetroTokens.accent : RetroTokens.action,
-          shape: BoxShape.circle,
-        ),
-        child: const Icon(Icons.mic, color: Colors.white),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final hasPhoto = _photo != null;
@@ -390,31 +381,29 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                 hintText: hasPhoto
                     ? AppL10n.of(context).vdPhoBoTaiItBanh
                     : AppL10n.of(context).truaNayAnHaiBatCom,
-                helperText: hasPhoto
+                helperText: _recording
+                    ? AppL10n.of(context).dangNgheBamMicDeDung
+                    : _transcribing
+                    ? AppL10n.of(context).dangChuyenGiongNoiThanhChu
+                    : hasPhoto
                     ? AppL10n.of(context).giupAiNhanMonVaKhau
                     : AppL10n.of(context).khongCoAnhThiChiCan,
                 helperMaxLines: 2,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                _micButton(),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _recording
-                        ? AppL10n.of(context).dangNgheThaTayDeDung
-                        : _transcribing
-                        ? AppL10n.of(context).dangChuyenGiongNoiThanhChu
-                        : AppL10n.of(context).nhanVaGiuMicDeNoi,
-                    style: const TextStyle(
-                      color: RetroTokens.inkSoft,
-                      fontSize: 12,
-                    ),
-                  ),
+                // The mic belongs to the box it writes into.
+                suffixIcon: DictationMicButton(
+                  recording: _recording,
+                  transcribing: _transcribing,
+                  amplitudes: _amplitudes,
+                  tooltip: _recording
+                      ? AppL10n.of(context).dungNghe
+                      : AppL10n.of(context).noi,
+                  onTap: _busy ? null : _toggleMic,
                 ),
-              ],
+                suffixIconConstraints: const BoxConstraints(
+                  minHeight: 40,
+                  minWidth: 40,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             FilledButton(
