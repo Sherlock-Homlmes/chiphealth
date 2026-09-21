@@ -9,6 +9,12 @@ pubspec.lock
 lib/core/l10n/gen/
 ios/Pods/
 ios/.symlinks/
+# Flutter SDK-generated files (contain local machine paths, regenerated on build)
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+ios/Flutter/.last_build_id
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 android/.gradle/
 android/local.properties
 # Signing key + its passwords; backed up outside the repo, never committed.
