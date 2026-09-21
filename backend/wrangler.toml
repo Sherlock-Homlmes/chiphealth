@@ -58,7 +58,7 @@ crons = ["*/15 * * * *", "0 19 * * *"]
 ENVIRONMENT = "production"
 # Model choices and the benchmark behind them: see backend/.dev.vars.example.
 AI_VISION_MODEL = "@cf/google/gemma-4-26b-a4b-it"
-AI_VISION_MAX_TOKENS = "4096"
+AI_VISION_MAX_TOKENS = "8192"
 AI_MIN_ITEM_CONFIDENCE = "0.5"
 AI_CHAT_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 AI_CHAT_MAX_TOKENS = "4096"

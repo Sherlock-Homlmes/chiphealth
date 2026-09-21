@@ -59,7 +59,7 @@ BOOTSTRAP_ADMIN_EMAILS=2seniorbedev@gmail.com
 # stray item. Swap the value below if photo latency matters more than detail.
 AI_VISION_MODEL=@cf/google/gemma-4-26b-a4b-it
 # Reasoning models spend most of the budget before the first answer token.
-AI_VISION_MAX_TOKENS=4096
+AI_VISION_MAX_TOKENS=8192
 # Drop a detected component whose food-base match scores below this. 0.95 = the
 # caller's own corrected food, 0.9 = an admin-verified global food, 0.7 and down
 # = a weaker text match, 0.5 = nothing matched and the numbers came from the chat
@@ -110,6 +110,15 @@ AI_GUARD_TIMEOUT_MS=8000
 AI_AGENT_CALL_TIMEOUT_MS=45000
 AI_AGENT_RATE_PER_MINUTE=6
 AI_AGENT_RATE_PER_DAY=150
+
+# Phân tích bữa ăn: cả lượt chạy phải xong trong 5 phút (services/mealAnalysis.ts).
+# Nhận diện là bước lâu nhất; ước lượng dinh dưỡng gom nhiều thành phần vào một lần gọi.
+# Ba biến cuối chặn khối lượng việc một ảnh mâm cơm phức tạp có thể sinh ra.
+AI_MEAL_DETECT_TIMEOUT_MS=150000
+AI_MEAL_ESTIMATE_TIMEOUT_MS=90000
+AI_MEAL_MAX_COMPONENTS=20
+AI_MEAL_RESOLVE_CONCURRENCY=6
+AI_MEAL_ESTIMATE_BATCH=12
 
 # ---------------------------------------------------------------------------
 # Hybrid food retrieval (BM25 via FTS5  +  ANN via Vectorize  ->  RRF)

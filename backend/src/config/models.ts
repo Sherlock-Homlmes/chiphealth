@@ -12,7 +12,12 @@ export function modelConfig(env: Bindings) {
 
   return {
     vision: env.AI_VISION_MODEL ?? '@cf/google/gemma-4-26b-a4b-it',
-    visionMaxTokens: num(env.AI_VISION_MAX_TOKENS, 4096),
+    /**
+     * A plate with a dozen components and a waterMl on each one ran past 4096
+     * and the JSON stopped mid-item; extractJson now salvages what arrived, but
+     * the headroom is what keeps the tail of the list from being lost at all.
+     */
+    visionMaxTokens: num(env.AI_VISION_MAX_TOKENS, 8192),
     /**
      * Floor for a detected component's match confidence. Below it the food base
      * recognised nothing and the numbers would be invented, so the item is
@@ -57,6 +62,24 @@ export function modelConfig(env: Bindings) {
      */
     guardTimeoutMs: num(env.AI_GUARD_TIMEOUT_MS, 8000),
     agentCallTimeoutMs: num(env.AI_AGENT_CALL_TIMEOUT_MS, 45000),
+    /**
+     * Meal analysis, whose whole run is on a five-minute clock (see
+     * services/mealAnalysis.ts). Detection is the long pole; the estimate call
+     * is short and there can be several. The last three bound how much work a
+     * busy plate can create: without them a forty-component photo fires forty
+     * lookups and forty estimates at once and never lands.
+     */
+    mealDetectTimeoutMs: num(env.AI_MEAL_DETECT_TIMEOUT_MS, 150000),
+    mealEstimateTimeoutMs: num(env.AI_MEAL_ESTIMATE_TIMEOUT_MS, 90000),
+    mealMaxComponents: num(env.AI_MEAL_MAX_COMPONENTS, 20),
+    mealResolveConcurrency: num(env.AI_MEAL_RESOLVE_CONCURRENCY, 6),
+    /**
+     * Names per estimate call. Wide on purpose: a call costs a minute of
+     * queueing whatever is in it, so twenty components are two calls that run
+     * side by side, not twenty that run into the wall. Measured 2026-09-21:
+     * one four-item extraction took 131 s end to end.
+     */
+    mealEstimateBatchSize: num(env.AI_MEAL_ESTIMATE_BATCH, 12),
     /** Assistant messages a user may send per rolling minute / per rolling day. */
     agentRatePerMinute: num(env.AI_AGENT_RATE_PER_MINUTE, 6),
     agentRatePerDay: num(env.AI_AGENT_RATE_PER_DAY, 150),

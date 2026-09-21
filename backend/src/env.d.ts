@@ -38,6 +38,11 @@ export interface Bindings {
   AI_AGENT_THINKING?: string;
   AI_GUARD_TIMEOUT_MS?: string;
   AI_AGENT_CALL_TIMEOUT_MS?: string;
+  AI_MEAL_DETECT_TIMEOUT_MS?: string;
+  AI_MEAL_ESTIMATE_TIMEOUT_MS?: string;
+  AI_MEAL_MAX_COMPONENTS?: string;
+  AI_MEAL_RESOLVE_CONCURRENCY?: string;
+  AI_MEAL_ESTIMATE_BATCH?: string;
   AI_AGENT_RATE_PER_MINUTE?: string;
   AI_AGENT_RATE_PER_DAY?: string;
 

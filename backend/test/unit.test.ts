@@ -11,6 +11,7 @@ import { fastestForDistance, isBetter } from '../src/services/personalRecords';
 import { rollingDebtSeconds } from '../src/services/sleepDebt';
 import {
   extractJson, parseComponents, foodNameFits, effectiveAnalysis, MEAL_ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE,
+  MEAL_ANALYSIS_BUDGET_MS, capComponents, parseEstimates, mapPool,
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
 import { normaliseLocale, languageName, SUPPORTED_LOCALES } from '../src/lib/language';
@@ -255,6 +256,61 @@ check('a genuinely failed row keeps its own error',
   { status: 'failed', createdAt: NOW - 10 * MEAL_ANALYSIS_TIMEOUT_MS, errorMessage: 'upstream 5016', timedOut: false });
 check('missing createdAt cannot be judged', effectiveAnalysis(
   { status: 'running', createdAt: null, errorMessage: null }, NOW).status, 'running');
+
+console.log('\n# a complex meal must not sink the run');
+// The failure this guards: the vision model hits its token ceiling mid-item and
+// the whole meal used to fail over the tail it never wrote.
+check('a truncated array keeps the items that finished',
+  extractJson('[{"name":"cơm","grams":200},{"name":"thịt kho","grams":120},{"name":"can'),
+  [{ name: 'cơm', grams: 200 }, { name: 'thịt kho', grams: 120 }]);
+// The half-written item is kept as far as it got: a name with no weight is a
+// component parseComponents already knows how to default, and the user sees it
+// on the card and can correct it — better than losing the sườn altogether.
+check('a truncated object keeps its dish and every field that arrived',
+  extractJson('{"dish":"cơm tấm","items":[{"name":"cơm","grams":200},{"name":"sườn","gr'),
+  { dish: 'cơm tấm', items: [{ name: 'cơm', grams: 200 }, { name: 'sườn' }] });
+check('a truncation before any item still yields the dish',
+  extractJson('{"dish":"bún riêu","items":[{"name":'),
+  { dish: 'bún riêu' });
+check('a complete value is never repaired', extractJson('{"a":[1,2],"b":3}'), { a: [1, 2], b: 3 });
+check('nothing salvageable is still an error', (() => {
+  try { extractJson('{"dish'); return 'no throw'; } catch (e) { return (e as Error).message; }
+})(), 'Model JSON is truncated');
+
+check('the components cap keeps the heaviest and their order', capComponents([
+  { name: 'rau thơm', grams: 5 }, { name: 'cơm', grams: 250 },
+  { name: 'ớt', grams: 2 }, { name: 'thịt', grams: 120 },
+], 2).map((c) => c.name), ['cơm', 'thịt']);
+check('a short list is passed through untouched',
+  capComponents([{ name: 'cơm', grams: 200 }], 5).length, 1);
+
+check('estimates come back keyed by name, loosely matched',
+  parseEstimates([{ name: '  Cơm Trắng ', caloriesKcal: 130, proteinG: 2.7 }])
+    .get('cơm trắng')?.caloriesKcal, 130);
+check('an estimate missing a nutrient reads as unknown, not zero',
+  parseEstimates([{ name: 'chả', caloriesKcal: 220 }]).get('chả')?.fiberG, null);
+check('a nameless estimate is dropped', parseEstimates([{ caloriesKcal: 100 }]).size, 0);
+check('a non-array estimate reply yields nothing', parseEstimates('xin lỗi').size, 0);
+
+check('the budget leaves room to write the row before the wall',
+  MEAL_ANALYSIS_TIMEOUT_MS - MEAL_ANALYSIS_BUDGET_MS, 45_000);
+
+// Bounded fan-out: the whole point is that a busy plate never has more calls in
+// flight than the limit, however many components it has.
+await (async () => {
+  let live = 0;
+  let peak = 0;
+  const order = await mapPool([1, 2, 3, 4, 5, 6, 7], 3, async (n) => {
+    live++;
+    peak = Math.max(peak, live);
+    await new Promise((r) => setTimeout(r, n % 3));
+    live--;
+    return n * 2;
+  });
+  check('the pool never runs more than its limit at once', peak, 3);
+  check('results keep the order of the input', order, [2, 4, 6, 8, 10, 12, 14]);
+  check('an empty list needs no workers', await mapPool([], 4, async () => 1), []);
+})();
 
 console.log('\n# FTS query building');
 check('tokens become prefix ORs', toFtsQuery('cơm gà'), '"cơm"* OR "gà"*');

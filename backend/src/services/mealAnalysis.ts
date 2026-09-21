@@ -7,7 +7,7 @@ import { hybridFoodSearch, type Candidate } from './foodSearch';
 import { recomputeDailyNutritionSummary } from './nutritionMath';
 import { ApiError } from '../lib/errors';
 import { insertMany } from '../db/client';
-import { aiText, toDataUri } from '../lib/aiText';
+import { aiText, toDataUri, withTimeout } from '../lib/aiText';
 import type { Db } from '../db/client';
 import type { Bindings } from '../env';
 import { PROMPTS, renderPrompt } from '../prompts';
@@ -42,6 +42,25 @@ export const MEAL_ANALYSIS_TIMEOUT_MS = 5 * 60_000;
 
 export const ANALYSIS_TIMEOUT_MESSAGE = 'Phân tích kéo dài quá 5 phút';
 
+/**
+ * What one attempt actually gives itself. The run has to be *written* before
+ * [MEAL_ANALYSIS_TIMEOUT_MS], not merely still going at it, so the pipeline
+ * works to an earlier deadline and spends the difference closing the row out.
+ * Past this point the remaining model calls are skipped rather than started:
+ * a meal with a few unpriced components beats "phân tích kéo dài quá 5 phút".
+ */
+export const MEAL_ANALYSIS_BUDGET_MS = MEAL_ANALYSIS_TIMEOUT_MS - 45_000;
+
+/**
+ * Time held back from the detection call for everything after it — the food
+ * lookups, the estimates and the writes. Without it a slow vision model eats
+ * the whole budget and the components it found are never priced.
+ */
+const RESOLVE_RESERVE_MS = 90_000;
+
+/** Kept back from the last model call for the writes that close the run out. */
+const WRITE_RESERVE_MS = 15_000;
+
 export interface AnalysisLike {
   status: string;
   createdAt: number | null;
@@ -67,16 +86,23 @@ export function effectiveAnalysis<T extends AnalysisLike>(
 /**
  * Models wrap JSON in prose or fences no matter how firm the instruction is, so
  * pull out the first balanced JSON value instead of trusting the whole response.
+ *
+ * A busy plate is the case that breaks: the model lists fifteen components, runs
+ * into its token ceiling and stops mid-object, and the whole meal used to fail
+ * over the tail. So a value that never closes is repaired instead — cut back to
+ * the last element that did finish and closed off — and the meal is logged with
+ * the components the model got to.
  */
 export function extractJson(text: string): unknown {
   const start = text.search(/[[{]/);
   if (start === -1) throw new ApiError('UPSTREAM_AI_ERROR', 'Model returned no JSON');
 
-  const open = text[start] as '[' | '{';
-  const close = open === '[' ? ']' : '}';
-  let depth = 0;
+  const stack: string[] = [];
   let inString = false;
   let escaped = false;
+  /** Last index at which a value finished, with the brackets still open there. */
+  let cut = -1;
+  let cutStack: string[] = [];
 
   for (let i = start; i < text.length; i++) {
     const ch = text[i]!;
@@ -87,16 +113,30 @@ export function extractJson(text: string): unknown {
       continue;
     }
     if (ch === '"') inString = true;
-    else if (ch === open) depth++;
-    else if (ch === close) {
-      depth--;
-      if (depth === 0) {
+    else if (ch === '[' || ch === '{') stack.push(ch === '[' ? ']' : '}');
+    else if (ch === ']' || ch === '}') {
+      stack.pop();
+      if (stack.length === 0) {
         try {
           return JSON.parse(text.slice(start, i + 1));
         } catch {
           throw new ApiError('UPSTREAM_AI_ERROR', 'Model JSON is malformed');
         }
       }
+      cut = i;
+      cutStack = [...stack];
+    } else if (ch === ',') {
+      // Everything before the comma is a value that finished, whatever its kind.
+      cut = i - 1;
+      cutStack = [...stack];
+    }
+  }
+
+  if (cut > start) {
+    try {
+      return JSON.parse(text.slice(start, cut + 1) + cutStack.reverse().join(''));
+    } catch {
+      // Falls through to the truncation error below.
     }
   }
   throw new ApiError('UPSTREAM_AI_ERROR', 'Model JSON is truncated');
@@ -198,10 +238,14 @@ interface Resolution {
  *   candidates  ->  web grounding  ->  a bare model estimate.
  * The caller's row wins over the global one because the same dish genuinely
  * differs between households.
+ *
+ * Returns a null resolution when nothing in the food base fits: the caller
+ * collects those and estimates them together, one model call for the lot,
+ * instead of one call per component.
  */
-async function resolveComponent(
+async function lookupComponent(
   db: Db, env: Bindings, userId: string, comp: DetectedComponent,
-): Promise<{ resolution: Resolution; candidates: Candidate[] }> {
+): Promise<{ resolution: Resolution | null; candidates: Candidate[] }> {
   const personal = await db.select().from(userFoods)
     .where(and(eq(userFoods.userId, userId), eq(userFoods.name, comp.name)))
     .limit(1);
@@ -263,41 +307,135 @@ async function resolveComponent(
     }
   }
 
-  const estimated = await estimateNutrition(env, comp);
-  return {
-    resolution: {
-      source: 'ai_estimated',
-      confidence: Math.min(comp.confidence ?? 0.4, 0.5),
-      nutrients: estimated,
-    },
-    candidates: search.fused,
-  };
+  return { resolution: null, candidates: search.fused };
 }
 
-/** Last resort: ask the chat model for per-100g values and scale them. */
-async function estimateNutrition(env: Bindings, comp: DetectedComponent): Promise<Nutrients> {
-  const { chat, chatMaxTokens } = modelConfig(env);
-  const res = await env.AI.run(chat as never, {
-    messages: [
-      { role: 'system', content: renderPrompt(PROMPTS.mealEstimateSystem) },
-      { role: 'user', content: renderPrompt(PROMPTS.mealEstimateUser, { name: comp.name }) },
-    ],
-    max_tokens: chatMaxTokens,
-    temperature: 0.2,
-  } as never);
+/**
+ * Runs `fn` over `items` at most `limit` at a time, in order, keeping every
+ * result. A photo of a tray can come back with twenty components, and firing
+ * twenty lookups at once puts twenty concurrent subrequests and twenty model
+ * calls in flight: Workers AI queues them behind each other and the whole
+ * analysis walks into the five-minute wall. A small pool finishes sooner than
+ * an unbounded fan-out that is being rate-limited.
+ */
+export async function mapPool<T, R>(
+  items: readonly T[], limit: number, fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (let i = next++; i < items.length; i = next++) {
+      out[i] = await fn(items[i]!, i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
 
-  try {
-    const parsed = extractJson(aiText(res)) as Record<string, unknown>;
+/**
+ * The biggest components first, then the list cut to `max`. A busy plate can
+ * come back with forty entries, most of them garnishes: each one is a lookup
+ * and possibly an estimate, and the tail of the list is what pushes the run
+ * past its budget while adding a few kcal. Dropping by weight keeps the bowl
+ * of rice and loses the sprig of coriander.
+ */
+export function capComponents(
+  items: DetectedComponent[], max: number,
+): DetectedComponent[] {
+  if (items.length <= max) return items;
+  const order = new Map(items.map((c, i) => [c, i]));
+  return [...items]
+    .sort((a, b) => b.grams - a.grams || order.get(a)! - order.get(b)!)
+    .slice(0, max)
+    .sort((a, b) => order.get(a)! - order.get(b)!);
+}
+
+/** Names are matched back loosely: the model likes to re-case and re-space them. */
+const estimateKey = (name: string) =>
+  name.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * Per-100g values for a batch of names, keyed by [estimateKey]. Entries the
+ * model skipped or garbled are simply absent — the caller decides what an
+ * unpriced component becomes.
+ */
+export function parseEstimates(raw: unknown): Map<string, Nutrients & { servingSizeG: number }> {
+  const arr = Array.isArray(raw)
+    ? raw
+    : (raw as { items?: unknown[] })?.items ?? (raw as { foods?: unknown[] })?.foods;
+  const out = new Map<string, Nutrients & { servingSizeG: number }>();
+  if (!Array.isArray(arr)) return out;
+
+  for (const entry of arr) {
+    const e = entry as Record<string, unknown>;
+    const name = typeof e.name === 'string' ? e.name : '';
+    if (!name.trim()) continue;
     const per100: Nutrients & { servingSizeG: number } = { servingSizeG: 100 };
     for (const key of NUTRIENT_KEYS) {
-      const v = Number(parsed[key]);
+      const v = Number(e[key]);
       per100[key] = Number.isFinite(v) ? v : null;
     }
-    return scale(per100, comp.grams);
-  } catch {
-    // A failed estimate must not sink the whole meal: log the item with no numbers.
-    return { caloriesKcal: 0 };
+    out.set(estimateKey(name), per100);
   }
+  return out;
+}
+
+/**
+ * Last resort for everything the food base could not vouch for: one model call
+ * per chunk of names rather than one per component. `deadlineAt` is the wall
+ * the whole analysis has to land inside — once there is no time left for
+ * another call the remaining chunks are given up on, and their components are
+ * logged with no numbers instead of the run failing.
+ */
+async function estimateBatch(
+  env: Bindings, names: string[], deadlineAt: number,
+): Promise<Map<string, Nutrients & { servingSizeG: number }>> {
+  const { chat, chatMaxTokens, mealEstimateTimeoutMs, mealEstimateBatchSize } = modelConfig(env);
+  const merged = new Map<string, Nutrients & { servingSizeG: number }>();
+  if (names.length === 0) return merged;
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < names.length; i += mealEstimateBatchSize) {
+    chunks.push(names.slice(i, i + mealEstimateBatchSize));
+  }
+
+  // Two at a time: enough to overlap the queueing, few enough not to be
+  // rate-limited into serial anyway.
+  const results = await mapPool(chunks, 2, async (chunk) => {
+    const left = deadlineAt - Date.now() - WRITE_RESERVE_MS;
+    if (left <= 5_000) {
+      console.warn('meal analysis: out of budget, skipping estimate for', chunk.join(', '));
+      return new Map<string, Nutrients & { servingSizeG: number }>();
+    }
+    try {
+      const res = await withTimeout(
+        env.AI.run(chat as never, {
+          messages: [
+            { role: 'system', content: renderPrompt(PROMPTS.mealEstimateSystem) },
+            {
+              role: 'user',
+              content: renderPrompt(PROMPTS.mealEstimateUser, {
+                names: chunk.map((n) => `- ${n}`).join('\n'),
+              }),
+            },
+          ],
+          max_tokens: chatMaxTokens,
+          temperature: 0.2,
+        } as never) as Promise<unknown>,
+        Math.min(mealEstimateTimeoutMs, left),
+        'meal nutrition estimate',
+      );
+      return parseEstimates(extractJson(aiText(res)));
+    } catch (err) {
+      // A failed estimate must not sink the whole meal: its components are
+      // logged with no numbers.
+      console.warn('meal analysis: estimate chunk failed', chunk.join(', '), err);
+      return new Map<string, Nutrients & { servingSizeG: number }>();
+    }
+  });
+
+  for (const map of results) for (const [k, v] of map) merged.set(k, v);
+  return merged;
 }
 
 export interface AnalyzeResult {
@@ -397,27 +535,77 @@ async function runAnalysis(
   opts: { mealLogId: string; userId: string; analysisId: string },
   detect: () => Promise<string>,
 ): Promise<AnalyzeResult> {
-  const { minItemConfidence, promptVersion } = modelConfig(env);
+  const {
+    minItemConfidence, promptVersion, mealDetectTimeoutMs, mealMaxComponents,
+    mealResolveConcurrency,
+  } = modelConfig(env);
   const started = Date.now();
   let rawText = '';
 
+  // The clock every reader judges this run by starts when the row was written,
+  // not when the consumer picked the job up, so the budget is measured from
+  // there. Everything inside aims to land before [MEAL_ANALYSIS_BUDGET_MS] —
+  // a partial answer that arrives is worth more than a perfect one the timeout
+  // throws away.
+  const createdRows = await db.select({ createdAt: mealAiAnalyses.createdAt })
+    .from(mealAiAnalyses).where(eq(mealAiAnalyses.id, opts.analysisId)).limit(1);
+  const deadlineAt = (createdRows[0]?.createdAt ?? started) + MEAL_ANALYSIS_BUDGET_MS;
+  const budgetLeft = () => deadlineAt - Date.now();
+
   try {
     // Workers AI fails transiently now and then ("8004: Internal server
-    // error"); one more attempt is cheaper than the user retrying by hand.
+    // error"); one more attempt is cheaper than the user retrying by hand — but
+    // only while there is time for the rest of the pipeline afterwards.
+    const detectOnce = () => withTimeout(
+      detect(),
+      Math.max(5_000, Math.min(mealDetectTimeoutMs, budgetLeft() - RESOLVE_RESERVE_MS)),
+      'meal detection',
+    );
     try {
-      rawText = await detect();
+      rawText = await detectOnce();
     } catch (err) {
+      if (budgetLeft() < mealDetectTimeoutMs / 2 + RESOLVE_RESERVE_MS) throw err;
       console.warn('meal analysis model call failed, retrying once', opts.analysisId, err);
       await new Promise((r) => setTimeout(r, 1500));
-      rawText = await detect();
+      rawText = await detectOnce();
     }
     const parsed = extractJson(rawText);
     const dishName = parseDishName(parsed);
-    const detected = parseComponents(parsed);
+    const detected = capComponents(parseComponents(parsed), mealMaxComponents);
 
-    const allResolutions = await Promise.all(
-      detected.map((c) => resolveComponent(db, env, opts.userId, c)),
+    // Phase 1, bounded fan-out: the food base is asked about each component.
+    // A lookup that throws (D1 or Vectorize having a bad minute) is not fatal —
+    // the component just falls through to phase 2 like an unmatched one.
+    const looked = await mapPool(detected, mealResolveConcurrency, async (comp) => {
+      try {
+        return await lookupComponent(db, env, opts.userId, comp);
+      } catch (err) {
+        console.warn('meal analysis: lookup failed for', comp.name, err);
+        return { resolution: null, candidates: [] as Candidate[] };
+      }
+    });
+
+    // Phase 2: everything the food base could not vouch for, estimated together.
+    const unmatched = detected.filter((_, i) => looked[i]!.resolution === null);
+    const estimates = await estimateBatch(
+      env, [...new Set(unmatched.map((c) => c.name))], deadlineAt,
     );
+
+    const allResolutions = detected.map((comp, i) => {
+      const found = looked[i]!;
+      if (found.resolution) return found as { resolution: Resolution; candidates: Candidate[] };
+      const per100 = estimates.get(estimateKey(comp.name));
+      return {
+        resolution: {
+          source: 'ai_estimated' as const,
+          confidence: Math.min(comp.confidence ?? 0.4, 0.5),
+          // No estimate came back (the model skipped it, or the budget ran
+          // out): the component is still listed, with nothing claimed about it.
+          nutrients: per100 ? scale(per100, comp.grams) : { caloriesKcal: 0 },
+        },
+        candidates: found.candidates,
+      };
+    });
 
     // A component the food base could not vouch for at all is noise, not food:
     // it would put an invented number into the day's calorie total. The floor is
