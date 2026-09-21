@@ -39,7 +39,9 @@ export const sleepSessions = sqliteTable('sleep_sessions', {
   createdAt: tsNow('created_at'),
   updatedAt: tsNow('updated_at'),
 }, (t) => [
-  uniqueIndex('sleep_sessions_user_date_uq').on(t.userId, t.localDate),
+  // Not unique: a nap and a night share a local_date, and one used to
+  // overwrite the other. See migration 0016.
+  index('sleep_sessions_user_date_idx').on(t.userId, t.localDate),
   // Listed newest-id first per user; the date unique index cannot serve that.
   index('sleep_sessions_user_id_idx').on(t.userId, t.id),
   uniqueIndex('sleep_sessions_external_uq').on(t.source, t.externalId),

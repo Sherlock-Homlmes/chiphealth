@@ -857,12 +857,35 @@ app.get('/nutrition/daily', async (c) => {
 
 app.get('/nutrition/range', async (c) => {
   const q = parseQuery(c, z.object({ from: isoDateSchema, to: isoDateSchema }));
-  const rows = await c.get('db').select().from(dailyNutritionSummaries).where(and(
-    eq(dailyNutritionSummaries.userId, c.get('user').id),
-    gte(dailyNutritionSummaries.localDate, q.from),
-    lte(dailyNutritionSummaries.localDate, q.to),
-  )).orderBy(dailyNutritionSummaries.localDate);
-  return c.json({ items: rows });
+  const db = c.get('db');
+  const userId = c.get('user').id;
+
+  // The day's fluid is hand-logged water plus whatever the meals carried, and
+  // the second half is not on the summary row. Without it the water chart
+  // reported a smaller day than the home card and the diary did.
+  const [rows, water] = await Promise.all([
+    db.select().from(dailyNutritionSummaries).where(and(
+      eq(dailyNutritionSummaries.userId, userId),
+      gte(dailyNutritionSummaries.localDate, q.from),
+      lte(dailyNutritionSummaries.localDate, q.to),
+    )).orderBy(dailyNutritionSummaries.localDate),
+    db.select({
+      localDate: mealLogs.localDate,
+      waterMl: sql<number>`coalesce(sum(${mealLogs.totalWaterMl}), 0)`,
+    }).from(mealLogs).where(and(
+      eq(mealLogs.userId, userId),
+      gte(mealLogs.localDate, q.from),
+      lte(mealLogs.localDate, q.to),
+    )).groupBy(mealLogs.localDate),
+  ]);
+
+  const byDate = new Map(water.map((w) => [w.localDate, w.waterMl]));
+  return c.json({
+    items: rows.map((r) => ({
+      ...r,
+      waterFromMealsMl: byDate.get(r.localDate) ?? 0,
+    })),
+  });
 });
 
 app.get('/meal-plans', async (c) => {

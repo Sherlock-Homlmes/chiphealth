@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/auth/auth_controller.dart';
 import '../../core/format/date_range.dart';
+import '../../core/format/units.dart';
 import '../../core/models/models.dart';
 import '../../core/nutrition/daily_targets.dart';
 import '../../core/providers.dart';
@@ -44,6 +45,12 @@ class ProgressScreen extends ConsumerWidget {
         ? ref.watch(goalsProvider)
         : const AsyncValue<List<Goal>>.loading();
     final water = ref.watch(waterRangeProvider(range));
+    final sleep = signedIn
+        ? ref.watch(sleepRangeProvider(range))
+        : const AsyncValue<List<SleepSession>>.loading();
+    final sleepDebt = signedIn
+        ? ref.watch(sleepDebtProvider)
+        : const AsyncValue<SleepDebt>.loading();
 
     return Scaffold(
       body: SafeArea(
@@ -56,6 +63,8 @@ class ProgressScreen extends ConsumerWidget {
               ref.invalidate(allBodyMetricsProvider);
               ref.invalidate(goalsProvider);
               ref.invalidate(waterRangeProvider);
+              ref.invalidate(sleepRangeProvider);
+              ref.invalidate(sleepDebtProvider);
             },
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -113,7 +122,20 @@ class ProgressScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 _ChartCard(
                   title: AppL10n.of(context).theoDoiNuoc,
-                  child: _WaterChart(range: range, water: water),
+                  child: _WaterChart(
+                    range: range,
+                    water: water,
+                    daily: nutrition,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ChartCard(
+                  title: AppL10n.of(context).theoDoiGiacNgu,
+                  child: _SleepChart(
+                    range: range,
+                    sleep: sleep,
+                    debt: sleepDebt,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 _BmiCard(allMetrics: allMetrics),
@@ -711,19 +733,33 @@ class _CaloriesOutChart extends StatelessWidget {
 }
 
 class _WaterChart extends ConsumerWidget {
-  const _WaterChart({required this.range, required this.water});
+  const _WaterChart({
+    required this.range,
+    required this.water,
+    required this.daily,
+  });
 
   final DateRange range;
   final AsyncValue<Map<String, int>> water;
+
+  /// The day rows, for the water the meals carried — the same two halves the
+  /// home card and the diary add up.
+  final AsyncValue<List<DailyNutrition>> daily;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (water.isLoading) return const ChartEmpty();
     final target = ref.watch(waterTargetProvider).toDouble();
-    final byDate = {
-      for (final entry in (water.valueOrNull ?? const <String, int>{}).entries)
-        if (entry.value > 0) entry.key: entry.value.toDouble(),
+    final drunk = water.valueOrNull ?? const <String, int>{};
+    final fromMeals = {
+      for (final day in daily.valueOrNull ?? const <DailyNutrition>[])
+        day.date: day.waterFromMealsMl,
     };
+    final byDate = <String, double>{};
+    for (final date in {...drunk.keys, ...fromMeals.keys}) {
+      final total = (drunk[date] ?? 0).toDouble() + (fromMeals[date] ?? 0);
+      if (total > 0) byDate[date] = total;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -740,6 +776,56 @@ class _WaterChart extends ConsumerWidget {
             (
               RetroTokens.ink,
               AppL10n.of(context).targetMl('${target.round()}'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Hours slept per day against the nightly target. Summed, not picked: a day
+/// with a night and an afternoon nap slept both of them.
+class _SleepChart extends StatelessWidget {
+  const _SleepChart({
+    required this.range,
+    required this.sleep,
+    required this.debt,
+  });
+
+  final DateRange range;
+  final AsyncValue<List<SleepSession>> sleep;
+  final AsyncValue<SleepDebt> debt;
+
+  @override
+  Widget build(BuildContext context) {
+    if (sleep.isLoading) return const ChartEmpty();
+    final target = (debt.valueOrNull?.targetSeconds ?? 8 * 3600) / 3600;
+
+    final byDate = <String, double>{};
+    for (final night in sleep.valueOrNull ?? const <SleepSession>[]) {
+      final seconds = night.totalSleepSeconds;
+      if (seconds == null || seconds <= 0) continue;
+      byDate[night.localDate] = (byDate[night.localDate] ?? 0) + seconds / 3600;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SeriesBarChart(
+          buckets: _bucketize(range, byDate, _Agg.average),
+          color: RetroTokens.sleepRem,
+          target: target,
+        ),
+        const SizedBox(height: 10),
+        ChartLegend(
+          items: [
+            (RetroTokens.sleepRem, AppL10n.of(context).soGioNgu),
+            (
+              RetroTokens.ink,
+              AppL10n.of(
+                context,
+              ).targetHours(Units.hoursMinutes((target * 3600).round())),
             ),
           ],
         ),
@@ -775,6 +861,84 @@ class _BmiCard extends StatelessWidget {
   /// The marker spans 15–40 BMI; anything outside pins to an edge.
   static const _min = 15.0;
   static const _max = 40.0;
+
+  /// The "?" — what the number is, where the lines are drawn, and what it
+  /// cannot see.
+  static void _explain(BuildContext context) {
+    final l10n = AppL10n.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.chiSoBmiCuaBan),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _explainSection(l10n.bmiLaGi, l10n.bmiLaCanNangChiaCho),
+              const SizedBox(height: 14),
+              _explainSection(l10n.bmiCacNguong, l10n.bmiNguongWho),
+              const SizedBox(height: 8),
+              for (final band in _bmiBands(ctx))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: band.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${band.label} ${band.range}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Text(
+                l10n.bmiNguongChauA,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
+              const SizedBox(height: 14),
+              _explainSection(
+                l10n.bmiKhongNoiDuocGi,
+                l10n.bmiKhongPhanBietCoVaMo,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(l10n.dong),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _explainSection(String title, String body) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        title,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 4),
+      Text(body, style: const TextStyle(fontSize: 13, height: 1.4)),
+    ],
+  );
 
   static _BmiBand _bandFor(BuildContext context, double bmi) {
     if (bmi < 18.5) return _bmiBands(context)[0];
@@ -815,10 +979,11 @@ class _BmiCard extends StatelessWidget {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
-              Tooltip(
-                triggerMode: TooltipTriggerMode.tap,
-                showDuration: const Duration(seconds: 6),
-                message: AppL10n.of(context).bmiCanNangKgChiaCho,
+              // A tooltip held one line and vanished on the next tap; the
+              // bands and what BMI cannot say need room to be read.
+              InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _explain(context),
                 child: Container(
                   width: 22,
                   height: 22,

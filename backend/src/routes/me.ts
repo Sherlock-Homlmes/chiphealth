@@ -522,18 +522,22 @@ async function deriveStartValue(
     case 'reduce_body_fat':
       return latestMetric(bodyMetricsLogs.bodyFatPercent);
     case 'sleep_better': {
-      // Baseline = mean nightly sleep over the trailing two weeks, in minutes.
+      // Baseline = mean sleep per DAY over the trailing two weeks, in minutes.
+      // Per day, not per session: a day's night and its nap are one day's
+      // sleep, and averaging the rows would count them as two short nights.
       const since = addDays(localDate(Date.now(), 'UTC'), -14);
       const rows = await db.select({
-        avgSeconds: sql<number | null>`avg(${sleepSessions.totalSleepSeconds})`,
+        daySeconds: sql<number>`sum(${sleepSessions.totalSleepSeconds})`,
       }).from(sleepSessions)
         .where(and(
           eq(sleepSessions.userId, userId),
           gte(sleepSessions.localDate, since),
           isNotNull(sleepSessions.totalSleepSeconds),
-        ));
-      const avg = rows[0]?.avgSeconds;
-      return avg == null ? null : Math.round(avg / 60);
+        ))
+        .groupBy(sleepSessions.localDate);
+      if (rows.length === 0) return null;
+      const total = rows.reduce((sum, r) => sum + (r.daySeconds ?? 0), 0);
+      return Math.round(total / rows.length / 60);
     }
     case 'improve_endurance': {
       // Baseline = longest single session distance in the last 90 days, in km.

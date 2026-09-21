@@ -271,6 +271,8 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       // The list the user lands back on has to show the night they just
       // finished, not the one before it.
       ref.invalidate(sleepSessionsProvider);
+      ref.invalidate(sleepOnDayProvider);
+      ref.invalidate(sleepRangeProvider);
       if (!mounted) return;
       // The night is saved either way; the review is the chance to name it
       // and say something about it, and replaces this screen so the recorder

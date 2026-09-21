@@ -1646,9 +1646,23 @@ class _ItemEditorState extends State<_ItemEditor> {
   late final _sodium = TextEditingController(text: _num(widget.item?.sodiumMg));
   late final _water = TextEditingController(text: _num(widget.item?.waterMl));
 
-  static String _num(double? v) => v == null ? '' : v.toStringAsFixed(0);
-  static double? _parse(String s) =>
-      s.trim().isEmpty ? null : double.tryParse(s.trim());
+  /// Two decimals, with the trailing zeros taken off: 1.5 stays "1.5", 200.0
+  /// shows as "200". Printing these as whole numbers is how a corrected
+  /// 1.5 g became 1 g the moment the editor was reopened.
+  static String _num(double? v) {
+    if (v == null) return '';
+    final rounded = (v * 100).round() / 100;
+    return rounded.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  /// A Vietnamese keypad writes the decimal separator as a comma, so a comma
+  /// is a decimal point here; anything past the second decimal is dropped.
+  static double? _parse(String s) {
+    final text = s.trim().replaceAll(',', '.');
+    if (text.isEmpty) return null;
+    final value = double.tryParse(text);
+    return value == null ? null : (value * 100).round() / 100;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1739,6 +1753,11 @@ class _ItemEditorState extends State<_ItemEditor> {
     );
   }
 
+  /// Digits, one separator (either kind), at most two decimals.
+  static final _decimal = FilteringTextInputFormatter.allow(
+    RegExp(r'^\d*[.,]?\d{0,2}'),
+  );
+
   Widget _field(TextEditingController c, String label, {bool text = false}) =>
       TextField(
         controller: c,
@@ -1746,6 +1765,7 @@ class _ItemEditorState extends State<_ItemEditor> {
         keyboardType: text
             ? TextInputType.text
             : const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: text ? null : [_decimal],
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: RetroTokens.onPanelSoft),

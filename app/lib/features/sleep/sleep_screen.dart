@@ -18,8 +18,8 @@ final sleepSessionsProvider = FutureProvider<List<SleepSession>>(
 class SleepScreen extends ConsumerWidget {
   const SleepScreen({super.key});
 
-  /// The "+" sheet: record tonight, or type a night that has already been
-  /// slept. Both refresh the list on the way back.
+  /// The "+" sheet: record a sleep as it happens, or type one that is already
+  /// over. Both refresh the list on the way back.
   Future<void> _logNight(BuildContext context, WidgetRef ref) async {
     final recordTonight = await showModalBottomSheet<bool>(
       context: context,
@@ -45,7 +45,7 @@ class SleepScreen extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.bedtime, color: RetroTokens.ink),
               title: Text(
-                AppL10n.of(context).ghiDemNay,
+                AppL10n.of(context).ghiNgayBayGio,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(
@@ -64,7 +64,7 @@ class SleepScreen extends ConsumerWidget {
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               subtitle: Text(
-                AppL10n.of(context).moiBuoiSangChiCoMot,
+                AppL10n.of(context).moiGiacDuocLuuRieng,
                 style: const TextStyle(
                   fontSize: 12,
                   color: RetroTokens.inkSoft,
@@ -91,6 +91,8 @@ class SleepScreen extends ConsumerWidget {
     );
     ref.invalidate(sleepDebtProvider);
     ref.invalidate(sleepSessionsProvider);
+    ref.invalidate(sleepOnDayProvider);
+    ref.invalidate(sleepRangeProvider);
   }
 
   @override
@@ -112,6 +114,8 @@ class SleepScreen extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(sleepDebtProvider);
           ref.invalidate(sleepSessionsProvider);
+          ref.invalidate(sleepOnDayProvider);
+          ref.invalidate(sleepRangeProvider);
         },
         child: PhoneFrame(
           child: ListView(
@@ -167,11 +171,11 @@ class SleepScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              SectionTitle(AppL10n.of(context).cacDemGanDay),
+              SectionTitle(AppL10n.of(context).cacGiacGanDay),
               asyncBody(
                 sessions,
                 emptyWhen: (list) => list.isEmpty,
-                emptyText: AppL10n.of(context).chuaCoDemNaoDuocGhi,
+                emptyText: AppL10n.of(context).chuaCoGiacNaoDuocGhi,
                 data: (list) => Column(
                   children: [
                     for (final night in list)
@@ -188,9 +192,15 @@ class SleepScreen extends ConsumerWidget {
                             children: [
                               Row(
                                 children: [
+                                  // The date alone cannot tell an afternoon
+                                  // nap from the night before it, and a day
+                                  // now holds both.
                                   Expanded(
                                     child: Text(
-                                      night.localDate,
+                                      '${night.localDate} · '
+                                      '${Units.timeOfDay(night.startedAt)}'
+                                      '–'
+                                      '${Units.timeOfDay(night.endedAt ?? night.startedAt)}',
                                       style: const TextStyle(
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -594,11 +604,6 @@ Future<void> _hideEvent(
             ),
             onTap: () => Navigator.pop(sheetContext, true),
           ),
-          ListTile(
-            leading: const Icon(Icons.close, color: RetroTokens.inkSoft),
-            title: Text(l10n.thoi),
-            onTap: () => Navigator.pop(sheetContext, false),
-          ),
           const SizedBox(height: 8),
         ],
       ),
@@ -610,6 +615,8 @@ Future<void> _hideEvent(
     await ref.read(sleepRepositoryProvider).hideAudioEvent(event.id);
     ref.invalidate(sleepSessionProvider(sessionId));
     ref.invalidate(sleepSessionsProvider);
+    ref.invalidate(sleepOnDayProvider);
+    ref.invalidate(sleepRangeProvider);
   } catch (err) {
     if (context.mounted) {
       ScaffoldMessenger.of(
@@ -628,7 +635,7 @@ class _NightDetail extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: Text(AppL10n.of(context).xoaDemNay2),
+        title: Text(AppL10n.of(context).xoaGiacNay2),
         content: Text(AppL10n.of(context).giacNguCacGiaiDoanVa),
         actions: [
           TextButton(
@@ -648,6 +655,8 @@ class _NightDetail extends ConsumerWidget {
       await ref.read(sleepRepositoryProvider).deleteSession(sessionId);
       ref.invalidate(sleepDebtProvider);
       ref.invalidate(sleepSessionsProvider);
+      ref.invalidate(sleepOnDayProvider);
+      ref.invalidate(sleepRangeProvider);
       if (context.mounted) Navigator.of(context).pop();
     } catch (err) {
       if (context.mounted) {
@@ -665,7 +674,7 @@ class _NightDetail extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(AppL10n.of(context).dem),
+        title: Text(AppL10n.of(context).giacNguNay),
         actions: [
           if (n != null) ...[
             IconButton(
@@ -678,7 +687,7 @@ class _NightDetail extends ConsumerWidget {
               ),
             ),
             IconButton(
-              tooltip: AppL10n.of(context).xoaDemNay,
+              tooltip: AppL10n.of(context).xoaGiacNay,
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _delete(context, ref),
             ),

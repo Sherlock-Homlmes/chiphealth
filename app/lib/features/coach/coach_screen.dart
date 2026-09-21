@@ -425,6 +425,8 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       ..invalidate(personalRecordsProvider)
       ..invalidate(sleepDebtProvider)
       ..invalidate(sleepSessionsProvider)
+      ..invalidate(sleepOnDayProvider)
+      ..invalidate(sleepRangeProvider)
       ..invalidate(bodyMetricsRangeProvider)
       ..invalidate(allBodyMetricsProvider);
   }
@@ -498,26 +500,34 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           ),
         ],
       ),
-      body: PhoneFrame(
-        // Tapping outside the composer — a bubble, empty space — drops keyboard
-        // focus so the keyboard hides. Interactive children (buttons, the text
-        // field, selectable text) win their own taps first.
-        child: GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Column(
-            children: [
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    '$_error',
-                    style: const TextStyle(color: RetroTokens.accent),
-                  ),
+      // Tapping outside the composer — a bubble, empty space — drops keyboard
+      // focus so the keyboard hides. Interactive children (buttons, the text
+      // field, selectable text) win their own taps first.
+      body: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Column(
+          children: [
+            // Only the conversation is held to phone width. The composer is a
+            // bar across the bottom of the window, so it reaches both edges.
+            Expanded(
+              child: PhoneFrame(
+                child: Column(
+                  children: [
+                    if (_error != null)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          '$_error',
+                          style: const TextStyle(color: RetroTokens.accent),
+                        ),
+                      ),
+                    Expanded(child: _body()),
+                  ],
                 ),
-              Expanded(child: _body()),
-              _composer(),
-            ],
-          ),
+              ),
+            ),
+            _composer(),
+          ],
         ),
       ),
     );
@@ -582,7 +592,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         children: [
           if (_photoBytes != null) _photoChip(),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            // Centred, not bottom-aligned: "+" and send are round buttons of
+            // their own height and sat low against a one-line field.
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Attaching sits at the head of the input, one "+" that asks
               // where the photo comes from rather than assuming the library.
@@ -592,7 +604,13 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                     ? null
                     : _attachPhoto,
                 icon: const Icon(Icons.add, size: 24),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 40,
+                  height: 40,
+                ),
               ),
+              const SizedBox(width: 4),
               Expanded(
                 child: TextField(
                   controller: _input,
@@ -617,9 +635,13 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                       onTap: _sending ? null : _toggleMic,
                     ),
                     suffixIconConstraints: const BoxConstraints(
-                      minHeight: 40,
-                      minWidth: 40,
+                      minHeight: 36,
+                      minWidth: 36,
                     ),
+                    // The field was as tall as a two-line message when it
+                    // held one; this is the height of the buttons beside it.
+                    isDense: true,
+                    contentPadding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
                   ),
                   onSubmitted: (_) => _send(),
                 ),
@@ -629,6 +651,11 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                 onPressed: _sending || _recording || _transcribing
                     ? null
                     : _send,
+                style: FilledButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(44, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
                 child: const Icon(Icons.send, size: 18),
               ),
             ],

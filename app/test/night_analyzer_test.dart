@@ -316,5 +316,64 @@ void main() {
       expect(result.events.map((e) => e.eventType), contains('snore'));
       expect(result.events.map((e) => e.eventType), contains('sleep_talk'));
     });
+
+    test('a quiet night is laid out on cycles, not one early block', () async {
+      // The bug this pins: with a silent room every minute scored the same on
+      // everything but the clock, so the ranking read "earlier is deeper" and
+      // handed back one deep block starting at minute zero, then light to
+      // morning. A whole night, nothing to hear, nothing else to go on.
+      const nightMinutes = 420; // 7 h
+      final windows = (nightMinutes * 60 / 0.975).floor();
+
+      final analyzer = NightAnalyzer(
+        startedAt: 0,
+        classifier: _FakeClassifier(const [_noneWin]),
+      );
+      // One loud window so the classifier runs at all; the rest is silence.
+      analyzer.pushBytes(_pcm(_loudAmp));
+      for (var i = 1; i < windows; i++) {
+        analyzer.pushBytes(_pcm(_quietAmp));
+      }
+      await analyzer.idle;
+
+      final stages = analyzer.finish(endedAt: nightMinutes * 60000).stages;
+      expect(stages, isNotNull);
+
+      final deeps = stages!.where((s) => s.stage == 'deep').toList();
+      final rems = stages.where((s) => s.stage == 'rem').toList();
+
+      // Deep does not start at lights-out, and it is not one block.
+      expect(deeps.first.startedAt, greaterThan(10 * 60000));
+      expect(deeps.length, greaterThan(1));
+      // REM waits for the first cycle to be over, and there is some of it.
+      expect(rems, isNotEmpty);
+      expect(rems.first.startedAt, greaterThanOrEqualTo(70 * 60000));
+      // The two interleave: deep is not all before every REM.
+      expect(deeps.last.startedAt, greaterThan(rems.first.startedAt));
+    });
+
+    test('a half-hour nap gets no REM', () async {
+      const napMinutes = 35;
+      final windows = (napMinutes * 60 / 0.975).floor();
+
+      final analyzer = NightAnalyzer(
+        startedAt: 0,
+        classifier: _FakeClassifier(const [_noneWin]),
+      );
+      analyzer.pushBytes(_pcm(_loudAmp));
+      for (var i = 1; i < windows; i++) {
+        analyzer.pushBytes(_pcm(_quietAmp));
+      }
+      await analyzer.idle;
+
+      final stages = analyzer.finish(endedAt: napMinutes * 60000).stages;
+      expect(stages, isNotNull);
+      // REM takes about seventy minutes to arrive; a nap never gets there.
+      expect(stages!.where((s) => s.stage == 'rem'), isEmpty);
+      // And nothing is deep in the first ten minutes.
+      for (final s in stages.where((s) => s.stage == 'deep')) {
+        expect(s.startedAt, greaterThanOrEqualTo(10 * 60000));
+      }
+    });
   });
 }

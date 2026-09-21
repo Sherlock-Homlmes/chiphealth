@@ -55,6 +55,8 @@ class _SleepReviewScreenState extends ConsumerState<SleepReviewScreen> {
             photoAssetIds: _photos,
           );
       ref.invalidate(sleepSessionsProvider);
+      ref.invalidate(sleepOnDayProvider);
+      ref.invalidate(sleepRangeProvider);
       ref.invalidate(sleepDebtProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (err) {
@@ -74,7 +76,7 @@ class _SleepReviewScreenState extends ConsumerState<SleepReviewScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.dem),
+        title: Text(l10n.giacNguNay),
         automaticallyImplyLeading: false,
         actions: [
           TextButton(

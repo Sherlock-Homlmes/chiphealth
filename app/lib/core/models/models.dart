@@ -492,6 +492,7 @@ class DailyNutrition {
     this.sodiumMg = 0,
     this.burnedKcal = 0,
     this.meals = const [],
+    this.summaryWaterMl,
   });
 
   final String date;
@@ -511,6 +512,10 @@ class DailyNutrition {
   final double burnedKcal;
   final List<MealLog> meals;
 
+  /// The same sum, already made by the server, for the range endpoint — which
+  /// sends day rows without their meals.
+  final double? summaryWaterMl;
+
   bool get isDeficit => (balanceKcal ?? 0) < 0;
 
   /// Fluid the day's meals carried, in ml — drinks in full, plus broth and the
@@ -520,6 +525,7 @@ class DailyNutrition {
   /// number: the day card on home and the summary on the diary disagreed about
   /// this once already.
   double get waterFromMealsMl =>
+      summaryWaterMl ??
       meals.fold<double>(0, (s, m) => s + (m.totalWaterMl ?? 0));
 
   factory DailyNutrition.fromJson(Map<String, dynamic> json) {
@@ -538,6 +544,7 @@ class DailyNutrition {
       sugarG: _dblOr(summary?['sugarG']),
       sodiumMg: _dblOr(summary?['sodiumMg']),
       burnedKcal: _dblOr(summary?['caloriesBurnedWorkoutKcal']),
+      summaryWaterMl: _dbl(summary?['waterFromMealsMl']),
       meals:
           (json['meals'] as List?)
               ?.whereType<Map>()

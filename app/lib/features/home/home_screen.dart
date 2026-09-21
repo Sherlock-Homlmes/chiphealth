@@ -115,6 +115,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _MealsCard(nutrition: nutrition),
                   const SizedBox(height: 12),
                   _ActivityCard(date: iso, nutrition: nutrition),
+                  const SizedBox(height: 12),
+                  _SleepCard(date: iso, isToday: isToday),
                   // Same reason the cards above wait for the session:
                   // watching the feed before the stored token is exchanged
                   // only earns a 401, which would then sit in the card until
@@ -1062,6 +1064,104 @@ class _WorkoutRow extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The day's sleep: everything slept on it against the nightly target, and
+/// the sleeps themselves. A day can hold several — a night and an afternoon
+/// nap are both sleep — so the bar reads the sum, not the longest one.
+class _SleepCard extends ConsumerWidget {
+  const _SleepCard({required this.date, required this.isToday});
+
+  final String date;
+  final bool isToday;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sleeps = [...?ref.watch(sleepOnDayProvider(date)).valueOrNull]
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt));
+    final target = ref.watch(sleepDebtProvider).valueOrNull?.targetSeconds;
+    final total = sleeps.fold<int>(
+      0,
+      (sum, s) => sum + (s.totalSleepSeconds ?? 0),
+    );
+
+    return HomeCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardHead(
+            label: AppL10n.of(context).giacNgu,
+            value: Units.hoursMinutes(total),
+            unit: '',
+            // The sleep tab, where the "+" offers both ways to log one.
+            onAdd: () => context.go('/sleep'),
+          ),
+          if (sleeps.isEmpty)
+            EmptyHint(
+              text: isToday
+                  ? AppL10n.of(context).chuaGhiGiacNaoHomNay
+                  : AppL10n.of(context).chuaGhiGiacNaoNgayNay,
+            )
+          else ...[
+            const SizedBox(height: 12),
+            MacroBar(
+              label: AppL10n.of(
+                context,
+              ).targetHours(Units.hoursMinutes(target ?? 8 * 3600)),
+              value: total / 3600,
+              target: (target ?? 8 * 3600) / 3600,
+              unit: 'h',
+              color: RetroTokens.sleepRem,
+            ),
+            const SizedBox(height: 10),
+            for (final sleep in sleeps)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.bedtime_outlined,
+                      size: 14,
+                      color: RetroTokens.inkFaint,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '${Units.timeOfDay(sleep.startedAt)}'
+                        '–'
+                        '${Units.timeOfDay(sleep.endedAt ?? sleep.startedAt)}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: RetroTokens.inkSoft,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      Units.hoursMinutes(sleep.totalSleepSeconds),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (sleeps.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  AppL10n.of(context).nGiacTrongNgay('${sleeps.length}'),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: RetroTokens.inkFaint,
+                  ),
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }

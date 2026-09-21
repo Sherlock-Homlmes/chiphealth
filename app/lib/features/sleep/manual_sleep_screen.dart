@@ -9,10 +9,10 @@ import '../../widgets/retro_widgets.dart';
 import 'sleep_screen.dart';
 import '../../core/l10n/gen/app_localizations.dart';
 
-/// A night typed in after the fact: bedtime, wake-up and how long it took to
+/// A sleep typed in after the fact: bedtime, wake-up and how long it took to
 /// fall asleep. No stages — the server counts in-bed time minus the latency
-/// as sleep. One night per wake-up day, so this replaces a night already
-/// logged for that morning.
+/// as sleep. A night and an afternoon nap are two sleeps on the same day and
+/// neither replaces the other.
 ///
 /// With [editing] it moves an existing night's bedtime / wake-up instead;
 /// whatever was recorded outside the new window is cut away.
@@ -104,6 +104,8 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
       }
       ref.invalidate(sleepDebtProvider);
       ref.invalidate(sleepSessionsProvider);
+      ref.invalidate(sleepOnDayProvider);
+      ref.invalidate(sleepRangeProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (err) {
       if (mounted) {
@@ -201,7 +203,7 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
             Text(
               editing
                   ? AppL10n.of(context).phanGiacNguGiaiDoanVa
-                  : AppL10n.of(context).moiBuoiSangChiCoMot,
+                  : AppL10n.of(context).moiGiacDuocLuuRieng,
               style: const TextStyle(fontSize: 12),
             ),
           ],

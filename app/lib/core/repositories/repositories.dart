@@ -622,13 +622,16 @@ class SleepRepository {
     return SleepSession.fromJson((data as Map).cast<String, dynamic>());
   }
 
-  Future<List<SleepSession>> sessions({String? from, String? to}) async =>
-      _items(
-        await _api.get<dynamic>(
-          '/v1/sleep/sessions',
-          query: {'from': from, 'to': to},
-        ),
-      ).map(SleepSession.fromJson).toList();
+  Future<List<SleepSession>> sessions({
+    String? from,
+    String? to,
+    int? limit,
+  }) async => _items(
+    await _api.get<dynamic>(
+      '/v1/sleep/sessions',
+      query: {'from': from, 'to': to, if (limit != null) 'limit': '$limit'},
+    ),
+  ).map(SleepSession.fromJson).toList();
 
   Future<SleepSession> session(String id) async => SleepSession.fromJson(
     (await _api.get<dynamic>('/v1/sleep/sessions/$id') as Map)

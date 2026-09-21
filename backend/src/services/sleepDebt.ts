@@ -1,4 +1,4 @@
-import { and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import { sleepSessions, sleepDebtDaily, userProfiles } from '../db/schema';
 import { addDays, dateRange } from '../lib/time';
 import type { Db } from '../db/client';
@@ -51,18 +51,23 @@ async function targetSecondsFor(db: Db, userId: string): Promise<number> {
   return (rows[0]?.minutes ?? DEFAULT_TARGET_MINUTES) * 60;
 }
 
-/** Nightly totals for a date range, as a map keyed by the wake-up local date. */
+/**
+ * Sleep totals for a date range, as a map keyed by the wake-up local date.
+ *
+ * SUMMED, not picked: a day can hold a night and an afternoon nap, and what
+ * the day owes is measured against everything slept in it.
+ */
 async function actualsByDate(
   db: Db, userId: string, from: string, to: string,
 ): Promise<Map<string, number>> {
   const rows = await db.select({
     localDate: sleepSessions.localDate,
-    total: sleepSessions.totalSleepSeconds,
+    total: sql<number>`coalesce(sum(${sleepSessions.totalSleepSeconds}), 0)`,
   }).from(sleepSessions).where(and(
     eq(sleepSessions.userId, userId),
     gte(sleepSessions.localDate, from),
     lte(sleepSessions.localDate, to),
-  ));
+  )).groupBy(sleepSessions.localDate);
   const map = new Map<string, number>();
   for (const r of rows) map.set(r.localDate, r.total ?? 0);
   return map;

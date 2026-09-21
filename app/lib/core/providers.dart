@@ -94,6 +94,21 @@ final sleepSessionProvider = FutureProvider.family<SleepSession, String>(
   (ref, id) => ref.watch(sleepRepositoryProvider).session(id),
 );
 
+/// Everything slept on one local date — the night plus any naps, since a day
+/// holds as many sleeps as the user had.
+final sleepOnDayProvider = FutureProvider.family<List<SleepSession>, String>(
+  (ref, date) =>
+      ref.watch(sleepRepositoryProvider).sessions(from: date, to: date),
+);
+
+/// Sleeps across a period, for the analytics chart. The cap is per sleep, not
+/// per day, so it leaves room for naps.
+final sleepRangeProvider = FutureProvider.family<List<SleepSession>, DateRange>(
+  (ref, range) => ref
+      .watch(sleepRepositoryProvider)
+      .sessions(from: range.fromIso, to: range.toIso, limit: 200),
+);
+
 final personalRecordsProvider = FutureProvider<List<PersonalRecord>>(
   (ref) => ref.watch(trainingRepositoryProvider).records(),
 );

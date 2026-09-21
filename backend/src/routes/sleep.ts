@@ -66,8 +66,11 @@ function stageAt(
 }
 
 /**
- * A whole night arrives in one request. `local_date` is the WAKE-UP day and is
- * unique per user, so a re-upload of the same night is an upsert.
+ * One sleep arrives in one request — a night, or a nap; a day can hold several
+ * and they do not replace each other. What makes a write an UPDATE rather than
+ * an INSERT is the id: either the one the client minted for this recording, or
+ * the row already holding this (source, external_id) when a wearable re-syncs
+ * a night it has sent before.
  */
 app.post('/sessions', async (c) => {
   const body = await parseBody(c, sessionSchema);
@@ -85,11 +88,25 @@ app.post('/sessions', async (c) => {
     ? totals.asleep
     : Math.max(0, inBed - (body.sleepLatencySeconds ?? 0));
 
-  const existing = await db.select({ id: sleepSessions.id }).from(sleepSessions)
-    .where(and(eq(sleepSessions.userId, user.id), eq(sleepSessions.localDate, day)))
-    .limit(1);
+  // A re-synced wearable night is the same night: match it on its external id.
+  const resynced = body.externalId
+    ? await db.select({ id: sleepSessions.id }).from(sleepSessions)
+      .where(and(
+        eq(sleepSessions.userId, user.id),
+        eq(sleepSessions.source, body.source),
+        eq(sleepSessions.externalId, body.externalId),
+      )).limit(1)
+    : [];
 
-  const id = existing[0]?.id ?? body.id ?? newId();
+  // A client-minted id that already belongs to someone else is not writable
+  // through here: the upsert below would overwrite that row.
+  if (!resynced[0] && body.id) {
+    const owner = await db.select({ userId: sleepSessions.userId }).from(sleepSessions)
+      .where(eq(sleepSessions.id, body.id)).limit(1);
+    if (owner[0] && owner[0].userId !== user.id) throw notFound('Sleep session');
+  }
+
+  const id = resynced[0]?.id ?? body.id ?? newId();
   const now = Date.now();
   const efficiency = inBed > 0 ? Math.round((totalSleep / inBed) * 1000) / 1000 : null;
 

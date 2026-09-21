@@ -50,7 +50,14 @@
   "benhNen": "Bệnh nền",
   "beoG": "Béo (g)",
   "beoPhi": "Béo phì",
+  "bmiCacNguong": "Các ngưỡng",
   "bmiCanNangKgChiaCho": "BMI = cân nặng (kg) chia cho bình phương chiều cao (m). Là chỉ số tham khảo, không phân biệt cơ và mỡ.",
+  "bmiKhongNoiDuocGi": "BMI không nói được gì",
+  "bmiKhongPhanBietCoVaMo": "BMI không phân biệt cơ và mỡ, không biết mỡ nằm ở đâu. Người tập nặng có thể \"thừa cân\" trên giấy mà vẫn khoẻ; người ít vận động có thể \"bình thường\" mà mỡ nội tạng cao. Chỉ số này cũng không dùng cho trẻ em, phụ nữ mang thai và người cao tuổi.",
+  "bmiLaCanNangChiaCho": "BMI (chỉ số khối cơ thể) là cân nặng chia cho bình phương chiều cao: BMI = kg ÷ (m × m). Ví dụ 60 kg và 1,70 m → 60 ÷ (1,70 × 1,70) = 20,8.",
+  "bmiLaGi": "BMI là gì?",
+  "bmiNguongChauA": "Với người châu Á, khuyến nghị của IDI & WPRO đặt ngưỡng thấp hơn: thừa cân từ 23 và béo phì từ 25. Vòng eo và tỉ lệ mỡ là hai con số nên xem cùng.",
+  "bmiNguongWho": "Theo WHO: dưới 18,5 là thiếu cân, 18,5–24,9 là bình thường, 25,0–29,9 là thừa cân, từ 30 trở lên là béo phì.",
   "bmrTimesFactor": "{bmr} × {factor} ({level}) = {total} kcal/ngày",
   "@bmrTimesFactor": {
     "placeholders": {
@@ -89,7 +96,7 @@
   "buoiTrua": "buổi trưa",
   "caNhan": "Cá nhân",
   "cacBuaAn": "Các bữa ăn",
-  "cacDemGanDay": "Các đêm gần đây",
+  "cacGiacGanDay": "Các giấc gần đây",
   "caiDat": "Cài đặt",
   "caloCuaCacBuoiTapBan": "Calo của các buổi tập bạn ghi lại được cộng thêm vào đúng ngày đó, nên không cần tính buổi tập vào mức vận động.",
   "caloDinhDuong": "Calo & Dinh dưỡng",
@@ -142,10 +149,10 @@
   "chuaCoBanNao": "Chưa có bạn nào.",
   "chuaCoCanNangLayMac": " (chưa có cân nặng, lấy mặc định)",
   "chuaCoCuocTroChuyen": "Chưa có cuộc trò chuyện",
-  "chuaCoDemNaoDuocGhi": "Chưa có đêm nào được ghi.",
   "chuaCoDuLieu": "Chưa có dữ liệu",
   "chuaCoDuLieuChoMa": "Chưa có dữ liệu cho mã này",
   "chuaCoDuLieuTrongKy": "Chưa có dữ liệu trong kỳ này",
+  "chuaCoGiacNaoDuocGhi": "Chưa có giấc ngủ nào được ghi.",
   "chuaCoHoatDongNaoBam": "Chưa có hoạt động nào — bấm + để ghi buổi đầu tiên.",
   "chuaCoKhoanhKhacNaoChup": "Chưa có khoảnh khắc nào. Chụp một tấm cho bạn bè.",
   "chuaCoPrNaoTapMot": "Chưa có PR nào — tập một buổi để hệ thống tự phát hiện.",
@@ -157,6 +164,8 @@
   "chuaDuDuLieuDeTinh": "Chưa đủ dữ liệu để tính cân bằng calo",
   "chuaDuocCapQuyenMicro": "Chưa được cấp quyền micro.",
   "chuaGhiBuaNaoNhanDe": "Chưa ghi bữa nào. Nhấn \"+\" để bắt đầu.",
+  "chuaGhiGiacNaoHomNay": "Chưa ghi giấc nào hôm nay.",
+  "chuaGhiGiacNaoNgayNay": "Chưa ghi giấc nào cho ngày này.",
   "chuaLuu2": "chưa lưu",
   "chuaPhanTichDuocBuaAn": "Chưa phân tích được bữa ăn này — không kết nối được máy chủ.",
   "chup": "Chụp",
@@ -298,15 +307,16 @@
   "ghiBuaAn": "Ghi bữa ăn",
   "ghiCanNang": "Ghi cân nặng",
   "ghiChu": "Ghi chú",
-  "ghiDemNay": "Ghi đêm nay",
-  "ghiGiacNguDem": "Ghi giấc ngủ đêm",
+  "ghiGiacNguDem": "Ghi giấc ngủ",
   "ghiHoatDongMoi": "Ghi hoạt động mới",
   "ghiLaiBuaDauTien": "Ghi lại bữa đầu tiên!",
   "ghiLaiHoatDongDauTien": "Ghi lại hoạt động đầu tiên!",
+  "ghiNgayBayGio": "Ghi ngay bây giờ",
   "ghiTiep": "Ghi tiếp",
   "ghiTrucTiep": "Ghi trực tiếp",
   "giacNgu": "Giấc ngủ",
   "giacNguCacGiaiDoanVa": "Giấc ngủ, các giai đoạn và clip ngáy / nói mớ sẽ bị xoá hẳn.",
+  "giacNguNay": "Giấc ngủ này",
   "giamCan": "Giảm cân",
   "giamMo": "Giảm mỡ",
   "gio": "Giờ",
@@ -473,7 +483,7 @@
   "moTa": "Mô tả",
   "moTaThemTuyChon": "Mô tả thêm — tuỳ chọn",
   "moi": "Mời",
-  "moiBuoiSangChiCoMot": "Mỗi buổi sáng chỉ có một đêm: lưu sẽ thay đêm đã ghi cho ngày thức dậy đó (nếu có).",
+  "moiGiacDuocLuuRieng": "Ngủ đêm, ngủ trưa hay chợp mắt — mỗi giấc được lưu riêng.",
   "mon": "Môn",
   "mucTieu": "Mục tiêu",
   "mucTieu1500Ml": "Mục tiêu 1500 ml",
@@ -482,6 +492,12 @@
   "mucTieu3000Ml": "Mục tiêu 3000 ml",
   "mucTieuCanNang": "Mục tiêu cân nặng",
   "mucVanDongHangNgay": "Mức vận động hằng ngày",
+  "nGiacTrongNgay": "{count} giấc trong ngày",
+  "@nGiacTrongNgay": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "nam": "Năm",
   "namNay": "Năm nay",
   "nang": "Nặng",
@@ -616,6 +632,7 @@
       }
     }
   },
+  "soGioNgu": "Số giờ ngủ",
   "soRepNhieuNhat": "số rep nhiều nhất",
   "stepOneBmr": "1. BMR — năng lượng đốt khi nằm nghỉ hoàn toàn",
   "stepTwoActivityFactor": "2. Nhân với hệ số vận động hằng ngày",
@@ -639,6 +656,12 @@
   "tangCo": "Tăng cơ",
   "tangSucBen": "Tăng sức bền",
   "tangSucManh": "Tăng sức mạnh",
+  "targetHours": "Mục tiêu {hours}",
+  "@targetHours": {
+    "placeholders": {
+      "hours": {}
+    }
+  },
   "targetKcal": "Mục tiêu {kcal} kcal",
   "@targetKcal": {
     "placeholders": {
@@ -677,6 +700,7 @@
   "themVaoBuaAn": "Thêm vào bữa ăn",
   "theoDoiCalo": "Theo dõi calo",
   "theoDoiCaloTieuHao": "Theo dõi calo tiêu hao",
+  "theoDoiGiacNgu": "Theo dõi giấc ngủ",
   "theoDoiNuoc": "Theo dõi nước",
   "thietBiDeo": "thiết bị đeo",
   "thieuCan": "Thiếu cân",
@@ -792,8 +816,8 @@
   "xoG": "Xơ (g)",
   "xoa": "Xoá",
   "xoaCuocTroChuyen": "Xoá cuộc trò chuyện?",
-  "xoaDemNay": "Xoá đêm này",
-  "xoaDemNay2": "Xoá đêm này?",
+  "xoaGiacNay": "Xoá giấc này",
+  "xoaGiacNay2": "Xoá giấc này?",
   "xoaHoatDong": "Xoá hoạt động",
   "xoaHoatDong2": "Xoá hoạt động?",
   "xoaKhoanhKhac": "Xoá khoảnh khắc?"

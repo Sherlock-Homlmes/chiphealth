@@ -72,11 +72,14 @@ class _MinuteStat {
 ///
 /// The hypnogram is prior-shaped, NOT a measurement: without EEG (or at least
 /// a heart rate) true REM/deep is unobservable from a phone mic. Loud
-/// event-free stretches become awake; the quietest early-night minutes become
-/// deep; vocalising late-night minutes become REM; quotas (18% deep / 22% REM)
-/// keep the architecture inside the normal adult range. The server already
-/// flags phone-mic nights with stages_are_estimated — that flag is the honest
-/// contract with the user; this class just makes the estimate plausible.
+/// event-free stretches become awake; the rest is laid out on ~90-minute
+/// sleep cycles — deep in the first half of a cycle and heaviest in the first
+/// cycles, REM at the end of a cycle and longer towards morning, with the
+/// latencies real sleep has (no deep in the first ten minutes, no REM in the
+/// first seventy) — and quotas (18% deep / 22% REM) keep the architecture
+/// inside the normal adult range. The server already flags phone-mic nights
+/// with stages_are_estimated — that flag is the honest contract with the
+/// user; this class just makes the estimate plausible.
 class NightAnalyzer {
   NightAnalyzer({
     required this.startedAt,
@@ -107,6 +110,12 @@ class NightAnalyzer {
   static const _windowSamples = 15600; // YAMNet input: 0.975 s @ 16 kHz
   static const _windowMs = 975;
   static const _deepShare = 0.18, _remShare = 0.22;
+
+  /// One sleep cycle, in minutes, and how long each stage takes to show up
+  /// after sleep onset — the numbers every polysomnography textbook prints.
+  static const _cycleMinutes = 90;
+  static const _deepLatencyMinutes = 10;
+  static const _remLatencyMinutes = 70;
 
   final _events = <DetectedSleepEvent>[];
   int _snoreClips = 0;
@@ -373,9 +382,20 @@ class NightAnalyzer {
       }
     }
 
-    // 2) Quotas over the asleep minutes, ranked by circadian-tilted scores:
-    //    deep prefers quiet early-night minutes, REM prefers vocalising
-    //    late-night ones. REM minutes are picked outside the deep set.
+    // 2) Quotas over the asleep minutes, ranked by a CYCLE-shaped prior.
+    //
+    //    Ranking the whole night by one monotonic score is what put every deep
+    //    minute in one block at the very start and left the rest flat light:
+    //    with a quiet room the score was just "earlier is deeper", so the top
+    //    N were minutes 0..N. Sleep does not work that way. It runs in ~90
+    //    minute cycles — light first, deep in the first half of a cycle, REM
+    //    at its end — deep is heaviest in the first cycles, REM lengthens
+    //    towards morning, and neither starts the moment the head lands: deep
+    //    needs ~10 minutes, REM around 70, which is why a half-hour nap has
+    //    no REM at all.
+    //
+    //    The clock here is minutes ASLEEP, not minutes elapsed, so a long
+    //    wake-up in the middle does not push the cycles out of phase.
     final asleep = <int>[
       for (var m = 0; m < nightMinutes; m++)
         if (labels[m] != 'awake') m,
@@ -383,21 +403,43 @@ class NightAnalyzer {
     final deepTarget = (asleep.length * _deepShare).round();
     final remTarget = (asleep.length * _remShare).round();
 
-    double u(int m) => nightMinutes == 1 ? 0 : m / (nightMinutes - 1);
+    /// A bump of width [sigma] centred on [centre], both in cycle fractions.
+    double bump(double p, double centre, double sigma) =>
+        math.exp(-((p - centre) * (p - centre)) / (2 * sigma * sigma));
+
     final deepScore = <int, double>{};
     final remScore = <int, double>{};
-    for (final m in asleep) {
+    for (var t = 0; t < asleep.length; t++) {
+      final m = asleep[t];
+      final cycle = t ~/ _cycleMinutes;
+      final p = (t % _cycleMinutes) / _cycleMinutes;
+
+      // Quiet minutes can be deep; a loud one is light at best. Talking is the
+      // one REM tell a microphone has.
       final quiet = stats[m].meanDb < quietDb ? 1.0 : 0.2;
-      deepScore[m] = quiet * (1 - 0.7 * u(m));
       final talk = (stats[m].talkWindows / 3).clamp(0.0, 1.0);
-      remScore[m] = (0.25 + 0.75 * talk) * (0.3 + 0.7 * u(m));
+
+      deepScore[m] = t < _deepLatencyMinutes
+          ? 0
+          : quiet * bump(p, 0.42, 0.18) * math.pow(0.55, cycle).toDouble();
+      remScore[m] = t < _remLatencyMinutes
+          ? 0
+          : (0.6 + 0.8 * talk) *
+                bump(p, 0.88, 0.14) *
+                math.min(1.0, 0.35 + 0.3 * cycle);
     }
 
     final byDeep = [...asleep]
       ..sort((a, b) => deepScore[b]!.compareTo(deepScore[a]!));
-    final remPool = byDeep.skip(deepTarget).toList()
-      ..sort((a, b) => remScore[b]!.compareTo(remScore[a]!));
-    for (final m in byDeep.take(deepTarget)) {
+    final deepPicked = byDeep
+        .take(deepTarget)
+        .where((m) => deepScore[m]! > 0)
+        .toSet();
+    final remPool = [
+      for (final m in asleep)
+        if (!deepPicked.contains(m) && remScore[m]! > 0) m,
+    ]..sort((a, b) => remScore[b]!.compareTo(remScore[a]!));
+    for (final m in deepPicked) {
       labels[m] = 'deep';
     }
     for (final m in remPool.take(remTarget)) {

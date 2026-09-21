@@ -50,7 +50,14 @@
   "benhNen": "Conditions",
   "beoG": "Fat (g)",
   "beoPhi": "Obese",
+  "bmiCacNguong": "The bands",
   "bmiCanNangKgChiaCho": "BMI is weight (kg) divided by height (m) squared. A rough guide only — it cannot tell muscle from fat.",
+  "bmiKhongNoiDuocGi": "What BMI cannot tell you",
+  "bmiKhongPhanBietCoVaMo": "BMI does not separate muscle from fat, and says nothing about where the fat sits. Someone who lifts can read as \"overweight\" and be perfectly healthy; someone sedentary can read as \"healthy\" with high visceral fat. It also does not apply to children, pregnancy, or the elderly.",
+  "bmiLaCanNangChiaCho": "BMI (body mass index) is weight divided by height squared: BMI = kg ÷ (m × m). For 60 kg at 1.70 m → 60 ÷ (1.70 × 1.70) = 20.8.",
+  "bmiLaGi": "What is BMI?",
+  "bmiNguongChauA": "For Asian populations the IDI & WPRO cut-offs sit lower: overweight from 23, obese from 25. Waist circumference and body-fat percentage are worth reading alongside it.",
+  "bmiNguongWho": "WHO: under 18.5 is underweight, 18.5–24.9 is healthy, 25.0–29.9 is overweight, 30 and above is obese.",
   "bmrTimesFactor": "{bmr} × {factor} ({level}) = {total} kcal a day",
   "@bmrTimesFactor": {
     "placeholders": {
@@ -89,7 +96,7 @@
   "buoiTrua": "midday",
   "caNhan": "Profile",
   "cacBuaAn": "Meals",
-  "cacDemGanDay": "Recent nights",
+  "cacGiacGanDay": "Recent sleeps",
   "caiDat": "Settings",
   "caloCuaCacBuoiTapBan": "Calories from the workouts you log are added to that day, so there is no need to count training in your activity level.",
   "caloDinhDuong": "Calories & nutrition",
@@ -142,10 +149,10 @@
   "chuaCoBanNao": "No friends yet.",
   "chuaCoCanNangLayMac": " (no weight yet, using a default)",
   "chuaCoCuocTroChuyen": "No conversations yet",
-  "chuaCoDemNaoDuocGhi": "No nights recorded yet.",
   "chuaCoDuLieu": "No data yet",
   "chuaCoDuLieuChoMa": "No data for this barcode yet",
   "chuaCoDuLieuTrongKy": "No data in this period",
+  "chuaCoGiacNaoDuocGhi": "No sleep recorded yet.",
   "chuaCoHoatDongNaoBam": "No activities yet — tap + to record your first.",
   "chuaCoKhoanhKhacNaoChup": "No moments yet. Take one for your friends.",
   "chuaCoPrNaoTapMot": "No records yet — train a session and they appear on their own.",
@@ -157,6 +164,8 @@
   "chuaDuDuLieuDeTinh": "Not enough data to work out your calorie balance",
   "chuaDuocCapQuyenMicro": "Microphone access has not been granted.",
   "chuaGhiBuaNaoNhanDe": "No meals yet. Tap \"+\" to start.",
+  "chuaGhiGiacNaoHomNay": "No sleep recorded today.",
+  "chuaGhiGiacNaoNgayNay": "No sleep recorded for this day.",
   "chuaLuu2": "unsaved",
   "chuaPhanTichDuocBuaAn": "This meal was not analysed — the server could not be reached.",
   "chup": "Shoot",
@@ -298,15 +307,16 @@
   "ghiBuaAn": "Log a meal",
   "ghiCanNang": "Log weight",
   "ghiChu": "Note",
-  "ghiDemNay": "Record tonight",
-  "ghiGiacNguDem": "Night sleep recording",
+  "ghiGiacNguDem": "Recording sleep",
   "ghiHoatDongMoi": "Log a new activity",
   "ghiLaiBuaDauTien": "Log your first meal!",
   "ghiLaiHoatDongDauTien": "Log your first activity!",
+  "ghiNgayBayGio": "Record now",
   "ghiTiep": "Resume",
   "ghiTrucTiep": "Record live",
   "giacNgu": "Sleep",
   "giacNguCacGiaiDoanVa": "The night, its stages and any snoring or sleep-talk clips will be deleted for good.",
+  "giacNguNay": "This sleep",
   "giamCan": "Lose weight",
   "giamMo": "Lose fat",
   "gio": "Hours",
@@ -473,7 +483,7 @@
   "moTa": "Description",
   "moTaThemTuyChon": "Say a little more — optional",
   "moi": "Invite",
-  "moiBuoiSangChiCoMot": "There is one night per morning: saving replaces whatever was already recorded for that wake-up day.",
+  "moiGiacDuocLuuRieng": "A night, an afternoon nap or a doze — each sleep is saved on its own.",
   "mon": "Sport",
   "mucTieu": "Goals",
   "mucTieu1500Ml": "Target 1500 ml",
@@ -482,6 +492,12 @@
   "mucTieu3000Ml": "Target 3000 ml",
   "mucTieuCanNang": "Goal weight",
   "mucVanDongHangNgay": "Everyday activity level",
+  "nGiacTrongNgay": "{count} sleeps this day",
+  "@nGiacTrongNgay": {
+    "placeholders": {
+      "count": {}
+    }
+  },
   "nam": "Male",
   "namNay": "This year",
   "nang": "Hard",
@@ -616,6 +632,7 @@
       }
     }
   },
+  "soGioNgu": "Hours slept",
   "soRepNhieuNhat": "most reps",
   "stepOneBmr": "1. BMR — the energy burned lying completely still",
   "stepTwoActivityFactor": "2. Multiplied by your daily activity factor",
@@ -639,6 +656,12 @@
   "tangCo": "Build muscle",
   "tangSucBen": "Build endurance",
   "tangSucManh": "Build strength",
+  "targetHours": "Target {hours}",
+  "@targetHours": {
+    "placeholders": {
+      "hours": {}
+    }
+  },
   "targetKcal": "Target {kcal} kcal",
   "@targetKcal": {
     "placeholders": {
@@ -677,6 +700,7 @@
   "themVaoBuaAn": "Add to the meal",
   "theoDoiCalo": "Track calories",
   "theoDoiCaloTieuHao": "Track calories burned",
+  "theoDoiGiacNgu": "Track sleep",
   "theoDoiNuoc": "Track water",
   "thietBiDeo": "wearable",
   "thieuCan": "Underweight",
@@ -792,8 +816,8 @@
   "xoG": "Fibre (g)",
   "xoa": "Delete",
   "xoaCuocTroChuyen": "Delete this conversation?",
-  "xoaDemNay": "Delete this night",
-  "xoaDemNay2": "Delete this night?",
+  "xoaGiacNay": "Delete this sleep",
+  "xoaGiacNay2": "Delete this sleep?",
   "xoaHoatDong": "Delete activity",
   "xoaHoatDong2": "Delete this activity?",
   "xoaKhoanhKhac": "Delete this moment?"
