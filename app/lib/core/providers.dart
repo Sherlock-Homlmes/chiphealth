@@ -126,6 +126,18 @@ final workoutsOnDayProvider =
           ref.watch(trainingRepositoryProvider).feed(from: date, to: date),
     );
 
+/// The progress tab's page load: one call for eight cards.
+final trainingProgressProvider = FutureProvider<TrainingProgress>(
+  (ref) => ref.watch(trainingRepositoryProvider).progress(),
+);
+
+/// The twelve-week chart, per sport chip. A family so switching chips keeps
+/// the weeks already fetched instead of refetching them on the way back.
+final trainingWeeksProvider = FutureProvider.family<WeekSeries, String>(
+  (ref, sport) =>
+      ref.watch(trainingRepositoryProvider).progressWeeks(sport: sport),
+);
+
 final workoutDetailProvider =
     FutureProvider.family<Map<String, dynamic>, String>(
       (ref, id) => ref.watch(trainingRepositoryProvider).detail(id),

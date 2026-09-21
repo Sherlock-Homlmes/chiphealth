@@ -34,6 +34,13 @@ export interface CoachContext {
     weightKg: number | null;
     heightCm: number | null;
     activityLevel: string;
+    /**
+     * What the athlete set as their training focus on the progress tab, with
+     * its meaning spelled out — the code alone ("event_training") tells a
+     * model nothing, and this is the one line that says whether an answer
+     * should push harder or hold back.
+     */
+    trainingFocus: { code: string; meaning: string };
   };
   goals: Array<{ type: string; target: number | null; unit: string | null; deadline: string | null }>;
   conditions: string[];
@@ -53,6 +60,14 @@ export interface CoachContext {
   training7d: { sessions: number; totalMinutes: number; totalKcal: number; types: string[] };
   sleep: { targetHours: number; debtHours: number };
 }
+
+/** Plain-language gloss for each focus code, in the app's source language. */
+const FOCUS_MEANINGS: Record<string, string> = {
+  improve_fitness: 'Nâng cao thể lực — cải thiện tốc độ, sức bền hoặc sức mạnh tổng thể',
+  event_training: 'Tập luyện cho một sự kiện — chuẩn bị cho giải đua hoặc sự kiện sắp diễn ra',
+  stay_active: 'Duy trì vận động — giữ thói quen tập luyện đều đặn hằng tuần',
+  recovery: 'Hồi phục — tập nhẹ, quay lại dần sau thời gian nghỉ',
+};
 
 /**
  * Compact snapshot prepended to every coach turn and stored on the assistant
@@ -135,6 +150,11 @@ export async function buildCoachContext(
       weightKg: metric?.weightKg ?? null,
       heightCm: metric?.heightCm ?? null,
       activityLevel: profile?.activityLevel ?? 'moderate',
+      trainingFocus: {
+        code: profile?.trainingFocus ?? 'stay_active',
+        meaning: FOCUS_MEANINGS[profile?.trainingFocus ?? 'stay_active']
+          ?? FOCUS_MEANINGS.stay_active!,
+      },
     },
     goals: goalRows.map((g) => ({
       type: g.goalType, target: g.targetValue, unit: g.targetUnit, deadline: g.deadline,

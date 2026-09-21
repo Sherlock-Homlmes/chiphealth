@@ -371,6 +371,7 @@ const TOOLS: AgentTool[] = [
         daily_calorie_override_kcal: tdee.inputs.dailyCalorieOverrideKcal ?? null,
         missing_inputs: tdee.missingInputs,
         target_sleep_minutes: me.profile?.targetSleepMinutes ?? null,
+        training_focus: me.profile?.trainingFocus ?? null,
         resting_heart_rate: me.profile?.restingHeartRate ?? null,
         goals: me.activeGoals.map((g) => ({
           type: g.goalType, target: g.targetValue, unit: g.targetUnit,

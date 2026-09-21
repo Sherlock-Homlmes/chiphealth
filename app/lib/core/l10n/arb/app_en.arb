@@ -92,11 +92,13 @@
   "buoiSang": "morning",
   "buoiTap": "Workout",
   "buoiTapMoi": "New workout",
+  "buoiTapTucThi": "Instant workout",
   "buoiToi": "evening",
   "buoiTrua": "midday",
   "caNhan": "Profile",
   "cacBuaAn": "Meals",
   "cacGiacGanDay": "Recent sleeps",
+  "cachTinh": "How this is worked out",
   "caiDat": "Settings",
   "caloCuaCacBuoiTapBan": "Calories from the workouts you log are added to that day, so there is no need to count training in your activity level.",
   "caloDinhDuong": "Calories & nutrition",
@@ -131,6 +133,7 @@
   "chinhSua": "Edit",
   "chinhSuaBuaAn": "Edit meal",
   "chinhSuaHoatDong": "Edit activity",
+  "chinhSuaTrongTam": "Edit focus",
   "chiphealthPhanTichTheNao": "How does ChipHealth work this out?",
   "chiphealthVanDangLangNgheCu": "ChipHealth is still listening — turn the screen off and sleep.",
   "chiphealthVanGhiLoTrinhKhi": "ChipHealth keeps recording your route with the screen off.",
@@ -143,6 +146,7 @@
   "chonNgayBatKy": "Jump to any day",
   "chonNgaySinh": "Pick your date of birth",
   "chonTheoMucDoDiChuyen": "Pick the one that matches your ordinary day (work, getting around), not your workouts:",
+  "chonTrongTam": "Choose a focus",
   "chonTuThuVien": "Choose from library",
   "chuaChoPhepDungCameraMo": "Camera access has not been granted. Open Settings to allow it.",
   "chuaChon": "Not set",
@@ -151,6 +155,7 @@
   "chuaCoCuocTroChuyen": "No conversations yet",
   "chuaCoDuLieu": "No data yet",
   "chuaCoDuLieuChoMa": "No data for this barcode yet",
+  "chuaCoDuLieuNhipTim": "No session carried heart-rate data yet.",
   "chuaCoDuLieuTrongKy": "No data in this period",
   "chuaCoGiacNaoDuocGhi": "No sleep recorded yet.",
   "chuaCoHoatDongNaoBam": "No activities yet — tap + to record your first.",
@@ -158,16 +163,19 @@
   "chuaCoPrNaoTapMot": "No records yet — train a session and they appear on their own.",
   "chuaCoSoLieu": "No figures yet",
   "chuaCoThanhPhanNao": "No components yet.",
+  "chuaCoThanhTichNao": "No best efforts at the standard distances yet.",
   "chuaCoTinNhanNao": "No messages yet.",
   "chuaDatMucTieu": "no goal set",
   "chuaDatMucTieuNaoBam": "No goals yet. Tap + to add one.",
   "chuaDuDuLieuDeTinh": "Not enough data to work out your calorie balance",
+  "chuaDuDuLieuDuDoan": "Needs a run of 1.5 km or more in the last 30 days.",
   "chuaDuocCapQuyenMicro": "Microphone access has not been granted.",
   "chuaGhiBuaNaoNhanDe": "No meals yet. Tap \"+\" to start.",
   "chuaGhiGiacNaoHomNay": "No sleep recorded today.",
   "chuaGhiGiacNaoNgayNay": "No sleep recorded for this day.",
   "chuaLuu2": "unsaved",
   "chuaPhanTichDuocBuaAn": "This meal was not analysed — the server could not be reached.",
+  "chuoiLienTiep": "Streak",
   "chup": "Shoot",
   "chupAnh": "Take a photo",
   "chupAnhChonAnhGoHoac": "Shoot or pick a photo, type or speak — the AI splits out the components",
@@ -260,6 +268,7 @@
   "dinhDuongLuyenTapGiacNgu": "Food, training and sleep — one place, one coach.",
   "doCao": "elevation",
   "doCaoLonNhat": "highest elevation gain",
+  "doCaoTang": "Elevation gain",
   "doanGhiQuaNganBamMic": "That clip was too short — tap the mic, speak, then tap again when you are done.",
   "dobWithAge": "{date} · {age} years old",
   "@dobWithAge": {
@@ -277,12 +286,33 @@
   "doiChieuMucTieuVaBenh": "Checking your goals and conditions…",
   "dong": "Close",
   "dongY": "OK",
+  "duDoanHieuSuat": "Performance prediction",
   "dung": "Stop",
   "dungChoGiaoDienChoNhan": "Used for the interface, for speech recognition and for the AI assistant's replies.",
   "dungKhiBanBietSoCua": "Use this when you know your own figure — from a smartwatch, say, or a dietitian.",
   "dungNghe": "Stop listening",
   "duong": "Sugar",
   "duongG": "Sugar (g)",
+  "durationHourMinute": "{hours}h {minutes}m",
+  "@durationHourMinute": {
+    "placeholders": {
+      "hours": {},
+      "minutes": {}
+    }
+  },
+  "durationMinuteOnly": "{minutes}m",
+  "@durationMinuteOnly": {
+    "placeholders": {
+      "minutes": {}
+    }
+  },
+  "durationMinuteSecond": "{minutes}m {seconds}s",
+  "@durationMinuteSecond": {
+    "placeholders": {
+      "minutes": {},
+      "seconds": {}
+    }
+  },
   "duringStage": "during {stage}",
   "@duringStage": {
     "placeholders": {
@@ -303,6 +333,23 @@
       }
     }
   },
+  "explainLog": "One dot per day, sized by how long you trained that day. This week stops at today; last week shows all seven days.",
+  "explainMainProgress": "Each point is one week's total, weeks starting on Monday. A week with nothing in it is still drawn at zero, so the axis stays evenly spaced. Switching the sport chip changes the chart and the three figures with it.",
+  "explainMonthly": "Training time accumulated day by day. The bold line is this month and stops at today; the thin one is last month, drawn in full for comparison.",
+  "explainPrediction": "Riegel's formula: a time over one distance predicts another, t2 = t1 × (d2/d1)^1.06. Only runs of 1.5 km or more in the last 30 days count. Each point is the best prediction so far, which is why the line only moves the faster way.",
+  "explainRecap": "A wrap of the last month that has finished.",
+  "explainRecords": "Your standing bests at the classic distances, read from each run's distance data. One current record per distance.",
+  "explainStreak": "Consecutive weeks with at least one session, counted backwards. An empty current week does not break the streak — it has not happened yet.",
+  "explainSuggestion": "Sized from your running volume over the last four weeks and how many days you have rested — not from a coaching plan. Trained yesterday means a recovery run; a weekend with enough volume behind it means a long one.",
+  "explainZones": "Time in each heart-rate zone over the last 30 days, against the 30 days before that. There are numbers only when a session carried heart-rate data from a monitor.",
+  "focusEventTraining": "Train for an event",
+  "focusEventTrainingNote": "Prepare for a specific race or event coming up.",
+  "focusImproveFitness": "Improve fitness",
+  "focusImproveFitnessNote": "Build speed, endurance or all-round strength.",
+  "focusRecovery": "Recovery",
+  "focusRecoveryNote": "Wind down, or ease back in after time off.",
+  "focusStayActive": "Stay active",
+  "focusStayActiveNote": "Keep the weekly training habit going.",
   "friendFallbackName": "Friend",
   "ghiBuaAn": "Log a meal",
   "ghiCanNang": "Log weight",
@@ -382,6 +429,7 @@
   "hienTaiKhongBatBuoc": "Current value (optional)",
   "hoanThanh": "Done",
   "hoatDong": "Activity",
+  "hoatDongHangThang": "Monthly activity",
   "hoatDongNayKhongCoLo": "This activity has no GPS route to trim.",
   "hoatDongNaySeBiXoa": "This activity will be deleted for good, along with its route, its splits and any personal record it set.",
   "hoiVeAnUongTapLuyen": "Ask about food, training, sleep…",
@@ -485,6 +533,7 @@
   "moi": "Invite",
   "moiGiacDuocLuuRieng": "A night, an afternoon nap or a doze — each sleep is saved on its own.",
   "mon": "Sport",
+  "monKhac": "Other sports",
   "mucTieu": "Goals",
   "mucTieu1500Ml": "Target 1500 ml",
   "mucTieu2000Ml": "Target 2000 ml",
@@ -494,6 +543,12 @@
   "mucVanDongHangNgay": "Everyday activity level",
   "nGiacTrongNgay": "{count} sleeps this day",
   "@nGiacTrongNgay": {
+    "placeholders": {
+      "count": {}
+    }
+  },
+  "nTuanQua": "Last {count} weeks",
+  "@nTuanQua": {
     "placeholders": {
       "count": {}
     }
@@ -520,6 +575,7 @@
   "nhapGiacNgu": "Enter a night",
   "nhapHoatDong": "Enter an activity",
   "nhapTay": "Enter by hand",
+  "nhatKyTapLuyen": "Training log",
   "nhe": "Light",
   "nhieuChatBeo": "High in fat",
   "nhieuDuong": "High in sugar",
@@ -561,6 +617,13 @@
   "phanGiacNguGiaiDoanVa": "Sleep, stages and clips outside the new times are cut away.",
   "phanTich": "Analyse",
   "phanTichKeoDaiQua5": "The analysis took longer than 5 minutes. Please try again.",
+  "phanTramOVung": "{percent}% in Z{zone}",
+  "@phanTramOVung": {
+    "placeholders": {
+      "percent": {},
+      "zone": {}
+    }
+  },
   "phat": "Play",
   "phienDangNhapHetHanDang": "Your session expired. Sign in again, then post.",
   "phut2": "Minutes",
@@ -639,6 +702,16 @@
   "suaGioNgu": "Edit sleep times",
   "suaThanhPhan": "Edit component",
   "suaTuoiVinamilk180ml": "Vinamilk fresh milk 180 ml",
+  "suggestBaseRun": "Base run",
+  "suggestBaseRunNote": "Weekly volume is still low, so build the base: hold one steady pace and no finishing sprint.",
+  "suggestFirstRun": "First run",
+  "suggestFirstRunNote": "Start easy: run-walk intervals, breathing light enough to talk. Finishing is the goal, not pace.",
+  "suggestLongRun": "Long run",
+  "suggestLongRunNote": "The week's longest, run slower than usual. Carry water past 60 minutes.",
+  "suggestRecoveryRun": "Recovery run",
+  "suggestRecoveryRunNote": "You trained yesterday, so keep the legs moving slowly today. Easy pace, and you should finish feeling fresher.",
+  "suggestTempoRun": "Tempo run",
+  "suggestTempoRunNote": "Run right at the edge of being able to talk and hold it. Ten minutes of warm-up and cool-down either side.",
   "surplusKcal": "{kcal} kcal over",
   "@surplusKcal": {
     "placeholders": {
@@ -679,6 +752,7 @@
     }
   },
   "tatCa": "All",
+  "tatCaCacMonTheThao": "All sports",
   "tatFlash": "Flash off",
   "ten": "Name",
   "tenMon": "Dish name",
@@ -686,7 +760,16 @@
   "tepMediaKhongDocDuoc": "That media file could not be read.",
   "thang": "Month",
   "thangNay": "This month",
+  "thangTruocLa": "Last month: {value}",
+  "@thangTruocLa": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
   "thanhPhan2": "Components",
+  "thanhTichTotNhat": "Best efforts",
   "thayDoi": "CHANGE",
   "them": "Add",
   "themBenhNen": "Add a condition",
@@ -708,6 +791,7 @@
   "thoiGian": "Time",
   "thoiGian2": "time",
   "thoiGianNgu": "time asleep",
+  "thoiGianNhieuNhat": "Most time",
   "thongBaoGiuChoViecGhi": "This notification keeps snoring and sleep-talk recording running all night.",
   "thongTinCaNhan": "About you",
   "thuLai": "Try again",
@@ -742,10 +826,14 @@
   "toiDa": "Max",
   "toiDayRoi": "I am awake",
   "toiQuaMinhNguCoDu": "Did I sleep enough last night?",
+  "tongKetThang": "Month in review",
   "troLyAi": "AI assistant",
+  "trong1ThangQua": "Over the last month",
   "trongMucTieu": "On target",
+  "trongTamCuaBan": "Your focus",
   "truaNayAnHaiBatCom": "Two bowls of rice with braised pork and vegetable soup for lunch",
   "tuNhapSoCalo": "Enter calories myself",
+  "tuTruocDenNay": "All time",
   "tuan": "Week",
   "tuanNay": "This week",
   "tuanNayMinhTapLuyenThe": "How has my training gone this week?",
@@ -765,6 +853,7 @@
   "voiSoLieuCuaBan": "With your figures",
   "vua": "Moderate",
   "vungNhipTim": "Heart-rate zones",
+  "vungTapLuyen": "Training zones",
   "vuotMucTieu": "Over target",
   "waterAddedToday": "Added {added} ml · {total} ml today",
   "@waterAddedToday": {
@@ -812,6 +901,7 @@
   "xemLaiBuaAnVaBuoi": "Looking over your recent meals and workouts…",
   "xemLaiQuaTrinh": "Replay",
   "xemTatCa": "See all",
+  "xemThemTienTrinhCuaBan": "See more of your progress",
   "xemTungAnh": "View photos",
   "xoG": "Fibre (g)",
   "xoa": "Delete",

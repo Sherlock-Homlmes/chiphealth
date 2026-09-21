@@ -10,6 +10,14 @@ export const GOAL_TYPES = [
   'improve_endurance', 'improve_strength', 'sleep_better', 'manage_condition',
 ] as const;
 export const GOAL_STATUSES = ['active', 'completed', 'abandoned'] as const;
+/**
+ * The standing intent behind the training, shown as the first card of the
+ * progress tab. Distinct from `goals`, which are measurable targets: this is
+ * what the athlete is training *for*, and the coach reads it as context.
+ */
+export const TRAINING_FOCUSES = [
+  'improve_fitness', 'event_training', 'stay_active', 'recovery',
+] as const;
 export const BODY_METRIC_SOURCES = ['manual', 'health_sync', 'estimated'] as const;
 export const ACTIVITY_CATEGORIES = [
   'cardio_gps', 'cardio_indoor', 'strength', 'sport', 'mind_body', 'other',
@@ -24,6 +32,7 @@ export const userProfiles = sqliteTable('user_profiles', {
   restingHeartRate: integer('resting_heart_rate'),
   lactateThresholdHr: integer('lactate_threshold_hr'),
   targetSleepMinutes: integer('target_sleep_minutes').notNull().default(480),
+  trainingFocus: text('training_focus', { enum: TRAINING_FOCUSES }).notNull().default('stay_active'),
   bedtimeTarget: text('bedtime_target'),
   waketimeTarget: text('waketime_target'),
   /** Replaces BMR x activity when set; workouts are still added on top. */

@@ -1368,3 +1368,377 @@ class Moment {
     visibility: json['visibility'] as String? ?? 'friends',
   );
 }
+
+/* --------------------------------------------------------- training progress */
+
+/// One chip of the sport row: a sport the athlete actually records, and how
+/// often. The catalogue has forty; this list is only what they use.
+class SportChip {
+  const SportChip({required this.code, required this.sessions});
+
+  final String code;
+  final int sessions;
+
+  factory SportChip.fromJson(Map<String, dynamic> json) => SportChip(
+    code: json['code'] as String? ?? 'other',
+    sessions: _int(json['sessions']),
+  );
+}
+
+/// One point of the twelve-week chart. A week with nothing in it is a zero,
+/// not a missing point — the x axis stays evenly spaced.
+class WeekBucket {
+  const WeekBucket({
+    required this.weekStart,
+    required this.weekEnd,
+    required this.distanceM,
+    required this.movingSeconds,
+    required this.elevationGainM,
+    required this.sessions,
+  });
+
+  final String weekStart;
+  final String weekEnd;
+  final double distanceM;
+  final int movingSeconds;
+  final double elevationGainM;
+  final int sessions;
+
+  factory WeekBucket.fromJson(Map<String, dynamic> json) => WeekBucket(
+    weekStart: json['weekStart'] as String? ?? '',
+    weekEnd: json['weekEnd'] as String? ?? '',
+    distanceM: _dblOr(json['distanceM']),
+    movingSeconds: _int(json['movingSeconds']),
+    elevationGainM: _dblOr(json['elevationGainM']),
+    sessions: _int(json['sessions']),
+  );
+}
+
+class WeekSeries {
+  const WeekSeries({
+    required this.sport,
+    required this.today,
+    required this.weeks,
+  });
+
+  final String sport;
+  final String today;
+  final List<WeekBucket> weeks;
+
+  factory WeekSeries.fromJson(Map<String, dynamic> json) => WeekSeries(
+    sport: json['sport'] as String? ?? 'all',
+    today: json['today'] as String? ?? '',
+    weeks: (json['weeks'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => WeekBucket.fromJson(e.cast<String, dynamic>()))
+        .toList(),
+  );
+}
+
+class LogDay {
+  const LogDay({required this.date, required this.seconds});
+
+  final String date;
+  final int seconds;
+
+  factory LogDay.fromJson(Map<String, dynamic> json) => LogDay(
+    date: json['date'] as String? ?? '',
+    seconds: _int(json['seconds']),
+  );
+}
+
+/// A row of dots in the training-log card. The current week stops at today;
+/// a finished week holds all seven days.
+class LogWeek {
+  const LogWeek({
+    required this.weekStart,
+    required this.days,
+    required this.totalSeconds,
+  });
+
+  final String weekStart;
+  final List<LogDay> days;
+  final int totalSeconds;
+
+  static const empty = LogWeek(weekStart: '', days: [], totalSeconds: 0);
+
+  factory LogWeek.fromJson(Map<String, dynamic> json) => LogWeek(
+    weekStart: json['weekStart'] as String? ?? '',
+    days: (json['days'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => LogDay.fromJson(e.cast<String, dynamic>()))
+        .toList(),
+    totalSeconds: _int(json['totalSeconds']),
+  );
+}
+
+/// The next session the server suggests, sized from the last four weeks. The
+/// name and the description are localized in the app from [code].
+class WorkoutSuggestion {
+  const WorkoutSuggestion({
+    required this.code,
+    required this.distanceM,
+    required this.reason,
+  });
+
+  final String code;
+  final double distanceM;
+  final String reason;
+
+  static const none = WorkoutSuggestion(
+    code: 'first_run',
+    distanceM: 2000,
+    reason: 'no_history',
+  );
+
+  factory WorkoutSuggestion.fromJson(Map<String, dynamic> json) =>
+      WorkoutSuggestion(
+        code: json['code'] as String? ?? 'first_run',
+        distanceM: _dblOr(json['distanceM']),
+        reason: json['reason'] as String? ?? 'no_history',
+      );
+}
+
+class PredictionPoint {
+  const PredictionPoint({required this.date, required this.seconds});
+
+  final String date;
+  final int seconds;
+
+  factory PredictionPoint.fromJson(Map<String, dynamic> json) =>
+      PredictionPoint(
+        date: json['date'] as String? ?? '',
+        seconds: _int(json['seconds']),
+      );
+}
+
+/// Riegel-predicted time for a distance, and how it moved over the month.
+/// [deltaSeconds] is negative when the athlete got faster.
+class RacePrediction {
+  const RacePrediction({
+    required this.distanceM,
+    required this.currentSeconds,
+    required this.baselineSeconds,
+    required this.deltaSeconds,
+    required this.series,
+  });
+
+  final double distanceM;
+  final int currentSeconds;
+  final int baselineSeconds;
+  final int deltaSeconds;
+  final List<PredictionPoint> series;
+
+  factory RacePrediction.fromJson(Map<String, dynamic> json) => RacePrediction(
+    distanceM: _dblOr(json['distanceM'], 5000),
+    currentSeconds: _int(json['currentSeconds']),
+    baselineSeconds: _int(json['baselineSeconds']),
+    deltaSeconds: _int(json['deltaSeconds']),
+    series: (json['series'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => PredictionPoint.fromJson(e.cast<String, dynamic>()))
+        .toList(),
+  );
+}
+
+class ZoneSlice {
+  const ZoneSlice({
+    required this.zone,
+    required this.seconds,
+    required this.percent,
+  });
+
+  final int zone;
+  final int seconds;
+  final int percent;
+
+  factory ZoneSlice.fromJson(Map<String, dynamic> json) => ZoneSlice(
+    zone: _int(json['zone']),
+    seconds: _int(json['seconds']),
+    percent: _int(json['percent']),
+  );
+}
+
+/// Time in heart-rate zone over the last 30 days. Empty — [topZone] null —
+/// whenever no session in the window carried heart-rate data.
+class ZoneBreakdown {
+  const ZoneBreakdown({
+    required this.from,
+    required this.to,
+    required this.totalSeconds,
+    required this.zones,
+    required this.topZone,
+    required this.topPercent,
+    required this.deltaPercent,
+  });
+
+  final String from;
+  final String to;
+  final int totalSeconds;
+  final List<ZoneSlice> zones;
+  final int? topZone;
+  final int topPercent;
+  final int deltaPercent;
+
+  static const empty = ZoneBreakdown(
+    from: '',
+    to: '',
+    totalSeconds: 0,
+    zones: [],
+    topZone: null,
+    topPercent: 0,
+    deltaPercent: 0,
+  );
+
+  factory ZoneBreakdown.fromJson(Map<String, dynamic> json) => ZoneBreakdown(
+    from: json['from'] as String? ?? '',
+    to: json['to'] as String? ?? '',
+    totalSeconds: _int(json['totalSeconds']),
+    zones: (json['zones'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => ZoneSlice.fromJson(e.cast<String, dynamic>()))
+        .toList(),
+    topZone: _intOrNull(json['topZone']),
+    topPercent: _int(json['topPercent']),
+    deltaPercent: _int(json['deltaPercent']),
+  );
+}
+
+/// A standing best over one of the classic distances.
+class BestEffort {
+  const BestEffort({
+    required this.distanceM,
+    required this.seconds,
+    required this.achievedAt,
+    required this.rank,
+  });
+
+  final double distanceM;
+  final int seconds;
+  final int achievedAt;
+  final int rank;
+
+  factory BestEffort.fromJson(Map<String, dynamic> json) => BestEffort(
+    distanceM: _dblOr(json['distanceM']),
+    seconds: _dblOr(json['seconds']).round(),
+    achievedAt: _int(json['achievedAt']),
+    rank: _int(json['rank'], 1),
+  );
+}
+
+/// Time accumulated through a month, one step per day.
+class MonthSeries {
+  const MonthSeries({
+    required this.month,
+    required this.totalSeconds,
+    required this.cumulativeSeconds,
+    required this.daysInMonth,
+  });
+
+  final String month;
+  final int totalSeconds;
+  final List<int> cumulativeSeconds;
+  final int daysInMonth;
+
+  static const empty = MonthSeries(
+    month: '',
+    totalSeconds: 0,
+    cumulativeSeconds: [],
+    daysInMonth: 30,
+  );
+
+  factory MonthSeries.fromJson(Map<String, dynamic> json) => MonthSeries(
+    month: json['month'] as String? ?? '',
+    totalSeconds: _int(json['totalSeconds']),
+    cumulativeSeconds: (json['cumulativeSeconds'] as List? ?? const [])
+        .whereType<num>()
+        .map((e) => e.toInt())
+        .toList(),
+    daysInMonth: _int(json['daysInMonth'], 30),
+  );
+}
+
+/// Everything the progress tab draws except the twelve-week chart, which is
+/// fetched per sport as the chips are tapped.
+class TrainingProgress {
+  const TrainingProgress({
+    required this.today,
+    required this.focus,
+    required this.sports,
+    required this.streakWeeks,
+    required this.thisWeek,
+    required this.lastWeek,
+    required this.suggestion,
+    required this.zones,
+    required this.records,
+    required this.recapMonth,
+    required this.thisMonth,
+    required this.lastMonth,
+    this.prediction,
+  });
+
+  final String today;
+
+  /// `improve_fitness` | `event_training` | `stay_active` | `recovery`.
+  final String focus;
+  final List<SportChip> sports;
+  final int streakWeeks;
+  final LogWeek thisWeek;
+  final LogWeek lastWeek;
+  final WorkoutSuggestion suggestion;
+
+  /// Null until there is a run long enough to extrapolate from.
+  final RacePrediction? prediction;
+  final ZoneBreakdown zones;
+  final List<BestEffort> records;
+
+  /// The last month that has finished, `YYYY-MM`.
+  final String recapMonth;
+  final MonthSeries thisMonth;
+  final MonthSeries lastMonth;
+
+  factory TrainingProgress.fromJson(Map<String, dynamic> json) {
+    final log = (json['log'] as Map?)?.cast<String, dynamic>();
+    final monthly = (json['monthly'] as Map?)?.cast<String, dynamic>();
+    final prediction = (json['prediction'] as Map?)?.cast<String, dynamic>();
+    final suggestion = (json['suggestion'] as Map?)?.cast<String, dynamic>();
+    final zones = (json['zones'] as Map?)?.cast<String, dynamic>();
+    LogWeek week(String key) {
+      final raw = (log?[key] as Map?)?.cast<String, dynamic>();
+      return raw == null ? LogWeek.empty : LogWeek.fromJson(raw);
+    }
+
+    MonthSeries month(String key) {
+      final raw = (monthly?[key] as Map?)?.cast<String, dynamic>();
+      return raw == null ? MonthSeries.empty : MonthSeries.fromJson(raw);
+    }
+
+    return TrainingProgress(
+      today: json['today'] as String? ?? '',
+      focus: json['focus'] as String? ?? 'stay_active',
+      sports: (json['sports'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => SportChip.fromJson(e.cast<String, dynamic>()))
+          .toList(),
+      streakWeeks: _int(json['streakWeeks']),
+      thisWeek: week('thisWeek'),
+      lastWeek: week('lastWeek'),
+      suggestion: suggestion == null
+          ? WorkoutSuggestion.none
+          : WorkoutSuggestion.fromJson(suggestion),
+      prediction: prediction == null
+          ? null
+          : RacePrediction.fromJson(prediction),
+      zones: zones == null
+          ? ZoneBreakdown.empty
+          : ZoneBreakdown.fromJson(zones),
+      records: (json['records'] as List? ?? const [])
+          .whereType<Map>()
+          .map((e) => BestEffort.fromJson(e.cast<String, dynamic>()))
+          .toList(),
+      recapMonth: ((json['monthRecap'] as Map?)?['month'] as String?) ?? '',
+      thisMonth: month('thisMonth'),
+      lastMonth: month('lastMonth'),
+    );
+  }
+}

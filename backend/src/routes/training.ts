@@ -4,12 +4,12 @@ import { z } from 'zod';
 import {
   workoutSessions, workoutStreams, workoutSplits, workoutStrengthSets,
   workoutZoneSummaries, heartRateZones, personalRecords, mediaAssets, activityTypes,
-  workoutPhotos,
+  workoutPhotos, userProfiles,
 } from '../db/schema';
 import { parseBody, parseQuery, paginationSchema, page, isoDateSchema } from '../lib/http';
 import { ApiError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
-import { localDate } from '../lib/time';
+import { localDate, addDays } from '../lib/time';
 import {
   parseSampleStream, normaliseSamples, deriveFromSamples,
   insertZoneSet, zoneSetEffectiveAt, currentZoneSet,
@@ -17,6 +17,11 @@ import {
 import { detectPersonalRecords, dropRecordsForSession } from '../services/personalRecords';
 import { loadTdeeInputs, recomputeDailyNutritionSummary } from '../services/nutritionMath';
 import { insertMany } from '../db/client';
+import {
+  ALL_SPORTS, sportOf, matchesSport, sportChips, weekSeries, streakWeeks, weekLog,
+  predictionSeries, zoneBreakdown, monthOf, previousMonth, monthSeries, suggestWorkout,
+  type ProgressSession,
+} from '../services/trainingProgress';
 import type { AppEnv } from '../env';
 
 const app = new Hono<AppEnv>();
@@ -744,6 +749,156 @@ app.get('/training/records/:metric/history', async (c) => {
     eq(personalRecords.metric, metric as 'max_weight'),
   )).orderBy(asc(personalRecords.achievedAt));
   return c.json({ items: rows });
+});
+
+/* -------------------------------------------------------------------------- */
+/* Progress tab                                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Two endpoints, not nine and not one.
+ *
+ * The chart at the top changes sport whenever a chip is tapped, and only it
+ * does — so it gets its own endpoint that takes the sport and answers with
+ * nothing but the twelve weeks. Everything else on the tab is sport-agnostic
+ * and is read from one scan of the same sessions, so splitting it per card
+ * would mean eight round trips over one dataset. One call fills the page, one
+ * small call follows each chip.
+ */
+
+/** How far back the tab ever looks: a streak can be long, a year of it is enough. */
+const PROGRESS_HISTORY_DAYS = 400;
+
+/** The window the zone and prediction cards call "1 tháng qua". */
+const PROGRESS_MONTH_DAYS = 30;
+
+const progressQuerySchema = z.object({
+  sport: z.string().min(1).max(64).default(ALL_SPORTS),
+  weeks: z.coerce.number().int().min(4).max(52).default(12),
+});
+
+/** Sessions reduced to what the progress maths reads, newest last. */
+async function loadProgressSessions(
+  c: Context<AppEnv>, from: string,
+): Promise<ProgressSession[]> {
+  const db = c.get('db');
+  const rows = await db.select({
+    localDate: workoutSessions.localDate,
+    startedAt: workoutSessions.startedAt,
+    activityTypeId: workoutSessions.activityTypeId,
+    durationSeconds: workoutSessions.durationSeconds,
+    movingSeconds: workoutSessions.movingSeconds,
+    distanceM: workoutSessions.distanceM,
+    elevationGainM: workoutSessions.elevationGainM,
+  }).from(workoutSessions).where(and(
+    eq(workoutSessions.userId, c.get('user').id),
+    eq(workoutSessions.isDeleted, false),
+    gte(workoutSessions.localDate, from),
+  )).orderBy(asc(workoutSessions.startedAt));
+
+  const typeIds = [...new Set(rows.map((r) => r.activityTypeId))];
+  const types = typeIds.length
+    ? await db.select({ id: activityTypes.id, code: activityTypes.code })
+      .from(activityTypes).where(inArray(activityTypes.id, typeIds))
+    : [];
+  const codeById = new Map(types.map((t) => [t.id, t.code]));
+
+  return rows.map((r) => {
+    const code = codeById.get(r.activityTypeId) ?? 'other';
+    return {
+      localDate: r.localDate,
+      startedAt: r.startedAt,
+      activityCode: code,
+      sport: sportOf(code),
+      // Moving time is what a pace is measured against; elapsed is the fallback
+      // for a manually typed session, which has no moving figure at all.
+      movingSeconds: r.movingSeconds ?? r.durationSeconds ?? 0,
+      distanceM: r.distanceM ?? 0,
+      elevationGainM: r.elevationGainM ?? 0,
+    };
+  });
+}
+
+app.get('/training/progress/weeks', async (c) => {
+  const q = parseQuery(c, progressQuerySchema);
+  const today = localDate(Date.now(), c.get('user').timezone);
+  const from = addDays(today, -(q.weeks + 1) * 7);
+  const sessions = (await loadProgressSessions(c, from))
+    .filter((s) => matchesSport(q.sport, s.activityCode));
+  return c.json({
+    sport: q.sport,
+    today,
+    weeks: weekSeries(sessions, today, q.weeks),
+  });
+});
+
+app.get('/training/progress', async (c) => {
+  const db = c.get('db');
+  const userId = c.get('user').id;
+  const today = localDate(Date.now(), c.get('user').timezone);
+  const monthStart = `${monthOf(today)}-01`;
+  const lastMonth = previousMonth(monthOf(today));
+  const zoneFrom = addDays(today, -(PROGRESS_MONTH_DAYS - 1));
+  const zonePreviousFrom = addDays(zoneFrom, -PROGRESS_MONTH_DAYS);
+
+  /** Time in zone over a window, joined through the sessions that own it. */
+  const zonesBetween = (from: string, to: string) => db.select({
+    zone: workoutZoneSummaries.zoneNumber,
+    seconds: workoutZoneSummaries.secondsInZone,
+  }).from(workoutZoneSummaries)
+    .innerJoin(workoutSessions, eq(workoutSessions.id, workoutZoneSummaries.workoutSessionId))
+    .where(and(
+      eq(workoutSessions.userId, userId),
+      eq(workoutSessions.isDeleted, false),
+      gte(workoutSessions.localDate, from),
+      lte(workoutSessions.localDate, to),
+    ));
+
+  const [sessions, profileRows, recordRows, zonesNow, zonesBefore] = await Promise.all([
+    loadProgressSessions(c, addDays(today, -PROGRESS_HISTORY_DAYS)),
+    db.select({ trainingFocus: userProfiles.trainingFocus }).from(userProfiles)
+      .where(eq(userProfiles.userId, userId)).limit(1),
+    db.select().from(personalRecords).where(and(
+      eq(personalRecords.userId, userId),
+      eq(personalRecords.metric, 'fastest_distance'),
+      eq(personalRecords.isCurrent, true),
+    )).orderBy(desc(personalRecords.distanceM)).limit(3),
+    zonesBetween(zoneFrom, today),
+    zonesBetween(zonePreviousFrom, addDays(zoneFrom, -1)),
+  ]);
+
+  const monthWindow = sessions.filter((s) => s.localDate >= zoneFrom);
+
+  return c.json({
+    today,
+    focus: profileRows[0]?.trainingFocus ?? 'stay_active',
+    sports: sportChips(sessions.filter((s) => s.localDate >= addDays(today, -12 * 7))),
+    streakWeeks: streakWeeks(sessions, today),
+    log: weekLog(sessions, today),
+    suggestion: suggestWorkout(sessions, today),
+    prediction: predictionSeries(monthWindow),
+    zones: {
+      from: zoneFrom,
+      to: today,
+      ...zoneBreakdown(zonesNow, zonesBefore),
+    },
+    records: recordRows.map((r) => ({
+      distanceM: r.distanceM,
+      seconds: r.value,
+      achievedAt: r.achievedAt,
+      // Every row here is the standing best for its distance, so nothing on
+      // this card is ranked below first. The field exists because the card
+      // draws a medal, and a medal needs a place.
+      rank: 1,
+    })),
+    monthRecap: { month: lastMonth },
+    monthly: {
+      thisMonth: monthSeries(sessions.filter((s) => s.localDate >= monthStart), monthOf(today), today),
+      lastMonth: monthSeries(
+        sessions.filter((s) => monthOf(s.localDate) === lastMonth), lastMonth,
+      ),
+    },
+  });
 });
 
 export default app;

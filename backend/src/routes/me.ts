@@ -41,6 +41,7 @@ const me = new Hono<AppEnv>();
 
 const SEX = ['male', 'female'] as const;
 const ACTIVITY_LEVELS = ['sedentary', 'light', 'moderate', 'active', 'very_active'] as const;
+const TRAINING_FOCUSES = ['improve_fitness', 'event_training', 'stay_active', 'recovery'] as const;
 const GOAL_TYPES = [
   'lose_weight', 'gain_weight', 'gain_muscle', 'reduce_body_fat',
   'improve_endurance', 'improve_strength', 'sleep_better', 'manage_condition',
@@ -200,6 +201,7 @@ const profileSchema = z.object({
   restingHeartRate: z.number().int().min(25).max(140).nullable().optional(),
   lactateThresholdHr: z.number().int().min(80).max(230).nullable().optional(),
   targetSleepMinutes: z.number().int().min(180).max(900).optional(),
+  trainingFocus: z.enum(TRAINING_FOCUSES).optional(),
   bedtimeTarget: hhmm.nullable().optional(),
   waketimeTarget: hhmm.nullable().optional(),
   dailyCalorieOverrideKcal: z.number().min(800).max(6000).nullable().optional(),
@@ -241,6 +243,7 @@ me.put('/profile', async (c) => {
       ? { lactateThresholdHr: body.lactateThresholdHr } : {}),
     ...(body.targetSleepMinutes !== undefined
       ? { targetSleepMinutes: body.targetSleepMinutes } : {}),
+    ...(body.trainingFocus !== undefined ? { trainingFocus: body.trainingFocus } : {}),
     ...(body.bedtimeTarget !== undefined ? { bedtimeTarget: body.bedtimeTarget } : {}),
     ...(body.waketimeTarget !== undefined ? { waketimeTarget: body.waketimeTarget } : {}),
     ...(body.dailyCalorieOverrideKcal !== undefined

@@ -9,6 +9,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
+import 'progress_tab.dart';
 import 'route_map.dart';
 import 'workout_photos.dart';
 import '../../core/l10n/gen/app_localizations.dart';
@@ -46,6 +47,43 @@ class TrainingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Progress first, and the tab the screen opens on: what the training is
+    // adding up to is the question this screen is opened with, and the feed is
+    // one tap away for the session someone is looking for.
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(AppL10n.of(context).hoatDong),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: AppL10n.of(context).tienTrinh),
+              Tab(text: AppL10n.of(context).hoatDong),
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          tooltip: AppL10n.of(context).ghiHoatDongMoi,
+          onPressed: () => _chooseEntry(context),
+          backgroundColor: RetroTokens.accent,
+          foregroundColor: Colors.white,
+          child: const Icon(Icons.add),
+        ),
+        body: const TabBarView(
+          children: [TrainingProgressTab(), _ActivityFeed()],
+        ),
+      ),
+    );
+  }
+}
+
+/// The feed tab: personal records across the top, then every session, newest
+/// first — the screen this one used to be before the progress tab joined it.
+class _ActivityFeed extends ConsumerWidget {
+  const _ActivityFeed();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final feed = ref.watch(workoutFeedProvider);
     final records = ref.watch(personalRecordsProvider);
     final units = Units(ref.watch(unitSystemProvider));
@@ -57,75 +95,65 @@ class TrainingScreen extends ConsumerWidget {
         t.id: t,
     };
 
-    return Scaffold(
-      appBar: AppBar(title: Text(AppL10n.of(context).hoatDong)),
-      floatingActionButton: FloatingActionButton(
-        tooltip: AppL10n.of(context).ghiHoatDongMoi,
-        onPressed: () => _chooseEntry(context),
-        backgroundColor: RetroTokens.accent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
-      ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(workoutFeedProvider);
-          ref.invalidate(personalRecordsProvider);
-        },
-        child: PhoneFrame(
-          child: ListView(
-            children: [
-              SectionTitle(AppL10n.of(context).kyLucCaNhan),
-              SizedBox(
-                // Tall enough for a two-word caption under the value; 96 clipped it.
-                height: 108,
-                child: asyncBody(
-                  records,
-                  emptyWhen: (list) => list.isEmpty,
-                  emptyText: AppL10n.of(context).chuaCoPrNaoTapMot,
-                  data: (list) => ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: list.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (_, i) {
-                      final pr = list[i];
-                      return SizedBox(
-                        width: 160,
-                        child: StatTile(
-                          value: _prValue(pr.metric, pr.value, units),
-                          label: _prLabel(context, pr.metric, pr.distanceM),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              SectionTitle(AppL10n.of(context).hoatDong),
-              asyncBody(
-                feed,
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(workoutFeedProvider);
+        ref.invalidate(personalRecordsProvider);
+      },
+      child: PhoneFrame(
+        child: ListView(
+          children: [
+            SectionTitle(AppL10n.of(context).kyLucCaNhan),
+            SizedBox(
+              // Tall enough for a two-word caption under the value; 96 clipped it.
+              height: 108,
+              child: asyncBody(
+                records,
                 emptyWhen: (list) => list.isEmpty,
-                emptyText: AppL10n.of(context).chuaCoHoatDongNaoBam,
-                onRetry: () => ref.invalidate(workoutFeedProvider),
-                data: (list) => Column(
-                  // Without this the cards size to their text and the feed looks ragged.
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final session in list)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: ActivityCard(
-                          session: session,
-                          type: types[session.activityTypeId],
-                          user: user,
-                          units: units,
-                        ),
+                emptyText: AppL10n.of(context).chuaCoPrNaoTapMot,
+                data: (list) => ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (_, i) {
+                    final pr = list[i];
+                    return SizedBox(
+                      width: 160,
+                      child: StatTile(
+                        value: _prValue(pr.metric, pr.value, units),
+                        label: _prLabel(context, pr.metric, pr.distanceM),
                       ),
-                    const SizedBox(height: 96),
-                  ],
+                    );
+                  },
                 ),
               ),
-            ],
-          ),
+            ),
+            SectionTitle(AppL10n.of(context).hoatDong),
+            asyncBody(
+              feed,
+              emptyWhen: (list) => list.isEmpty,
+              emptyText: AppL10n.of(context).chuaCoHoatDongNaoBam,
+              onRetry: () => ref.invalidate(workoutFeedProvider),
+              data: (list) => Column(
+                // Without this the cards size to their text and the feed looks ragged.
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final session in list)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: ActivityCard(
+                        session: session,
+                        type: types[session.activityTypeId],
+                        user: user,
+                        units: units,
+                      ),
+                    ),
+                  const SizedBox(height: 96),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

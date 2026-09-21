@@ -25,6 +25,11 @@ import { parseBody } from '../src/lib/http';
 import { ApiError } from '../src/lib/errors';
 import { insertMany, D1_MAX_BOUND_PARAMS } from '../src/db/client';
 import { localDateTimeToEpoch } from '../src/lib/time';
+import {
+  weekStartOf, weekSeries, streakWeeks, weekLog, riegelSeconds, predictionSeries,
+  zoneBreakdown, monthSeries, previousMonth, daysInMonth, suggestWorkout, sportChips,
+  sportOf, matchesSport, type ProgressSession,
+} from '../src/services/trainingProgress';
 import { PROMPTS, renderPrompt, promptSections } from '../src/prompts';
 import { matchesInjectionPattern, leaksSystemPrompt, normaliseInput } from '../src/services/agent/guard';
 import { cleanReply, parseCompletion, promisesConfirmCard } from '../src/services/agent/agent';
@@ -498,6 +503,107 @@ console.log('\n# local wall-clock to instant');
   check('UTC is identity', localDateTimeToEpoch('2026-01-01', '00:00', 'UTC'), Date.UTC(2026, 0, 1));
   check('New York in summer is UTC-4',
     localDateTimeToEpoch('2026-07-01', '08:00', 'America/New_York'), Date.UTC(2026, 6, 1, 12, 0));
+}
+
+console.log('\n# training progress');
+{
+  const run = (localDate: string, km: number, minutes: number, code = 'running'): ProgressSession => ({
+    localDate,
+    startedAt: Date.parse(`${localDate}T06:00:00Z`),
+    activityCode: code,
+    sport: sportOf(code),
+    movingSeconds: minutes * 60,
+    distanceM: km * 1000,
+    elevationGainM: 0,
+  });
+
+  check('a Monday is its own week start', weekStartOf('2026-09-21'), '2026-09-21');
+  check('a Sunday belongs to the week that opened six days earlier',
+    weekStartOf('2026-09-20'), '2026-09-14');
+
+  const twelve = weekSeries([run('2026-09-21', 2.49, 23), run('2026-09-16', 5, 30)], '2026-09-21');
+  check('twelve weeks are always drawn', twelve.length, 12);
+  check('the last bucket is the current week', twelve[11]!.weekStart, '2026-09-21');
+  check('a week with nothing in it is a zero, not a gap',
+    [twelve[0]!.distanceM, twelve[0]!.sessions], [0, 0]);
+  check('sessions land in the week they happened',
+    [twelve[11]!.distanceM, twelve[10]!.distanceM], [2490, 5000]);
+
+  // An empty current week must not read as a broken streak: it has not
+  // happened yet.
+  const streakRuns = ['2026-09-14', '2026-09-08', '2026-09-01'].map((d) => run(d, 5, 30));
+  check('an empty current week keeps counting from last week',
+    streakWeeks(streakRuns, '2026-09-21'), 3);
+  check('a run this week extends the streak',
+    streakWeeks([...streakRuns, run('2026-09-21', 2, 12)], '2026-09-21'), 4);
+  check('a missed week ends the streak',
+    streakWeeks([run('2026-09-14', 5, 30), run('2026-08-31', 5, 30)], '2026-09-21'), 1);
+
+  const log = weekLog([run('2026-09-21', 2.49, 23), run('2026-09-16', 6, 82)], '2026-09-21');
+  check('this week stops at today', log.thisWeek.days.length, 1);
+  check('last week has all seven days', log.lastWeek.days.length, 7);
+  check('the totals are the moving time of each week',
+    [log.thisWeek.totalSeconds, log.lastWeek.totalSeconds], [23 * 60, 82 * 60]);
+
+  // Riegel: 10 km in 50:00 predicts 5 km in a little over 24 minutes.
+  near('Riegel scales a 10 km time down to 5 km',
+    riegelSeconds(3000, 10000, 5000), 1440, 15);
+  check('Riegel refuses a nonsense input', riegelSeconds(0, 10000, 5000), 0);
+
+  const prediction = predictionSeries([
+    run('2026-09-01', 5, 38),
+    run('2026-09-10', 5, 36),
+    run('2026-09-18', 5, 35),
+    run('2026-09-19', 0.8, 4),      // too short to extrapolate from
+    run('2026-09-20', 4, 40, 'walking'),
+  ]);
+  check('only qualifying runs make a point', prediction!.series.length, 3);
+  check('the curve is a personal best, so it only improves',
+    prediction!.series.map((p) => p.seconds).every((s, i, a) => i === 0 || s <= a[i - 1]!), true);
+  check('the delta is negative when the athlete got faster',
+    prediction!.deltaSeconds < 0, true);
+  check('no running history means no prediction',
+    predictionSeries([run('2026-09-18', 4, 40, 'walking')]), null);
+
+  const zones = zoneBreakdown(
+    [{ zone: 3, seconds: 290 }, { zone: 2, seconds: 210 }, { zone: 4, seconds: 500 }],
+    [{ zone: 4, seconds: 100 }, { zone: 3, seconds: 100 }],
+  );
+  check('the busiest zone wins the headline', [zones.topZone, zones.topPercent], [4, 50]);
+  check('the delta compares the same zone against the period before',
+    zones.deltaPercent, 0);
+  check('six zones are always returned', zones.zones.length, 6);
+  check('no heart-rate data is zero, not a crash',
+    [zoneBreakdown([]).topZone, zoneBreakdown([]).totalSeconds], [null, 0]);
+
+  check('previous month crosses the new year', previousMonth('2026-01'), '2025-12');
+  check('February 2028 is a leap month', daysInMonth('2028-02'), 29);
+
+  const month = monthSeries(
+    [run('2026-09-02', 5, 30), run('2026-09-05', 5, 45)], '2026-09', '2026-09-06',
+  );
+  check('the running month stops at today', month.cumulativeSeconds.length, 6);
+  check('the series accumulates',
+    month.cumulativeSeconds, [0, 1800, 1800, 1800, 4500, 4500]);
+  check('the month still reports how many days it has', month.daysInMonth, 30);
+
+  check('no history suggests a first run',
+    suggestWorkout([], '2026-09-21').code, 'first_run');
+  check('a run yesterday suggests recovery',
+    suggestWorkout([run('2026-09-20', 8, 48)], '2026-09-21').code, 'recovery_run');
+  check('a small weekly volume is still building',
+    suggestWorkout([run('2026-09-10', 6, 36)], '2026-09-21').code, 'base_run');
+
+  const chips = sportChips([
+    run('2026-09-01', 5, 30), run('2026-09-02', 5, 30),
+    run('2026-09-03', 3, 40, 'walking'), run('2026-09-04', 0, 60, 'gym_strength'),
+  ]);
+  check('chips are ordered by how much the athlete does them',
+    chips.map((c) => c.code), ['running', 'gym_strength', 'walking']);
+  check('the all chip matches everything', matchesSport('all', 'gym_strength'), true);
+  check('a sport chip matches only itself', matchesSport('running', 'walking'), false);
+  check('a treadmill session is running', sportOf('treadmill'), 'run');
+  check('a hike is a walk', sportOf('hiking'), 'walk');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

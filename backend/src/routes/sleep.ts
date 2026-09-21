@@ -202,12 +202,41 @@ app.get('/sessions', async (c) => {
   const filters = [eq(sleepSessions.userId, c.get('user').id)];
   if (q.from) filters.push(gte(sleepSessions.localDate, q.from));
   if (q.to) filters.push(lte(sleepSessions.localDate, q.to));
-  if (q.cursor) filters.push(sql`${sleepSessions.id} < ${q.cursor}`);
+  // Newest sleep first, by when it *started*. The id is a UUIDv7 minted when
+  // the recording was uploaded, so ordering by it put a night typed in this
+  // morning above the nap that actually came after it, and a day with a nap
+  // and a night read in the wrong order. The id stays in the sort as the
+  // tiebreak, which is what keeps the keyset cursor below unambiguous.
+  if (q.cursor) {
+    const [cursorStart, cursorId] = splitSleepCursor(q.cursor);
+    filters.push(sql`(${sleepSessions.startedAt} < ${cursorStart}
+      or (${sleepSessions.startedAt} = ${cursorStart} and ${sleepSessions.id} < ${cursorId}))`);
+  }
 
   const rows = await c.get('db').select().from(sleepSessions)
-    .where(and(...filters)).orderBy(desc(sleepSessions.id)).limit(q.limit + 1);
-  return c.json(page(rows, q.limit));
+    .where(and(...filters))
+    .orderBy(desc(sleepSessions.startedAt), desc(sleepSessions.id))
+    .limit(q.limit + 1);
+
+  const hasMore = rows.length > q.limit;
+  const items = hasMore ? rows.slice(0, q.limit) : rows;
+  const last = items[items.length - 1];
+  return c.json({
+    items,
+    nextCursor: hasMore && last ? `${last.startedAt}.${last.id}` : null,
+  });
 });
+
+/**
+ * `<startedAt>.<id>`, the keyset the list pages on. An old client's plain id
+ * cursor still parses — it just pages from the top, which is the safe way to
+ * be wrong: the page repeats rows rather than skipping them.
+ */
+function splitSleepCursor(cursor: string): [number, string] {
+  const dot = cursor.indexOf('.');
+  if (dot === -1) return [Number.MAX_SAFE_INTEGER, cursor];
+  return [Number(cursor.slice(0, dot)) || 0, cursor.slice(dot + 1)];
+}
 
 async function ownedSession(db: AppEnv['Variables']['db'], userId: string, id: string) {
   const rows = await db.select().from(sleepSessions)

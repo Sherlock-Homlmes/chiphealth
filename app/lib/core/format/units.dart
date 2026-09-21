@@ -39,6 +39,18 @@ class Units {
         : '${_n1.format(meters / 1000)} km';
   }
 
+  /// Two decimals, written in the reader's own number format — "2,49 km" for
+  /// a Vietnamese reader, "2.49 km" for an English one. [distance] rounds to
+  /// one decimal, which is right for a feed card and too coarse for a figure
+  /// the progress chart is being read against.
+  String distanceExact(double? meters, String languageCode) {
+    if (meters == null) return '—';
+    final format = NumberFormat('#,##0.00', languageCode);
+    return isImperial
+        ? '${format.format(meters / 1609.344)} mi'
+        : '${format.format(meters / 1000)} km';
+  }
+
   /// Pace is stored per kilometre; imperial users think per mile.
   String pace(double? secPerKm) {
     if (secPerKm == null || secPerKm <= 0) return '—';

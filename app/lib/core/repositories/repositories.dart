@@ -580,6 +580,24 @@ class TrainingRepository {
     await _api.get<dynamic>('/v1/training/records'),
   ).map(PersonalRecord.fromJson).toList();
 
+  /// Everything the progress tab draws except the twelve-week chart.
+  Future<TrainingProgress> progress() async => TrainingProgress.fromJson(
+    (await _api.get<dynamic>('/v1/training/progress') as Map)
+        .cast<String, dynamic>(),
+  );
+
+  /// The twelve-week chart for one sport — `all`, or an activity type code.
+  /// Its own call because it is the only thing on the tab a chip changes.
+  Future<WeekSeries> progressWeeks({String sport = 'all'}) async =>
+      WeekSeries.fromJson(
+        (await _api.get<dynamic>(
+                  '/v1/training/progress/weeks',
+                  query: {'sport': sport},
+                )
+                as Map)
+            .cast<String, dynamic>(),
+      );
+
   Future<List<HrZone>> zones() async {
     final data = (await _api.get<dynamic>('/v1/training/zones') as Map)
         .cast<String, dynamic>();
