@@ -13,6 +13,8 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'audio/night_analyzer.dart';
+import 'sleep_review_screen.dart';
+import 'sleep_screen.dart';
 import 'audio/sleep_classifier_factory.dart';
 import '../../core/l10n/gen/app_localizations.dart';
 
@@ -255,7 +257,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
         eventJson = result.events.map((e) => e.toJson()).toList();
       }
 
-      await ref
+      final session = await ref
           .read(sleepRepositoryProvider)
           .upload(
             source: 'phone_mic',
@@ -266,7 +268,18 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
             audioRecordingEnabled: analyzer != null,
           );
       ref.invalidate(sleepDebtProvider);
-      if (mounted) Navigator.of(context).pop();
+      // The list the user lands back on has to show the night they just
+      // finished, not the one before it.
+      ref.invalidate(sleepSessionsProvider);
+      if (!mounted) return;
+      // The night is saved either way; the review is the chance to name it
+      // and say something about it, and replaces this screen so the recorder
+      // is not sitting behind it.
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => SleepReviewScreen(session: session),
+        ),
+      );
     } catch (err) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -302,57 +315,70 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
             '${analyzer.coughCount}',
           );
 
-    return Scaffold(
-      backgroundColor: RetroTokens.ink,
-      body: SafeArea(
-        child: PhoneFrame(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: RetroTokens.paper),
-                    onPressed: () => Navigator.of(context).pop(),
+    // Once the night is running there is no way out but "Tôi dậy rồi": a
+    // stray back swipe at 3am would throw the whole recording away, and the
+    // system back gesture is exactly the kind of thing a sleeping hand finds.
+    return PopScope(
+      canPop: !running && !_saving,
+      child: Scaffold(
+        backgroundColor: RetroTokens.ink,
+        body: SafeArea(
+          child: PhoneFrame(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // No "×" while recording — see the PopScope above.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: running
+                        ? const SizedBox(height: 48)
+                        : IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: RetroTokens.paper,
+                            ),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
                   ),
-                ),
-                const Spacer(),
-                Center(
-                  child: Column(
-                    children: [
-                      Text(
-                        running
-                            ? Units.duration(_elapsed.inSeconds)
-                            : AppL10n.of(context).sanSang,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: RetroTokens.paper,
-                          fontSize: 48,
+                  const Spacer(),
+                  Center(
+                    child: Column(
+                      children: [
+                        Text(
+                          running
+                              ? Units.duration(_elapsed.inSeconds)
+                              : AppL10n.of(context).sanSang,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                color: RetroTokens.paper,
+                                fontSize: 48,
+                              ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        status,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: RetroTokens.inkFaint),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        Text(
+                          status,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: RetroTokens.inkFaint),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: _saving ? null : (running ? _stop : _start),
-                  child: Text(
-                    _saving
-                        ? AppL10n.of(context).dangLuu
-                        : (running
-                              ? AppL10n.of(context).toiDayRoi
-                              : AppL10n.of(context).batDauGhi),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: _saving ? null : (running ? _stop : _start),
+                    child: Text(
+                      _saving
+                          ? AppL10n.of(context).dangLuu
+                          : (running
+                                ? AppL10n.of(context).toiDayRoi
+                                : AppL10n.of(context).batDauGhi),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),

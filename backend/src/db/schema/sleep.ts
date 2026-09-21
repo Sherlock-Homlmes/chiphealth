@@ -1,4 +1,6 @@
-import { sqliteTable, text, integer, real, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable, text, integer, real, index, uniqueIndex, primaryKey, check,
+} from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 import { pkUuid, ts, tsNow, bool } from './_shared';
 import { users, mediaAssets } from './core';
@@ -31,10 +33,15 @@ export const sleepSessions = sqliteTable('sleep_sessions', {
   /** 1 when stages came from phone mic/motion instead of a wearable. */
   stagesAreEstimated: bool('stages_are_estimated', false),
   audioRecordingEnabled: bool('audio_recording_enabled', false),
+  /** What the user called the night, and anything they wanted to say about it. */
+  title: text('title'),
+  notes: text('notes'),
   createdAt: tsNow('created_at'),
   updatedAt: tsNow('updated_at'),
 }, (t) => [
   uniqueIndex('sleep_sessions_user_date_uq').on(t.userId, t.localDate),
+  // Listed newest-id first per user; the date unique index cannot serve that.
+  index('sleep_sessions_user_id_idx').on(t.userId, t.id),
   uniqueIndex('sleep_sessions_external_uq').on(t.source, t.externalId),
   check('sleep_sessions_source_ck', sql`${t.source} in ('health_sync','phone_mic','manual')`),
 ]);
@@ -70,9 +77,17 @@ export const sleepAudioEvents = sqliteTable('sleep_audio_events', {
   transcript: text('transcript'),
   /** Denormalized from the hypnogram for quick filtering. */
   stageAtEvent: text('stage_at_event', { enum: SLEEP_STAGES }),
+  /**
+   * When the user hid this event. The row and its clip stay: the clip is
+   * evidence about their own night and the classification is training data,
+   * so "xoá" here means "stop showing me this".
+   */
+  deletedAt: ts('deleted_at'),
   createdAt: tsNow('created_at'),
 }, (t) => [
   index('sleep_audio_events_idx').on(t.sleepSessionId, t.occurredAt),
+  index('sleep_audio_events_live_idx')
+    .on(t.sleepSessionId, t.deletedAt, t.occurredAt),
 ]);
 
 /** Fixed personal target, accumulated over a 14-day rolling window. */
@@ -105,4 +120,17 @@ export const sleepReminders = sqliteTable('sleep_reminders', {
   updatedAt: tsNow('updated_at'),
 }, (t) => [
   index('sleep_reminders_user_idx').on(t.userId, t.isEnabled),
+]);
+
+/** Photos attached to a night, ordered the way the user arranged them. */
+export const sleepPhotos = sqliteTable('sleep_photos', {
+  sleepSessionId: text('sleep_session_id').notNull()
+    .references(() => sleepSessions.id, { onDelete: 'cascade' }),
+  assetId: text('asset_id').notNull().references(() => mediaAssets.id),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: tsNow('created_at'),
+}, (t) => [
+  primaryKey({ columns: [t.sleepSessionId, t.assetId] }),
+  index('sleep_photos_order_idx').on(t.sleepSessionId, t.sortOrder),
+  index('sleep_photos_asset_idx').on(t.assetId),
 ]);

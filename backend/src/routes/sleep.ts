@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
-import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
-  sleepSessions, sleepStageSegments, sleepAudioEvents, sleepReminders, mediaAssets,
+  sleepSessions, sleepStageSegments, sleepAudioEvents, sleepReminders, sleepPhotos,
+  mediaAssets,
 } from '../db/schema';
 import { parseBody, parseQuery, paginationSchema, page, isoDateSchema } from '../lib/http';
 import { ApiError, notFound } from '../lib/errors';
@@ -199,20 +200,87 @@ async function ownedSession(db: AppEnv['Variables']['db'], userId: string, id: s
   return session;
 }
 
+/**
+ * Full-replace, the same semantics as the workout photo strip: the client
+ * sends the ordered list it wants. An asset only counts as unreferenced once
+ * this night has let go of it, so the orphan sweep runs last.
+ */
+async function setSleepPhotos(
+  db: AppEnv['Variables']['db'], userId: string, sessionId: string, ids: string[],
+) {
+  const unique = [...new Set(ids)];
+  const previous = (await db.select({ assetId: sleepPhotos.assetId })
+    .from(sleepPhotos).where(eq(sleepPhotos.sleepSessionId, sessionId)))
+    .map((r) => r.assetId);
+  const added = unique.filter((id) => !previous.includes(id));
+
+  if (added.length > 0) {
+    const assets = await db.select().from(mediaAssets)
+      .where(and(inArray(mediaAssets.id, added), eq(mediaAssets.userId, userId)));
+    if (assets.length !== added.length) throw notFound('Photo asset');
+    // Photos are uploaded as 'meal_photo': media_assets' kind CHECK cannot be
+    // widened on D1, and that kind already gives images-only, owner-only reads.
+    if (assets.some((a) => a.kind !== 'meal_photo')) {
+      throw new ApiError('VALIDATION_ERROR', 'Only photo assets can be attached');
+    }
+  }
+
+  await db.delete(sleepPhotos).where(eq(sleepPhotos.sleepSessionId, sessionId));
+  if (unique.length > 0) {
+    await insertMany(
+      (chunk) => db.insert(sleepPhotos).values(chunk),
+      unique.map((assetId, sortOrder) => ({
+        sleepSessionId: sessionId,
+        assetId,
+        sortOrder,
+        createdAt: Date.now(),
+      })),
+    );
+    await db.update(mediaAssets).set({ isOrphan: false })
+      .where(inArray(mediaAssets.id, unique));
+  }
+
+  const removed = previous.filter((id) => !unique.includes(id));
+  if (removed.length > 0) {
+    const stillLinked = (await db.select({ assetId: sleepPhotos.assetId })
+      .from(sleepPhotos).where(inArray(sleepPhotos.assetId, removed)))
+      .map((r) => r.assetId);
+    const loose = removed.filter((id) => !stillLinked.includes(id));
+    if (loose.length > 0) {
+      await db.update(mediaAssets).set({ isOrphan: true })
+        .where(inArray(mediaAssets.id, loose));
+    }
+  }
+}
+
+async function photosFor(
+  db: AppEnv['Variables']['db'], sessionId: string,
+): Promise<string[]> {
+  const rows = await db.select({ assetId: sleepPhotos.assetId })
+    .from(sleepPhotos)
+    .where(eq(sleepPhotos.sleepSessionId, sessionId))
+    .orderBy(asc(sleepPhotos.sortOrder));
+  return rows.map((r) => r.assetId);
+}
+
 app.get('/sessions/:id', async (c) => {
   const db = c.get('db');
   const session = await ownedSession(db, c.get('user').id, c.req.param('id'));
 
-  const [stages, events] = await Promise.all([
+  const [stages, events, photoAssetIds] = await Promise.all([
     db.select().from(sleepStageSegments)
       .where(eq(sleepStageSegments.sleepSessionId, session.id))
       .orderBy(asc(sleepStageSegments.startedAt)),
     db.select().from(sleepAudioEvents)
-      .where(eq(sleepAudioEvents.sleepSessionId, session.id))
+      .where(and(
+        eq(sleepAudioEvents.sleepSessionId, session.id),
+        isNull(sleepAudioEvents.deletedAt),
+      ))
       .orderBy(asc(sleepAudioEvents.occurredAt)),
+    photosFor(db, session.id),
   ]);
 
-  return c.json({ ...session, stages, events });
+  return c.json({ ...session, stages, events, photoAssetIds });
 });
 
 /**
@@ -224,6 +292,9 @@ app.patch('/sessions/:id', async (c) => {
   const body = await parseBody(c, z.object({
     startedAt: z.number().int().positive().optional(),
     endedAt: z.number().int().positive().optional(),
+    title: z.string().max(200).nullish(),
+    notes: z.string().max(2000).nullish(),
+    photoAssetIds: z.array(z.string().uuid()).max(5).optional(),
   }));
   const db = c.get('db');
   const user = c.get('user');
@@ -293,8 +364,14 @@ app.patch('/sessions/:id', async (c) => {
     remSeconds: totals.rem,
     sleepEfficiency: efficiency,
     sleepScore: sleepScore(totals, totalSleep, efficiency),
+    ...(body.title !== undefined ? { title: body.title?.trim() || null } : {}),
+    ...(body.notes !== undefined ? { notes: body.notes?.trim() || null } : {}),
     updatedAt: Date.now(),
   }).where(eq(sleepSessions.id, session.id));
+
+  if (body.photoAssetIds !== undefined) {
+    await setSleepPhotos(db, user.id, session.id, body.photoAssetIds);
+  }
 
   await recomputeSleepDebt(db, c.env, user.id, day);
   if (day !== oldDay) await recomputeSleepDebt(db, c.env, user.id, oldDay);
@@ -334,6 +411,31 @@ app.get('/debt', async (c) => {
   const user = c.get('user');
   const day = q.date ?? localDate(Date.now(), user.timezone);
   return c.json(await sleepDebtFor(c.get('db'), c.env, user.id, day));
+});
+
+/**
+ * Hides one event from the night. Soft: the row and its clip stay, because the
+ * clip is a recording of the user's own night and the label on it is training
+ * data — what the user is asking for is to stop being shown it.
+ */
+app.delete('/events/:id', async (c) => {
+  const db = c.get('db');
+  const eventId = Number(c.req.param('id'));
+
+  const rows = await db.select({ id: sleepAudioEvents.id })
+    .from(sleepAudioEvents)
+    .innerJoin(sleepSessions, eq(sleepAudioEvents.sleepSessionId, sleepSessions.id))
+    .where(and(
+      eq(sleepAudioEvents.id, eventId),
+      eq(sleepSessions.userId, c.get('user').id),
+    ))
+    .limit(1);
+  if (!rows[0]) throw notFound('Sleep event');
+
+  await db.update(sleepAudioEvents)
+    .set({ deletedAt: Date.now() })
+    .where(eq(sleepAudioEvents.id, eventId));
+  return c.body(null, 204);
 });
 
 /** Sleep-talk clips only; the clip itself is kept forever either way. */

@@ -900,6 +900,9 @@ class SleepSession {
     this.stagesAreEstimated = false,
     this.stages = const [],
     this.events = const [],
+    this.title,
+    this.notes,
+    this.photoAssetIds = const [],
   });
 
   final String id;
@@ -918,6 +921,11 @@ class SleepSession {
   final List<SleepStageSegment> stages;
   final List<SleepAudioEvent> events;
 
+  /// What the user called the night, and anything they wrote about it.
+  final String? title;
+  final String? notes;
+  final List<String> photoAssetIds;
+
   factory SleepSession.fromJson(Map<String, dynamic> json) => SleepSession(
     id: json['id'] as String,
     source: json['source'] as String? ?? 'phone_mic',
@@ -932,6 +940,11 @@ class SleepSession {
     sleepScore: _intOrNull(json['sleepScore']),
     sleepEfficiency: _dbl(json['sleepEfficiency']),
     stagesAreEstimated: _bool(json['stagesAreEstimated']),
+    title: json['title'] as String?,
+    notes: json['notes'] as String?,
+    photoAssetIds:
+        (json['photoAssetIds'] as List?)?.whereType<String>().toList() ??
+        const [],
     stages:
         (json['stages'] as List?)
             ?.whereType<Map>()

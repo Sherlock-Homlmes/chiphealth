@@ -38,6 +38,15 @@ class _ChipHealthAppState extends ConsumerState<ChipHealthApp> {
       debugShowCheckedModeBanner: false,
       theme: buildRetroTheme(),
       routerConfig: router,
+      // One rule for every text field in the app: a tap anywhere that is not
+      // itself interactive dismisses the keyboard. Without it a field keeps
+      // focus (and the keyboard keeps half the screen) until something else
+      // takes it.
+      builder: (context, child) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: child,
+      ),
       locale: Locale(locale == 'en' ? 'en' : 'vi'),
       supportedLocales: const [Locale('vi'), Locale('en')],
       localizationsDelegates: const [

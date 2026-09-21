@@ -92,8 +92,9 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
       _cameras = const [];
     }
     if (_cameras.isEmpty) {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = AppL10n.of(context).khongTimThayCamera);
+      }
       return;
     }
     // The back camera first, like the system camera app.

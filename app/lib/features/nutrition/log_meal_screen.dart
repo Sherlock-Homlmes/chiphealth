@@ -10,7 +10,6 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
-import '../../core/format/units.dart';
 import '../../core/providers.dart';
 import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
@@ -42,10 +41,6 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
 
   Uint8List? _photo;
 
-  /// When the meal was eaten. Defaults to now, because that is the usual case,
-  /// but a meal typed up hours later belongs to the hour it was eaten — both
-  /// for the diary and for the meal type guessed from it.
-  DateTime _at = DateTime.now();
   bool _picking = false;
   bool _recording = false;
   bool _transcribing = false;
@@ -62,53 +57,12 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     super.dispose();
   }
 
-  /// From the chosen hour, not the clock: a dinner logged at midnight is still
-  /// dinner. The user can change it on the detail screen either way.
   String _guessMealType() {
-    final hour = _at.hour;
+    final hour = DateTime.now().hour;
     if (hour < 10) return 'breakfast';
     if (hour < 15) return 'lunch';
     if (hour < 21) return 'dinner';
     return 'snack';
-  }
-
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _at,
-      // A meal is logged after it is eaten, so the future is not a date it can
-      // land on; a year back is more history than the diary needs.
-      firstDate: DateTime(now.year - 1),
-      lastDate: now,
-      helpText: AppL10n.of(context).ngayAn,
-      cancelText: AppL10n.of(context).huy,
-      confirmText: AppL10n.of(context).chon,
-    );
-    if (picked == null) return;
-    setState(() {
-      _at = DateTime(
-        picked.year,
-        picked.month,
-        picked.day,
-        _at.hour,
-        _at.minute,
-      );
-    });
-  }
-
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(_at),
-      helpText: AppL10n.of(context).gioAn,
-      cancelText: AppL10n.of(context).huy,
-      confirmText: AppL10n.of(context).chon,
-    );
-    if (picked == null) return;
-    setState(() {
-      _at = DateTime(_at.year, _at.month, _at.day, picked.hour, picked.minute);
-    });
   }
 
   /// Shutter or library — the same picker either way, so the photo lands in
@@ -251,7 +205,6 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
           mealType: _guessMealType(),
           photoAssetId: assetId,
           note: text.isEmpty ? null : text,
-          loggedAt: _at.millisecondsSinceEpoch,
         );
         // A failure to *start* the analysis is not a failure to log the meal:
         // the row exists either way, so the detail screen is opened regardless
@@ -266,10 +219,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
         return;
       }
 
-      final meal = await repo.createMeal(
-        mealType: _guessMealType(),
-        loggedAt: _at.millisecondsSinceEpoch,
-      );
+      final meal = await repo.createMeal(mealType: _guessMealType());
       await repo.logSpoken(meal.id, transcript: text);
       ref.invalidate(dailyNutritionProvider);
       if (mounted) context.pushReplacement('/meals/${meal.id}');
@@ -283,47 +233,36 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
   Widget _photoPanel() {
     final photo = _photo;
     if (photo != null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: AspectRatio(
-              aspectRatio: 4 / 3,
-              child: Image.memory(photo, fit: BoxFit.cover),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+      // One control, on the photo itself: clearing it brings back the
+      // shoot/library pair, so a separate "chụp lại" and "đổi ảnh" were two
+      // buttons for a thing the "×" already does.
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: AspectRatio(
+          aspectRatio: 4 / 3,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _pickPhoto(ImageSource.camera),
-                  icon: const Icon(Icons.photo_camera, size: 18),
-                  label: Text(AppL10n.of(context).chupLai),
+              Image.memory(photo, fit: BoxFit.cover),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Material(
+                  color: Colors.black45,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    tooltip: AppL10n.of(context).boAnh,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _busy
+                        ? null
+                        : () => setState(() => _photo = null),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _busy
-                      ? null
-                      : () => _pickPhoto(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library_outlined, size: 18),
-                  label: Text(AppL10n.of(context).doiAnh),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: AppL10n.of(context).boAnh,
-                onPressed: _busy ? null : () => setState(() => _photo = null),
-                icon: const Icon(Icons.close, color: RetroTokens.accent),
               ),
             ],
           ),
-        ],
+        ),
       );
     }
 
@@ -393,36 +332,6 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     );
   }
 
-  /// When it was eaten. Two buttons rather than a single field: the date is
-  /// almost always today and the time almost never now, so they are tapped at
-  /// very different rates.
-  Widget _whenRow() => Row(
-    children: [
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: _busy ? null : _pickDate,
-          icon: const Icon(Icons.event, size: 18),
-          label: Text(
-            Units.dayHeading(
-              context,
-              '${_at.year.toString().padLeft(4, '0')}-'
-              '${_at.month.toString().padLeft(2, '0')}-'
-              '${_at.day.toString().padLeft(2, '0')}',
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(
-        child: OutlinedButton.icon(
-          onPressed: _busy ? null : _pickTime,
-          icon: const Icon(Icons.schedule, size: 18),
-          label: Text(Units.timeOfDay(_at.millisecondsSinceEpoch)),
-        ),
-      ),
-    ],
-  );
-
   Widget _micButton() {
     if (_transcribing) {
       return const Padding(
@@ -466,9 +375,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             _photoPanel(),
-            const SizedBox(height: 14),
-            _whenRow(),
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
             TextField(
               controller: _typed,
               maxLines: 4,

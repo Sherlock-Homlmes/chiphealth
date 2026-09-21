@@ -19,8 +19,9 @@ class MealHealthScore {
 
   static MealHealthScore of(BuildContext context, MealLog meal) {
     final kcal = meal.totalCaloriesKcal;
-    if (kcal <= 0)
+    if (kcal <= 0) {
       return MealHealthScore(0, [AppL10n.of(context).chuaCoSoLieu]);
+    }
 
     final reasons = <(double, String)>[];
     var score = 10.0;

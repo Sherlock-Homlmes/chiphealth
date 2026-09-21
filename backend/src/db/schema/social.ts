@@ -36,6 +36,8 @@ export const momentPosts = sqliteTable('moment_posts', {
   deletedAt: ts('deleted_at'),
 }, (t) => [
   index('moment_posts_user_created_idx').on(t.userId, t.createdAt),
+  // The feed: these authors, not deleted, newest first.
+  index('moment_posts_feed_idx').on(t.userId, t.deletedAt, t.id),
 ]);
 
 export const momentReactions = sqliteTable('moment_reactions', {

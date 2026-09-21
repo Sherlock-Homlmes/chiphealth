@@ -18,34 +18,95 @@ final sleepSessionsProvider = FutureProvider<List<SleepSession>>(
 class SleepScreen extends ConsumerWidget {
   const SleepScreen({super.key});
 
+  /// The "+" sheet: record tonight, or type a night that has already been
+  /// slept. Both refresh the list on the way back.
+  Future<void> _logNight(BuildContext context, WidgetRef ref) async {
+    final recordTonight = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: RetroTokens.paperRaised,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      constraints: const BoxConstraints(maxWidth: 400),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              height: 4,
+              width: 40,
+              decoration: BoxDecoration(
+                color: RetroTokens.paperSunk,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.bedtime, color: RetroTokens.ink),
+              title: Text(
+                AppL10n.of(context).ghiDemNay,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                AppL10n.of(context).datMayGanGiuongCamSac,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
+              onTap: () => Navigator.pop(sheetContext, true),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_note, color: RetroTokens.ink),
+              title: Text(
+                AppL10n.of(context).nhapGiacNgu,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                AppL10n.of(context).moiBuoiSangChiCoMot,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: RetroTokens.inkSoft,
+                ),
+              ),
+              onTap: () => Navigator.pop(sheetContext, false),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (recordTonight == null || !context.mounted) return;
+
+    // rootNavigator: the recorder owns the whole screen for the night, and a
+    // tab bar under it is both a distraction and a way out of a recording
+    // that must not be abandoned by accident.
+    await Navigator.of(context, rootNavigator: true).push(
+      MaterialPageRoute<void>(
+        builder: (_) => recordTonight
+            ? const NightRecorderScreen()
+            : const ManualSleepScreen(),
+      ),
+    );
+    ref.invalidate(sleepDebtProvider);
+    ref.invalidate(sleepSessionsProvider);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final debt = ref.watch(sleepDebtProvider);
     final sessions = ref.watch(sleepSessionsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppL10n.of(context).giacNgu),
-        actions: [
-          IconButton(
-            tooltip: AppL10n.of(context).nhapTay,
-            icon: const Icon(Icons.edit_note),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => const ManualSleepScreen(),
-              ),
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const NightRecorderScreen()),
-        ),
+      appBar: AppBar(title: Text(AppL10n.of(context).giacNgu)),
+      // One "+" like every other screen; the two ways to log a night live
+      // behind it rather than one in the corner and one on a wide button.
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _logNight(context, ref),
         backgroundColor: RetroTokens.accent,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.bedtime),
-        label: Text(AppL10n.of(context).ghiDemNay),
+        child: const Icon(Icons.add, size: 30),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -492,6 +553,72 @@ class _StageLegend extends StatelessWidget {
   }
 }
 
+/// Long-press menu on one sound event. Hidden, not destroyed: the clip is a
+/// recording of the user's own night and the label on it is what the
+/// classifier is judged against, so "xoá" here means "stop showing me this".
+Future<void> _hideEvent(
+  BuildContext context,
+  WidgetRef ref,
+  String sessionId,
+  SleepAudioEvent event,
+) async {
+  final l10n = AppL10n.of(context);
+  final confirmed = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: RetroTokens.paperRaised,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    constraints: const BoxConstraints(maxWidth: 400),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          ListTile(
+            leading: const Icon(
+              Icons.delete_outline,
+              color: RetroTokens.accent,
+            ),
+            title: Text(
+              l10n.xoa,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: RetroTokens.accent,
+              ),
+            ),
+            subtitle: Text(
+              '${_eventLabel(sheetContext, event.eventType)} · '
+              '${Units.timeOfDay(event.occurredAt)}',
+              style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
+            ),
+            onTap: () => Navigator.pop(sheetContext, true),
+          ),
+          ListTile(
+            leading: const Icon(Icons.close, color: RetroTokens.inkSoft),
+            title: Text(l10n.thoi),
+            onTap: () => Navigator.pop(sheetContext, false),
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+  if (confirmed != true) return;
+
+  try {
+    await ref.read(sleepRepositoryProvider).hideAudioEvent(event.id);
+    ref.invalidate(sleepSessionProvider(sessionId));
+    ref.invalidate(sleepSessionsProvider);
+  } catch (err) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('$err')));
+    }
+  }
+}
+
 class _NightDetail extends ConsumerWidget {
   const _NightDetail({required this.sessionId});
 
@@ -593,44 +720,50 @@ class _NightDetail extends ConsumerWidget {
               for (final event in n.events)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                  child: RetroBox(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${_eventLabel(context, event.eventType)} · '
-                                '${Units.timeOfDay(event.occurredAt)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              if (event.transcript != null)
+                  // Long-press is the only way to hide one of these: a tap is
+                  // already spoken for by the play button, and a delete that
+                  // sits on screen next to it invites the wrong one.
+                  child: GestureDetector(
+                    onLongPress: () => _hideEvent(context, ref, n.id, event),
+                    child: RetroBox(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  '“${event.transcript}”',
+                                  '${_eventLabel(context, event.eventType)} · '
+                                  '${Units.timeOfDay(event.occurredAt)}',
                                   style: const TextStyle(
-                                    fontSize: 12,
-                                    color: RetroTokens.inkSoft,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              if (event.stageAtEvent != null)
-                                Text(
-                                  AppL10n.of(
-                                    context,
-                                  ).duringStage('${event.stageAtEvent}'),
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: RetroTokens.inkFaint,
+                                if (event.transcript != null)
+                                  Text(
+                                    '“${event.transcript}”',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: RetroTokens.inkSoft,
+                                    ),
                                   ),
-                                ),
-                            ],
+                                if (event.stageAtEvent != null)
+                                  Text(
+                                    AppL10n.of(
+                                      context,
+                                    ).duringStage('${event.stageAtEvent}'),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: RetroTokens.inkFaint,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                        if (event.audioAssetId != null)
-                          ClipPlayButton(assetId: event.audioAssetId!),
-                      ],
+                          if (event.audioAssetId != null)
+                            ClipPlayButton(assetId: event.audioAssetId!),
+                        ],
+                      ),
                     ),
                   ),
                 ),

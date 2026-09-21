@@ -182,6 +182,8 @@ export const mealLogs = sqliteTable('meal_logs', {
   updatedAt: tsNow('updated_at'),
 }, (t) => [
   index('meal_logs_user_date_idx').on(t.userId, t.localDate),
+  // How the diary actually pages: newest eaten first, id breaking ties.
+  index('meal_logs_user_logged_idx').on(t.userId, t.loggedAt, t.id),
   check('meal_logs_type_ck', sql`${t.mealType} in ('breakfast','lunch','dinner','snack')`),
 ]);
 
@@ -208,6 +210,9 @@ export const mealAiAnalyses = sqliteTable('meal_ai_analyses', {
   completedAt: ts('completed_at'),
 }, (t) => [
   index('meal_ai_analyses_meal_idx').on(t.mealLogId),
+  index('meal_ai_analyses_latest_idx').on(t.mealLogId, t.id),
+  // The 15-minute sweeper: runs still open, and old.
+  index('meal_ai_analyses_open_idx').on(t.status, t.createdAt),
 ]);
 
 /**

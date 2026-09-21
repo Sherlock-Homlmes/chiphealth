@@ -14,6 +14,7 @@ import '../../widgets/retro_widgets.dart';
 import '../../widgets/unsaved_changes_bar.dart';
 import 'meal_health_score.dart';
 import 'meal_photo.dart';
+import 'meal_timeline.dart';
 import 'moment_compose_dialog.dart';
 import '../../core/l10n/gen/app_localizations.dart';
 
@@ -438,6 +439,22 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   Widget build(BuildContext context) {
     final meal = _meal;
 
+    return PopScope(
+      // The diary and the day card are refreshed as this screen leaves rather
+      // than by whoever pushed it. A meal reached here through
+      // pushReplacement (the "ghi bữa ăn" flow) resolves that caller's future
+      // the moment the route is swapped, long before the analysis lands, so
+      // the caller's own reload ran against the un-analysed row.
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) return;
+        ref.invalidate(dailyNutritionProvider);
+        ref.read(mealTimelineProvider.notifier).refresh();
+      },
+      child: _scaffold(meal),
+    );
+  }
+
+  Widget _scaffold(MealLog? meal) {
     return Scaffold(
       backgroundColor: RetroTokens.paper,
       body: SafeArea(

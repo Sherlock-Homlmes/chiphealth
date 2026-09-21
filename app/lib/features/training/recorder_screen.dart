@@ -451,9 +451,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     // away: it asks, like the "Huỷ bài" button.
     return PopScope(
       canPop: !_running && !_reviewing,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && !_saving) _discard();
-      },
+      // A blocked back does nothing at all. Once the session is running,
+      // leaving it is a decision made with the "×" on screen, not something
+      // a back gesture can do by accident mid-run.
+      onPopInvokedWithResult: (didPop, _) {},
       child: Scaffold(
         appBar: AppBar(
           title: Text(

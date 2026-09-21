@@ -24,6 +24,10 @@ class ClipPlayButton extends ConsumerStatefulWidget {
   ConsumerState<ClipPlayButton> createState() => _ClipPlayButtonState();
 }
 
+/// Whichever clip is sounding right now. Two clips playing over each other is
+/// never what the tap meant, so starting one stops the last.
+_ClipPlayButtonState? _sounding;
+
 class _ClipPlayButtonState extends ConsumerState<ClipPlayButton> {
   AudioPlayer? _player;
   StreamSubscription<PlayerState>? _state;
@@ -32,17 +36,29 @@ class _ClipPlayButtonState extends ConsumerState<ClipPlayButton> {
 
   @override
   void dispose() {
+    if (identical(_sounding, this)) _sounding = null;
     _state?.cancel();
     _player?.dispose();
     super.dispose();
+  }
+
+  Future<void> _stop() async {
+    await _player?.stop();
+    if (mounted && _playing) setState(() => _playing = false);
   }
 
   Future<void> _toggle() async {
     final player = _player;
     if (_playing && player != null) {
       await player.stop();
+      if (identical(_sounding, this)) _sounding = null;
       return;
     }
+    // Hand the floor over before this one starts making noise.
+    final previous = _sounding;
+    if (previous != null && !identical(previous, this)) await previous._stop();
+    _sounding = this;
+
     setState(() => _loading = true);
     try {
       final p = player ?? await _load();

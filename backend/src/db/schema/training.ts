@@ -43,6 +43,8 @@ export const workoutSessions = sqliteTable('workout_sessions', {
   updatedAt: tsNow('updated_at'),
 }, (t) => [
   index('workout_sessions_user_started_idx').on(t.userId, t.startedAt),
+  // How the feed pages: newest id first, per user, live sessions only.
+  index('workout_sessions_user_id_idx').on(t.userId, t.isDeleted, t.id),
   uniqueIndex('workout_sessions_external_uq').on(t.source, t.externalId),
   check('workout_sessions_source_ck', sql`${t.source} in ('in_app','health_sync','manual_entry')`),
 ]);
@@ -62,6 +64,8 @@ export const workoutPhotos = sqliteTable('workout_photos', {
 }, (t) => [
   primaryKey({ columns: [t.workoutSessionId, t.assetId] }),
   index('workout_photos_order_idx').on(t.workoutSessionId, t.sortOrder),
+  // "Is this asset still referenced?", asked on every detach.
+  index('workout_photos_asset_idx').on(t.assetId),
 ]);
 
 /**
@@ -178,4 +182,7 @@ export const personalRecords = sqliteTable('personal_records', {
   createdAt: tsNow('created_at'),
 }, (t) => [
   index('personal_records_user_current_idx').on(t.userId, t.isCurrent),
+  // Deleting a workout has to find what it set; nothing cascades from here.
+  index('personal_records_session_idx').on(t.workoutSessionId),
+  index('personal_records_set_idx').on(t.strengthSetId),
 ]);

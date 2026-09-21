@@ -636,17 +636,33 @@ class SleepRepository {
   );
 
   /// Moves bedtime / wake-up; whatever falls outside is cut from the night.
+  /// Also carries what the morning review collected — the name, the note and
+  /// the photos — since all of it lands on the same row.
   Future<void> updateSession(
     String id, {
     required int startedAt,
     required int endedAt,
+    String? title,
+    String? notes,
+    List<String>? photoAssetIds,
   }) => _api.patch<dynamic>(
     '/v1/sleep/sessions/$id',
-    body: {'startedAt': startedAt, 'endedAt': endedAt},
+    body: {
+      'startedAt': startedAt,
+      'endedAt': endedAt,
+      if (title != null) 'title': title,
+      if (notes != null) 'notes': notes,
+      if (photoAssetIds != null) 'photoAssetIds': photoAssetIds,
+    },
   );
 
   Future<void> deleteSession(String id) =>
       _api.delete<dynamic>('/v1/sleep/sessions/$id');
+
+  /// Hides one snore / sleep-talk event. Soft on the server: the row and its
+  /// clip stay, they just stop being listed.
+  Future<void> hideAudioEvent(int eventId) =>
+      _api.delete<dynamic>('/v1/sleep/events/$eventId');
 
   Future<SleepDebt> debt([String? date]) async {
     final data = await _api.get<dynamic>(
