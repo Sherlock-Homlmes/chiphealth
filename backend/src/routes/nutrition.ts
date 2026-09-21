@@ -852,6 +852,12 @@ app.get('/nutrition/daily', async (c) => {
     // for every ingredient of every meal.
     meals: await summariseMeals(db, meals),
     energy,
+    // The day's fluid from food. Hand-logged water lives on the phone, so this
+    // is the only half the server can report — and the half every caller that
+    // does not walk the meal list was missing. Same field as /nutrition/range.
+    waterFromMealsMl: Math.round(
+      meals.reduce((sum, m) => sum + (m.totalWaterMl ?? 0), 0),
+    ),
   });
 });
 

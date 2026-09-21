@@ -184,9 +184,21 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   const context = await buildCoachContext(db, env, user.id, tz);
   timings.contextMs = Date.now() - mark;
   const canary = `CH-${crypto.randomUUID().slice(0, 8)}`;
-  const device = input.device.waterMlToday == null ? {} : {
-    water_today_ml: input.device.waterMlToday,
+  // Fluid comes from two places: what the user tapped into the water card,
+  // which only the phone knows and only arrives if the app sent it, and what
+  // the food carried, which the server has. The total is spelled out here
+  // rather than left as two numbers in two different blocks for the model to
+  // add up — it was reading the hand-logged half as the whole day.
+  const waterFromMeals = context.today.waterFromMealsMl;
+  const waterLogged = input.device.waterMlToday ?? null;
+  const device = {
+    water_logged_today_ml: waterLogged,
+    water_from_meals_today_ml: waterFromMeals,
+    water_total_today_ml: waterFromMeals + (waterLogged ?? 0),
     water_target_ml: input.device.waterTargetMl ?? null,
+    ...(waterLogged === null
+      ? { note: 'Ứng dụng chưa gửi lượng nước tự ghi; water_total_today_ml chỉ gồm nước từ thức ăn.' }
+      : {}),
   };
 
   // What the assistant already knows about this person, permanent facts first

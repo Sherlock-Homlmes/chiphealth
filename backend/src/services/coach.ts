@@ -23,6 +23,8 @@ export interface CoachContextMeal {
   at: string;
   dish: string | null;
   kcal: number | null;
+  /** Fluid the meal itself carried, in ml — the broth, the drink, the rice. */
+  waterMl: number | null;
   items: number;
   analysis: string | null;
 }
@@ -56,6 +58,13 @@ export interface CoachContext {
      * consumedKcal next to it — instead of calling get_day_summary.
      */
     meals: CoachContextMeal[];
+    /**
+     * Fluid from food, in ml, summed over the day's meals. Hand-logged water
+     * lives on the phone and arrives separately (device_json); without this
+     * half the assistant was answering "bạn mới uống 500 ml" to someone who
+     * had just had two bowls of phở.
+     */
+    waterFromMealsMl: number;
   };
   training7d: { sessions: number; totalMinutes: number; totalKcal: number; types: string[] };
   sleep: { targetHours: number; debtHours: number };
@@ -170,9 +179,14 @@ export async function buildCoachContext(
         at: localTime(m.loggedAt, timezone),
         dish: m.dishName,
         kcal: m.totalCaloriesKcal == null ? null : Math.round(m.totalCaloriesKcal),
+        waterMl: m.totalWaterMl == null ? null : Math.round(m.totalWaterMl),
         items: itemsByMeal.get(m.id) ?? 0,
         analysis: analysisByMeal.get(m.id) ?? null,
       })),
+      // Meals with nothing to say about fluid carry null, which adds nothing.
+      waterFromMealsMl: Math.round(
+        dayMeals.reduce((sum, m) => sum + (m.totalWaterMl ?? 0), 0),
+      ),
     },
     training7d: {
       sessions: sessionRows.length,

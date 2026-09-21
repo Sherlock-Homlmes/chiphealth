@@ -390,8 +390,10 @@ const TOOLS: AgentTool[] = [
     async run(ctx, { date: day }) {
       const tz = ctx.user.timezone;
       const [daily, workouts, sleep, types] = await Promise.all([
-        api<{ summary: Row | null; meals: MealRow[]; energy: Row }>(
-          ctx, 'GET', `/v1/nutrition/daily?${q({ date: day })}`),
+        api<{
+          summary: Row | null; meals: MealRow[]; energy: Row;
+          waterFromMealsMl?: number;
+        }>(ctx, 'GET', `/v1/nutrition/daily?${q({ date: day })}`),
         api<{ items: WorkoutRow[] }>(ctx, 'GET', `/v1/workouts?${q({ from: day, to: day })}`),
         api<{ items: SleepRow[] }>(ctx, 'GET', `/v1/sleep/sessions?${q({ from: day, to: day })}`),
         activityTypes(ctx),
@@ -406,6 +408,10 @@ const TOOLS: AgentTool[] = [
           workout_kcal: r0(s?.caloriesBurnedWorkoutKcal ?? 0),
           tdee_kcal: r0(daily.energy?.tdeeKcal ?? s?.tdeeKcal),
           balance_kcal: r0(s?.calorieBalanceKcal),
+          // Fluid the food carried. Hand-logged water is not stored on the
+          // server; the turn's device block has it, and the day's total is the
+          // two added together.
+          water_from_meals_ml: r0(daily.waterFromMealsMl ?? 0),
         },
         meals: daily.meals.map((m) => mealBrief(m, tz)),
         workouts: workouts.items.map((w) => workoutBrief(w, types, tz)),
@@ -428,6 +434,7 @@ const TOOLS: AgentTool[] = [
           workout_kcal: r0(d.caloriesBurnedWorkoutKcal),
           tdee_kcal: r0(d.tdeeKcal),
           balance_kcal: r0(d.calorieBalanceKcal),
+          water_from_meals_ml: r0(d.waterFromMealsMl),
           meals: d.mealsLogged,
         })),
         note: 'Ngày không có trong danh sách = chưa ghi gì.',
