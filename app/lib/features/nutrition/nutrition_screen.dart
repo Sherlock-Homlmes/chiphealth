@@ -17,6 +17,7 @@ import 'barcode_scan_screen.dart';
 import 'log_meal_sheet.dart';
 import 'meal_photo.dart';
 import 'meal_timeline.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 class NutritionScreen extends ConsumerStatefulWidget {
   const NutritionScreen({super.key});
@@ -74,7 +75,9 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            'Đã thêm $added ml · hôm nay ${ref.read(waterProvider(date))} ml',
+            AppL10n.of(
+              context,
+            ).waterAddedToday('$added', '${ref.read(waterProvider(date))}'),
           ),
         ),
       );
@@ -96,7 +99,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     ref.watch(waterProvider(DateRange.iso(DateTime.now())));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dinh dưỡng')),
+      appBar: AppBar(title: Text(AppL10n.of(context).dinhDuong)),
       floatingActionButton: FloatingActionButton(
         // The work all happens on the screen the "+" opens, so nothing here
         // has a busy state to show.
@@ -165,7 +168,7 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
               OutlinedButton(
                 onPressed: () =>
                     ref.read(mealTimelineProvider.notifier).refresh(),
-                child: const Text('Thử lại'),
+                child: Text(AppL10n.of(context).thuLai),
               ),
             ],
           ),
@@ -174,12 +177,12 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
     }
 
     if (days.isEmpty) {
-      return const [
+      return [
         Padding(
           padding: EdgeInsets.all(32),
           child: Center(
             child: Text(
-              'Chưa ghi bữa nào. Nhấn "+" để bắt đầu.',
+              AppL10n.of(context).chuaGhiBuaNaoNhanDe,
               style: TextStyle(color: RetroTokens.inkFaint),
             ),
           ),
@@ -205,11 +208,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
           ),
         )
       else if (!timeline.hasMore)
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(vertical: 20),
           child: Center(
             child: Text(
-              'Hết rồi.',
+              AppL10n.of(context).hetRoi,
               style: TextStyle(color: RetroTokens.inkFaint, fontSize: 12),
             ),
           ),
@@ -262,10 +265,12 @@ class _TodayCard extends ConsumerWidget {
           const SizedBox(height: 6),
           Text(
             d.balanceKcal == null
-                ? 'Chưa đủ dữ liệu để tính cân bằng calo'
+                ? AppL10n.of(context).chuaDuDuLieuDeTinh
                 : d.isDeficit
-                ? 'Thâm hụt ${d.balanceKcal!.abs().round()} kcal'
-                : 'Vượt ${d.balanceKcal!.round()} kcal',
+                ? AppL10n.of(
+                    context,
+                  ).deficitKcal('${d.balanceKcal!.abs().round()}')
+                : AppL10n.of(context).surplusKcal('${d.balanceKcal!.round()}'),
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: d.isDeficit ? RetroTokens.ok : RetroTokens.warn,
@@ -279,7 +284,7 @@ class _TodayCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: MacroBar(
-                  label: 'Tinh bột',
+                  label: AppL10n.of(context).tinhBot,
                   value: d.carbsG,
                   target: targets.carbsG,
                   unit: 'g',
@@ -289,7 +294,7 @@ class _TodayCard extends ConsumerWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: MacroBar(
-                  label: 'Chất đạm',
+                  label: AppL10n.of(context).chatDam,
                   value: d.proteinG,
                   target: targets.proteinG,
                   unit: 'g',
@@ -299,7 +304,7 @@ class _TodayCard extends ConsumerWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: MacroBar(
-                  label: 'Chất béo',
+                  label: AppL10n.of(context).chatBeo,
                   value: d.fatG,
                   target: targets.fatG,
                   unit: 'g',
@@ -317,7 +322,7 @@ class _TodayCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: MacroBar(
-                  label: 'Đường',
+                  label: AppL10n.of(context).duong,
                   value: d.sugarG,
                   target: targets.sugarG,
                   unit: 'g',
@@ -337,7 +342,7 @@ class _TodayCard extends ConsumerWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: MacroBar(
-                  label: 'Chất xơ',
+                  label: AppL10n.of(context).chatXo,
                   value: d.fiberG,
                   target: targets.fiberG,
                   unit: 'g',
@@ -355,7 +360,7 @@ class _TodayCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: MacroBar(
-                  label: 'Nước',
+                  label: AppL10n.of(context).nuoc,
                   value: (drunk + fromMeals).toDouble(),
                   target: waterTarget.toDouble(),
                   unit: 'ml',
@@ -399,7 +404,7 @@ class _DayHeading extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              Units.dayHeading(day.date),
+              Units.dayHeading(context, day.date),
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
@@ -408,7 +413,9 @@ class _DayHeading extends StatelessWidget {
             ),
           ),
           Text(
-            '${day.meals.length} bữa · ${Units.kcal(day.totalKcal)}',
+            AppL10n.of(
+              context,
+            ).mealsAndKcal('${day.meals.length}', Units.kcal(day.totalKcal)),
             style: const TextStyle(color: RetroTokens.inkFaint, fontSize: 12),
           ),
         ],
@@ -429,9 +436,9 @@ class _MealTile extends StatelessWidget {
     // is, and repeating it on the line below would say nothing.
     final dish = meal.dishName?.isNotEmpty == true ? meal.dishName : null;
     final subtitle = [
-      if (dish != null) _mealLabel(meal.mealType),
+      if (dish != null) _mealLabel(context, meal.mealType),
       Units.timeOfDay(meal.loggedAt),
-      '${meal.componentCount} thành phần',
+      AppL10n.of(context).componentCount('${meal.componentCount}'),
     ].join(' · ');
 
     return Padding(
@@ -451,7 +458,7 @@ class _MealTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    dish ?? _mealLabel(meal.mealType),
+                    dish ?? _mealLabel(context, meal.mealType),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   Text(
@@ -473,13 +480,13 @@ class _MealTile extends StatelessWidget {
             // A failed photo analysis stays listed; the detail screen it opens
             // carries the retry.
             else if (meal.isFailedDraft)
-              const Row(
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.refresh, size: 16, color: RetroTokens.accent),
                   SizedBox(width: 4),
                   Text(
-                    'Lỗi · thử lại',
+                    AppL10n.of(context).loiThuLai,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
@@ -500,9 +507,9 @@ class _MealTile extends StatelessWidget {
   }
 }
 
-String _mealLabel(String type) => switch (type) {
-  'breakfast' => 'Bữa sáng',
-  'lunch' => 'Bữa trưa',
-  'dinner' => 'Bữa tối',
-  _ => 'Bữa phụ',
+String _mealLabel(BuildContext context, String type) => switch (type) {
+  'breakfast' => AppL10n.of(context).buaSang,
+  'lunch' => AppL10n.of(context).buaTrua,
+  'dinner' => AppL10n.of(context).buaToi,
+  _ => AppL10n.of(context).buaPhu,
 };

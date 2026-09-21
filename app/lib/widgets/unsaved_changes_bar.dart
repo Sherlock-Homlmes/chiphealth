@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/tokens.dart';
+import '../core/l10n/gen/app_localizations.dart';
 
 /// Discord-style save bar: hidden until something changes, then slides up from
 /// the bottom with "Đặt lại" and "Lưu". Screens that stage edits locally lay it
@@ -19,7 +20,7 @@ class UnsavedChangesBar extends StatelessWidget {
     required this.onReset,
     required this.onSave,
     this.saving = false,
-    this.message = 'Có thông tin chưa cập nhật',
+    this.message,
   });
 
   final bool visible;
@@ -28,7 +29,10 @@ class UnsavedChangesBar extends StatelessWidget {
 
   /// Both buttons lock while the save is in flight.
   final bool saving;
-  final String message;
+
+  /// Defaults to the standard wording, which is localized and so cannot be
+  /// a default parameter value.
+  final String? message;
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
@@ -57,7 +61,7 @@ class UnsavedChangesBar extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  message,
+                  message ?? AppL10n.of(context).coThongTinChuaCapNhat,
                   style: const TextStyle(
                     color: RetroTokens.paper,
                     fontWeight: FontWeight.w600,
@@ -67,7 +71,7 @@ class UnsavedChangesBar extends StatelessWidget {
               TextButton(
                 onPressed: saving ? null : onReset,
                 style: TextButton.styleFrom(foregroundColor: RetroTokens.paper),
-                child: const Text('Đặt lại'),
+                child: Text(AppL10n.of(context).datLai),
               ),
               const SizedBox(width: 4),
               FilledButton(
@@ -76,7 +80,11 @@ class UnsavedChangesBar extends StatelessWidget {
                   backgroundColor: RetroTokens.ok,
                   foregroundColor: Colors.white,
                 ),
-                child: Text(saving ? 'Đang lưu…' : 'Lưu'),
+                child: Text(
+                  saving
+                      ? AppL10n.of(context).dangLuu
+                      : AppL10n.of(context).luu,
+                ),
               ),
             ],
           ),

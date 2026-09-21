@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
 import 'save_image.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// What the camera hands back: the photo that was reviewed and kept, and the
 /// caption written over it (null when left empty).
@@ -91,7 +92,8 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
       _cameras = const [];
     }
     if (_cameras.isEmpty) {
-      if (mounted) setState(() => _error = 'Không tìm thấy camera.');
+      if (mounted)
+        setState(() => _error = AppL10n.of(context).khongTimThayCamera);
       return;
     }
     // The back camera first, like the system camera app.
@@ -122,8 +124,8 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
       if (!mounted) return;
       setState(
         () => _error = err.code.contains('Access')
-            ? 'Chưa cho phép dùng camera. Mở cài đặt để cấp quyền.'
-            : 'Không mở được camera.',
+            ? AppL10n.of(context).chuaChoPhepDungCameraMo
+            : AppL10n.of(context).khongMoDuocCamera,
       );
       return;
     }
@@ -151,6 +153,9 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
   void _toggleFlash() => setState(() => _flashOn = !_flashOn);
 
   Future<void> _takePicture() async {
+    // Read before the awaits: the strings are localized, and the context may
+    // be gone by the time the failure path needs them.
+    final l10n = AppL10n.of(context);
     final controller = _controller;
     if (controller == null || _shooting) return;
     setState(() => _shooting = true);
@@ -188,7 +193,7 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
           await controller.setFlashMode(FlashMode.off);
         } catch (_) {}
       }
-      _toast('Không chụp được. Thử lại.');
+      _toast(l10n.khongChupDuocThuLai);
     } finally {
       if (mounted) {
         setState(() {
@@ -208,6 +213,7 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
   }
 
   Future<void> _save() async {
+    final l10n = AppL10n.of(context);
     final shot = _shot;
     if (shot == null || _saving) return;
     setState(() => _saving = true);
@@ -216,9 +222,9 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
         shot,
         filename: 'chiphealth_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-      _toast('Đã lưu ảnh vào máy.');
+      _toast(l10n.daLuuAnhVaoMay);
     } catch (_) {
-      _toast('Không lưu được ảnh. Kiểm tra quyền truy cập ảnh.');
+      _toast(l10n.khongLuuDuocAnhKiemTra);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -309,12 +315,14 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
       children: [
         _RoundButton(
           icon: Icons.close,
-          tooltip: 'Đóng',
+          tooltip: AppL10n.of(context).dong,
           onTap: () => Navigator.of(context).pop(),
         ),
         Expanded(
           child: Text(
-            reviewing ? 'Gửi cho bạn bè' : 'Khoảnh khắc',
+            reviewing
+                ? AppL10n.of(context).guiChoBanBe
+                : AppL10n.of(context).khoanhKhac,
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
@@ -417,8 +425,8 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
-                  decoration: const InputDecoration(
-                    hintText: 'Thêm tin nhắn…',
+                  decoration: InputDecoration(
+                    hintText: AppL10n.of(context).themTinNhan,
                     hintStyle: TextStyle(color: Color(0xB3FFFFFF)),
                     counterText: '',
                     border: InputBorder.none,
@@ -442,7 +450,9 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
   /// reads through it.
   Widget _flashButton() => _RoundButton(
     icon: _flashOn ? Icons.flash_on : Icons.flash_off,
-    tooltip: _flashOn ? 'Tắt flash' : 'Bật flash',
+    tooltip: _flashOn
+        ? AppL10n.of(context).tatFlash
+        : AppL10n.of(context).batFlash,
     highlight: _flashOn,
     color: const Color(0x66000000),
     size: 40,
@@ -460,7 +470,7 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
         _Shutter(busy: _shooting, onTap: ready ? _takePicture : null),
         _RoundButton(
           icon: Icons.cameraswitch_outlined,
-          tooltip: 'Đổi camera',
+          tooltip: AppL10n.of(context).doiCamera,
           size: 52,
           onTap: ready && _cameras.length > 1 ? _flip : null,
         ),
@@ -473,14 +483,14 @@ class _MomentCameraScreenState extends State<MomentCameraScreen>
     children: [
       _RoundButton(
         icon: Icons.close,
-        tooltip: 'Chụp lại',
+        tooltip: AppL10n.of(context).chupLai,
         size: 52,
         onTap: _retake,
       ),
       _SendButton(onTap: _send),
       _RoundButton(
         icon: Icons.download_rounded,
-        tooltip: 'Lưu vào máy',
+        tooltip: AppL10n.of(context).luuVaoMay,
         size: 52,
         busy: _saving,
         onTap: _save,
@@ -566,7 +576,7 @@ class _Shutter extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Chụp',
+    label: AppL10n.of(context).chup,
     child: GestureDetector(
       onTap: onTap,
       child: Container(
@@ -599,7 +609,7 @@ class _SendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Gửi',
+    label: AppL10n.of(context).gui,
     child: GestureDetector(
       onTap: onTap,
       child: Container(

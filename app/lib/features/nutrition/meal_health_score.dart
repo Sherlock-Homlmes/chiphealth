@@ -1,4 +1,6 @@
+import 'package:flutter/widgets.dart';
 import '../../core/models/models.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// A 0-10 read on how well a single meal is put together.
 ///
@@ -15,9 +17,10 @@ class MealHealthScore {
   /// Why points were lost, worst first. Empty when the meal scores full marks.
   final List<String> reasons;
 
-  static MealHealthScore of(MealLog meal) {
+  static MealHealthScore of(BuildContext context, MealLog meal) {
     final kcal = meal.totalCaloriesKcal;
-    if (kcal <= 0) return const MealHealthScore(0, ['Chưa có số liệu']);
+    if (kcal <= 0)
+      return MealHealthScore(0, [AppL10n.of(context).chuaCoSoLieu]);
 
     final reasons = <(double, String)>[];
     var score = 10.0;
@@ -36,17 +39,17 @@ class MealHealthScore {
       if (proteinShare < 0.15) {
         final lost = ((0.15 - proteinShare) * 20).clamp(0.0, 3.0);
         score -= lost;
-        reasons.add((lost, 'Ít đạm'));
+        reasons.add((lost, AppL10n.of(context).itDam));
       }
       if (carbShare > 0.60) {
         final lost = ((carbShare - 0.60) * 10).clamp(0.0, 2.5);
         score -= lost;
-        reasons.add((lost, 'Nhiều tinh bột'));
+        reasons.add((lost, AppL10n.of(context).nhieuTinhBot));
       }
       if (fatShare > 0.40) {
         final lost = ((fatShare - 0.40) * 10).clamp(0.0, 2.5);
         score -= lost;
-        reasons.add((lost, 'Nhiều chất béo'));
+        reasons.add((lost, AppL10n.of(context).nhieuChatBeo));
       }
     }
 
@@ -60,17 +63,17 @@ class MealHealthScore {
     if (fiber < 7) {
       final lost = ((7 - fiber) / 7 * 2).clamp(0.0, 2.0);
       score -= lost;
-      reasons.add((lost, 'Ít chất xơ'));
+      reasons.add((lost, AppL10n.of(context).itChatXo));
     }
     if (sugar > 25) {
       final lost = ((sugar - 25) / 25 * 2).clamp(0.0, 2.0);
       score -= lost;
-      reasons.add((lost, 'Nhiều đường'));
+      reasons.add((lost, AppL10n.of(context).nhieuDuong));
     }
     if (sodium > 1000) {
       final lost = ((sodium - 1000) / 1000 * 2).clamp(0.0, 2.0);
       score -= lost;
-      reasons.add((lost, 'Nhiều muối'));
+      reasons.add((lost, AppL10n.of(context).nhieuMuoi));
     }
 
     reasons.sort((a, b) => b.$1.compareTo(a.$1));

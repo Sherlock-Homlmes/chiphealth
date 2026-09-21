@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/auth_controller.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
@@ -28,8 +29,8 @@ class LoginScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Dinh dưỡng, luyện tập, giấc ngủ — một chỗ, một huấn luyện viên.',
+                Text(
+                  AppL10n.of(context).dinhDuongLuyenTapGiacNgu,
                   style: TextStyle(color: RetroTokens.inkSoft),
                 ),
                 const Spacer(),
@@ -65,11 +66,11 @@ class LoginScreen extends ConsumerWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Đăng nhập bằng Google'),
+                      : Text(AppL10n.of(context).dangNhapBangGoogle),
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  'Chỉ dùng Google để đăng nhập. Dữ liệu sức khoẻ đọc trên máy, không gửi token thiết bị đeo lên máy chủ.',
+                Text(
+                  AppL10n.of(context).chiDungGoogleDeDangNhap,
                   style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
                   textAlign: TextAlign.center,
                 ),

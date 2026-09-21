@@ -1,5 +1,7 @@
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../l10n/gen/app_localizations.dart';
 import '../models/models.dart';
 
 /// Everything is stored and transmitted in metric; this is the only place that
@@ -80,16 +82,20 @@ class Units {
 
   /// Subtitle for a day of the meal diary. Recent days are named rather than
   /// dated: a diary that says "Hôm nay" reads faster than one that says 9/9.
-  static String dayHeading(String isoDate) {
+  /// Takes a context because "hôm nay" / "today" follows the app's language.
+  static String dayHeading(BuildContext context, String isoDate) {
     final day = DateTime.parse(isoDate);
     final now = DateTime.now();
     final midnight = DateTime(now.year, now.month, now.day);
     final diff = midnight
         .difference(DateTime(day.year, day.month, day.day))
         .inDays;
-    if (diff == 0) return 'Hôm nay';
-    if (diff == 1) return 'Hôm qua';
-    return DateFormat('EEEE, d/M', 'vi').format(day);
+    if (diff == 0) return AppL10n.of(context).homNay;
+    if (diff == 1) return AppL10n.of(context).homQua;
+    return DateFormat(
+      'EEEE, d/M',
+      Localizations.localeOf(context).languageCode,
+    ).format(day);
   }
 
   static String timeOfDay(int epochMs) =>

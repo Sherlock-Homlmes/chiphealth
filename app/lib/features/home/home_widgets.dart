@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Rounded card, the app's shared surface. The radius lives in one widget so
 /// every screen rounds identically instead of being retyped per card.
@@ -275,7 +276,7 @@ class AddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
-    label: 'Thêm',
+    label: AppL10n.of(context).them,
     child: GestureDetector(
       onTap: onTap,
       child: Container(

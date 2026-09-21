@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The server's cap on a moment caption.
 const kMomentCaptionMaxLength = 200;
@@ -56,7 +57,7 @@ class _MomentComposeDialogState extends ConsumerState<_MomentComposeDialog> {
 
     return AlertDialog(
       backgroundColor: RetroTokens.paperRaised,
-      title: const Text('Đăng lên Khoảnh khắc'),
+      title: Text(AppL10n.of(context).dangLenKhoanhKhac),
       contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       content: SizedBox(
         width: 360,
@@ -79,11 +80,11 @@ class _MomentComposeDialogState extends ConsumerState<_MomentComposeDialog> {
                       color: RetroTokens.paperSunk,
                       child: Center(child: CircularProgressIndicator()),
                     ),
-                    error: (_, __) => const ColoredBox(
+                    error: (_, __) => ColoredBox(
                       color: RetroTokens.paperSunk,
                       child: Center(
                         child: Text(
-                          'Không tải được ảnh',
+                          AppL10n.of(context).khongTaiDuocAnh,
                           style: TextStyle(color: RetroTokens.inkSoft),
                         ),
                       ),
@@ -99,9 +100,9 @@ class _MomentComposeDialogState extends ConsumerState<_MomentComposeDialog> {
                 maxLines: 5,
                 maxLength: kMomentCaptionMaxLength,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Mô tả',
-                  hintText: 'Viết vài dòng về bữa ăn…',
+                decoration: InputDecoration(
+                  labelText: AppL10n.of(context).moTa,
+                  hintText: AppL10n.of(context).vietVaiDongVeBuaAn,
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -112,7 +113,7 @@ class _MomentComposeDialogState extends ConsumerState<_MomentComposeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Hủy'),
+          child: Text(AppL10n.of(context).huy2),
         ),
         FilledButton(
           // No posting a photo that never loaded: what the user reviewed has
@@ -120,7 +121,7 @@ class _MomentComposeDialogState extends ConsumerState<_MomentComposeDialog> {
           onPressed: photo.hasValue
               ? () => Navigator.pop(context, _caption.text.trim())
               : null,
-          child: const Text('Đăng'),
+          child: Text(AppL10n.of(context).dang),
         ),
       ],
     );

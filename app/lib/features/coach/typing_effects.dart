@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The reply arrives in one response, so the wait is shown as staged work
 /// instead of a spinner: the labels tell the user what the coach is looking at,
@@ -10,11 +11,16 @@ import '../../core/theme/tokens.dart';
 class CoachThinkingIndicator extends StatefulWidget {
   const CoachThinkingIndicator({super.key});
 
-  static const stages = [
-    'Đang đọc dữ liệu của bạn…',
-    'Xem lại bữa ăn và buổi tập gần đây…',
-    'Đối chiếu mục tiêu và bệnh nền…',
-    'Đang soạn câu trả lời…',
+  /// How many lines the indicator walks through; the lines themselves are
+  /// localized, so the count is kept separately for the timer that advances
+  /// them without a context.
+  static const stageCount = 4;
+
+  static List<String> stages(BuildContext context) => [
+    AppL10n.of(context).dangDocDuLieuCuaBan,
+    AppL10n.of(context).xemLaiBuaAnVaBuoi,
+    AppL10n.of(context).doiChieuMucTieuVaBenh,
+    AppL10n.of(context).dangSoanCauTraLoi,
   ];
 
   @override
@@ -34,7 +40,7 @@ class _CoachThinkingIndicatorState extends State<CoachThinkingIndicator> {
       setState(
         () => _stage = (_stage + 1).clamp(
           0,
-          CoachThinkingIndicator.stages.length - 1,
+          CoachThinkingIndicator.stageCount - 1,
         ),
       );
     });
@@ -66,7 +72,7 @@ class _CoachThinkingIndicatorState extends State<CoachThinkingIndicator> {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
               child: Text(
-                CoachThinkingIndicator.stages[_stage],
+                CoachThinkingIndicator.stages(context)[_stage],
                 key: ValueKey(_stage),
                 style: const TextStyle(
                   color: RetroTokens.inkSoft,

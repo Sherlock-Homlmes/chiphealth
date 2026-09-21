@@ -6,6 +6,7 @@ import 'package:chiphealth/features/nutrition/moment_compose_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:chiphealth/core/l10n/gen/app_localizations.dart';
 
 // 1x1 transparent PNG.
 final _png = base64Decode(
@@ -25,6 +26,9 @@ Future<void> _open(
         ),
       ],
       child: MaterialApp(
+        locale: const Locale('vi'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
         home: Builder(
           builder: (context) => Scaffold(
             body: ElevatedButton(

@@ -8,6 +8,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import 'route_map.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The detail screen's map with a play button: replays the recording as a dot
 /// running the route, the covered part in orange, with a scrub bar underneath.
@@ -148,7 +149,9 @@ class _RouteReplayMapState extends ConsumerState<RouteReplayMap>
                     bottom: 24,
                     child: FloatingActionButton.small(
                       heroTag: null,
-                      tooltip: playing ? 'Tạm dừng' : 'Xem lại quá trình',
+                      tooltip: playing
+                          ? AppL10n.of(context).tamDung
+                          : AppL10n.of(context).xemLaiQuaTrinh,
                       backgroundColor: RetroTokens.accent,
                       foregroundColor: Colors.white,
                       onPressed: _loading ? null : _toggle,

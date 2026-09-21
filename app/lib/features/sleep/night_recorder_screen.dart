@@ -14,6 +14,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'audio/night_analyzer.dart';
 import 'audio/sleep_classifier_factory.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Night recording for users with no wearable: the phone stays awake,
 /// classifies the mic stream on device with YAMNet, and uploads the whole
@@ -71,13 +72,15 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
   /// "Đang ghi giấc ngủ" notification running with nothing behind it.
   Future<void> _startKeepAlive() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    // The notification's wording is read before the permission prompt: after
+    // that await this widget may be gone.
+    final l10n = AppL10n.of(context);
 
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'sleep_recording',
-        channelName: 'Ghi giấc ngủ đêm',
-        channelDescription:
-            'Thông báo giữ cho việc ghi âm tiếng ngáy / nói mớ chạy suốt đêm.',
+        channelName: AppL10n.of(context).ghiGiacNguDem,
+        channelDescription: AppL10n.of(context).thongBaoGiuChoViecGhi,
         onlyAlertOnce: true,
       ),
       // iOS never reaches startService — the audio session plus the plist's
@@ -99,9 +102,8 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
     await FlutterForegroundTask.startService(
       serviceId: 246,
       serviceTypes: [ForegroundServiceTypes.microphone],
-      notificationTitle: 'Đang ghi giấc ngủ',
-      notificationText:
-          'ChipHealth vẫn đang lắng nghe — cứ tắt màn hình và ngủ.',
+      notificationTitle: l10n.dangGhiGiacNgu,
+      notificationText: l10n.chiphealthVanDangLangNgheCu,
     );
   }
 
@@ -119,9 +121,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
     if (!mic.isGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Cần quyền micro để phát hiện ngáy / nói mớ'),
-          ),
+          SnackBar(content: Text(AppL10n.of(context).canQuyenMicroDePhatHien)),
         );
       }
       return;
@@ -293,10 +293,14 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
     final analyzer = _analyzer;
 
     final status = !running
-        ? 'Đặt máy gần giường, cắm sạc'
+        ? AppL10n.of(context).datMayGanGiuongCamSac
         : analyzer == null
-        ? 'Đang nghe — thiết bị không hỗ trợ phân tích, chỉ đo thời lượng'
-        : 'Ngáy ${analyzer.snoreCount} · Nói mớ ${analyzer.talkCount} · Ho ${analyzer.coughCount}';
+        ? AppL10n.of(context).dangNgheThietBiKhongHo
+        : AppL10n.of(context).nightCounts(
+            '${analyzer.snoreCount}',
+            '${analyzer.talkCount}',
+            '${analyzer.coughCount}',
+          );
 
     return Scaffold(
       backgroundColor: RetroTokens.ink,
@@ -321,7 +325,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
                       Text(
                         running
                             ? Units.duration(_elapsed.inSeconds)
-                            : 'Sẵn sàng',
+                            : AppL10n.of(context).sanSang,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: RetroTokens.paper,
                           fontSize: 48,
@@ -341,8 +345,10 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
                   onPressed: _saving ? null : (running ? _stop : _start),
                   child: Text(
                     _saving
-                        ? 'Đang lưu…'
-                        : (running ? 'Tôi dậy rồi' : 'Bắt đầu ghi'),
+                        ? AppL10n.of(context).dangLuu
+                        : (running
+                              ? AppL10n.of(context).toiDayRoi
+                              : AppL10n.of(context).batDauGhi),
                   ),
                 ),
                 const SizedBox(height: 16),

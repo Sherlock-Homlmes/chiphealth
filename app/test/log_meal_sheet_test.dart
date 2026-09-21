@@ -1,6 +1,7 @@
 import 'package:chiphealth/features/nutrition/log_meal_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:chiphealth/core/l10n/gen/app_localizations.dart';
 
 /// The "+" on the nutrition screen is the only way in for every kind of entry,
 /// water included, so what the sheet hands back is worth pinning down.
@@ -9,6 +10,9 @@ void main() {
     LogMealMethod? picked;
     await tester.pumpWidget(
       MaterialApp(
+        locale: const Locale('vi'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
         home: Builder(
           builder: (context) => Scaffold(
             body: Center(

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/providers.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Play / stop for one snore or sleep-talk clip. The clip is private, so it
 /// comes through the API as bytes (bearer token) and is played from memory:
@@ -49,9 +50,11 @@ class _ClipPlayButtonState extends ConsumerState<ClipPlayButton> {
       unawaited(p.play());
     } catch (err) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Không phát được clip: $err')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppL10n.of(context).clipPlaybackFailed('$err')),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -80,7 +83,7 @@ class _ClipPlayButtonState extends ConsumerState<ClipPlayButton> {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: _playing ? 'Dừng' : 'Phát',
+    tooltip: _playing ? AppL10n.of(context).dung : AppL10n.of(context).phat,
     onPressed: _loading ? null : _toggle,
     icon: _loading
         ? const SizedBox(

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import 'profile_screen.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Asks for today's weight and records it as of right now. Returns the weight
 /// saved, or null when the sheet was dismissed.
@@ -60,7 +61,7 @@ class _LogWeightSheetState extends State<_LogWeightSheet> {
     final kg = double.tryParse(_field.text.trim().replaceAll(',', '.'));
     // Same bounds the API enforces.
     if (kg == null || kg < 20 || kg > 400) {
-      setState(() => _error = 'Nhập cân nặng từ 20 đến 400 kg');
+      setState(() => _error = AppL10n.of(context).nhapCanNangTu20Den);
       return;
     }
     Navigator.of(context).pop(double.parse(kg.toStringAsFixed(1)));
@@ -76,13 +77,13 @@ class _LogWeightSheetState extends State<_LogWeightSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Ghi cân nặng',
+            Text(
+              AppL10n.of(context).ghiCanNang,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Lưu cân nặng của bạn tại thời điểm này.',
+            Text(
+              AppL10n.of(context).luuCanNangCuaBanTai,
               style: TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
             ),
             const SizedBox(height: 16),
@@ -99,7 +100,7 @@ class _LogWeightSheetState extends State<_LogWeightSheet> {
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
                     decoration: InputDecoration(
-                      labelText: 'Cân nặng',
+                      labelText: AppL10n.of(context).canNang,
                       suffixText: 'kg',
                       errorText: _error,
                     ),
@@ -110,7 +111,7 @@ class _LogWeightSheetState extends State<_LogWeightSheet> {
                   padding: const EdgeInsets.only(top: 4),
                   child: FilledButton(
                     onPressed: _submit,
-                    child: const Text('Lưu'),
+                    child: Text(AppL10n.of(context).luu),
                   ),
                 ),
               ],

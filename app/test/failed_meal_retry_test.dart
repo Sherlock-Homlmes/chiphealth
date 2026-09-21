@@ -9,6 +9,7 @@ import 'package:chiphealth/features/nutrition/meal_timeline.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:chiphealth/core/l10n/gen/app_localizations.dart';
 
 class _FakeNutrition implements NutritionRepository {
   _FakeNutrition(this.page);
@@ -79,6 +80,9 @@ void main() {
       ProviderScope(
         overrides: [mediaRepositoryProvider.overrideWithValue(media)],
         child: MaterialApp(
+          locale: const Locale('vi'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
           home: StatefulBuilder(
             builder: (context, setState) {
               rebuild = setState;

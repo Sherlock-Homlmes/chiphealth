@@ -11,6 +11,7 @@ import '../../core/storage/uuid.dart';
 import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
 import 'workout_photos.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// A session typed in after the fact: sport, when, how long and (optionally)
 /// how far and how many kcal. Left blank, the server estimates kcal from the
@@ -83,12 +84,12 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
     final kg = (e['weightKg'] as num).toStringAsFixed(0);
     final mins = (((e['seconds'] as num?) ?? 0) / 60).round();
     final parts = [
-      'MET $met × $kg kg${e['weightIsFallback'] == true ? ' (chưa có cân nặng, lấy mặc định)' : ''}',
+      'MET $met × $kg kg${e['weightIsFallback'] == true ? AppL10n.of(context).chuaCoCanNangLayMac : ''}',
       e['secondsFromDistance'] == true
-          ? '~$mins phút theo tốc độ trung bình'
-          : '$mins phút',
+          ? AppL10n.of(context).approxMinutesAtAvgPace('$mins')
+          : AppL10n.of(context).minutesCount('$mins'),
     ];
-    return 'Ước tính ≈ $kcal kcal · ${parts.join(' × ')}';
+    return AppL10n.of(context).estimatedKcalWith('$kcal', parts.join(' × '));
   }
 
   @override
@@ -138,9 +139,7 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
     final km = _number(_distance);
     if (activity == null || (seconds <= 0 && (km ?? 0) <= 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Chọn môn và nhập thời lượng hoặc quãng đường.'),
-        ),
+        SnackBar(content: Text(AppL10n.of(context).chonMonVaNhapThoiLuong)),
       );
       return;
     }
@@ -162,7 +161,9 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
             movingSeconds: seconds > 0 ? seconds : null,
             distanceM: km == null || km <= 0 ? null : km * 1000,
             caloriesBurnedKcal: kcal == null || kcal <= 0 ? null : kcal,
-            title: title.isEmpty ? defaultTitleFor(startedAt, activity) : title,
+            title: title.isEmpty
+                ? defaultTitleFor(context, startedAt, activity)
+                : title,
             notes: _notes.text.trim().isEmpty ? null : _notes.text.trim(),
             photoAssetIds: _photoIds,
           );
@@ -189,11 +190,11 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Nhập hoạt động'),
+        title: Text(AppL10n.of(context).nhapHoatDong),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
-            child: const Text('Lưu'),
+            child: Text(AppL10n.of(context).luu),
           ),
         ],
       ),
@@ -210,7 +211,7 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<ActivityType>(
                 initialValue: _activity,
-                decoration: const InputDecoration(labelText: 'Môn'),
+                decoration: InputDecoration(labelText: AppL10n.of(context).mon),
                 items: [
                   for (final a in list)
                     DropdownMenuItem(
@@ -233,8 +234,8 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
               InkWell(
                 onTap: _pickStart,
                 child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Bắt đầu lúc',
+                  decoration: InputDecoration(
+                    labelText: AppL10n.of(context).batDauLuc,
                     suffixIcon: Icon(Icons.event),
                   ),
                   child: Text(
@@ -249,7 +250,9 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
                   Expanded(
                     child: TextField(
                       controller: _hours,
-                      decoration: const InputDecoration(labelText: 'Giờ'),
+                      decoration: InputDecoration(
+                        labelText: AppL10n.of(context).gio,
+                      ),
                       keyboardType: TextInputType.number,
                       inputFormatters: digits,
                     ),
@@ -258,7 +261,9 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
                   Expanded(
                     child: TextField(
                       controller: _minutes,
-                      decoration: const InputDecoration(labelText: 'Phút'),
+                      decoration: InputDecoration(
+                        labelText: AppL10n.of(context).phut2,
+                      ),
                       keyboardType: TextInputType.number,
                       inputFormatters: digits,
                     ),
@@ -268,8 +273,8 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: _distance,
-                decoration: const InputDecoration(
-                  labelText: 'Quãng đường (km) — tuỳ chọn',
+                decoration: InputDecoration(
+                  labelText: AppL10n.of(context).quangDuongKmTuyChon,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -280,14 +285,12 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
               TextField(
                 controller: _kcal,
                 decoration: InputDecoration(
-                  labelText: 'Calo đốt (kcal) — tuỳ chọn',
+                  labelText: AppL10n.of(context).caloDotKcalTuyChon,
                   hintText: _estimate?['kcal'] == null
                       ? null
                       : '${(_estimate!['kcal'] as num).round()}',
                   helperText:
-                      _estimateText ??
-                      'Để trống: tự ước tính theo môn, thời lượng / quãng '
-                          'đường và cân nặng.',
+                      _estimateText ?? AppL10n.of(context).deTrongTuUocTinhTheo,
                   helperMaxLines: 3,
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -298,16 +301,16 @@ class _ManualWorkoutScreenState extends ConsumerState<ManualWorkoutScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: _title,
-                decoration: const InputDecoration(
-                  labelText: 'Tiêu đề — tuỳ chọn',
+                decoration: InputDecoration(
+                  labelText: AppL10n.of(context).tieuDeTuyChon,
                 ),
                 textCapitalization: TextCapitalization.sentences,
                 maxLength: 200,
               ),
               TextField(
                 controller: _notes,
-                decoration: const InputDecoration(
-                  labelText: 'Ghi chú',
+                decoration: InputDecoration(
+                  labelText: AppL10n.of(context).ghiChu,
                   alignLabelWithHint: true,
                 ),
                 minLines: 2,

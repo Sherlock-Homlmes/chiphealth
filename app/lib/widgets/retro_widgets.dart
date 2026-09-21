@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/theme/tokens.dart';
+import '../core/l10n/gen/app_localizations.dart';
 
 /// Phone-frame layout: the content never stretches past a comfortable reading
 /// width on a tablet or a desktop build. Every screen wraps its body in this,
@@ -130,7 +131,7 @@ Widget asyncBody<T>(
   AsyncValue<T> value, {
   required Widget Function(T data) data,
   bool Function(T data)? emptyWhen,
-  String emptyText = 'Chưa có dữ liệu',
+  String? emptyText,
   VoidCallback? onRetry,
 }) {
   return value.when(
@@ -153,7 +154,14 @@ Widget asyncBody<T>(
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 12),
-              OutlinedButton(onPressed: onRetry, child: const Text('Thử lại')),
+              // A Builder, because this helper is a function and has no
+              // context of its own — and the label is localized.
+              Builder(
+                builder: (context) => OutlinedButton(
+                  onPressed: onRetry,
+                  child: Text(AppL10n.of(context).thuLai),
+                ),
+              ),
             ],
           ],
         ),
@@ -164,9 +172,11 @@ Widget asyncBody<T>(
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Text(
-              emptyText,
-              style: const TextStyle(color: RetroTokens.inkFaint),
+            child: Builder(
+              builder: (context) => Text(
+                emptyText ?? AppL10n.of(context).chuaCoDuLieu,
+                style: const TextStyle(color: RetroTokens.inkFaint),
+              ),
             ),
           ),
         );

@@ -13,6 +13,7 @@ import '../home/home_widgets.dart';
 import '../home/water_controller.dart';
 import '../profile/log_weight_sheet.dart';
 import 'progress_charts.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Which slice of time the whole screen is reading.
 final periodProvider = StateProvider<Period>((ref) => Period.thisWeek());
@@ -68,9 +69,9 @@ class ProgressScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 _ChartCard(
-                  title: 'Tiến trình cân nặng (kg)',
+                  title: AppL10n.of(context).tienTrinhCanNangKg,
                   action: _AddButton(
-                    tooltip: 'Ghi cân nặng',
+                    tooltip: AppL10n.of(context).ghiCanNang,
                     onPressed: () async {
                       final everything = _weightsByDate(
                         allMetrics.valueOrNull ?? const [],
@@ -84,7 +85,9 @@ class ProgressScreen extends ConsumerWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'Đã ghi ${_WeightCard._kg.format(kg)} kg',
+                              AppL10n.of(
+                                context,
+                              ).weightLogged(_WeightCard._kg.format(kg)),
                             ),
                           ),
                         );
@@ -99,17 +102,17 @@ class ProgressScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
                 _ChartCard(
-                  title: 'Theo dõi calo',
+                  title: AppL10n.of(context).theoDoiCalo,
                   child: _CaloriesInChart(range: range, daily: nutrition),
                 ),
                 const SizedBox(height: 12),
                 _ChartCard(
-                  title: 'Theo dõi calo tiêu hao',
+                  title: AppL10n.of(context).theoDoiCaloTieuHao,
                   child: _CaloriesOutChart(range: range, daily: nutrition),
                 ),
                 const SizedBox(height: 12),
                 _ChartCard(
-                  title: 'Theo dõi nước',
+                  title: AppL10n.of(context).theoDoiNuoc,
                   child: _WaterChart(range: range, water: water),
                 ),
                 const SizedBox(height: 12),
@@ -141,7 +144,7 @@ class _Header extends ConsumerWidget {
           children: [
             for (final m in PeriodMode.values)
               ListTile(
-                title: Text(m.label),
+                title: Text(m.label(context)),
                 trailing: m == period.mode
                     ? const Icon(Icons.check, color: RetroTokens.accent)
                     : null,
@@ -176,7 +179,7 @@ class _Header extends ConsumerWidget {
       firstDate: firstDate,
       lastDate: today,
       initialDateRange: DateTimeRange(start: initial.start, end: initial.end),
-      helpText: 'CHỌN KHOẢNG THỜI GIAN',
+      helpText: AppL10n.of(context).chonKhoangThoiGian,
     );
     if (picked == null) return;
     ref.read(periodProvider.notifier).state = Period(
@@ -201,9 +204,9 @@ class _Header extends ConsumerWidget {
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Text(
-                'Tiến trình',
+                AppL10n.of(context).tienTrinh,
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
@@ -214,7 +217,7 @@ class _Header extends ConsumerWidget {
             ),
             _ArrowButton(
               icon: Icons.chevron_left,
-              tooltip: 'Kỳ trước',
+              tooltip: AppL10n.of(context).kyTruoc,
               onTap: canStep
                   ? () => ref.read(periodProvider.notifier).state = period.step(
                       -1,
@@ -224,7 +227,7 @@ class _Header extends ConsumerWidget {
             const SizedBox(width: 8),
             _ArrowButton(
               icon: Icons.chevron_right,
-              tooltip: 'Kỳ sau',
+              tooltip: AppL10n.of(context).kySau,
               onTap: canForward
                   ? () =>
                         ref.read(periodProvider.notifier).state = period.step(1)
@@ -241,7 +244,7 @@ class _Header extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  period.label,
+                  period.label(context),
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -477,7 +480,7 @@ class _WeightCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _PanelStat(
-                  label: 'THAY ĐỔI',
+                  label: AppL10n.of(context).thayDoi,
                   value: change == null
                       ? '—'
                       : '${change > 0 ? '+' : ''}${_kg.format(change)} kg',
@@ -488,7 +491,7 @@ class _WeightCard extends StatelessWidget {
               ),
               Expanded(
                 child: _PanelStat(
-                  label: 'CÂN NẶNG HIỆN TẠI',
+                  label: AppL10n.of(context).canNangHienTai,
                   value: current == null ? '—' : '${_kg.format(current)} kg',
                 ),
               ),
@@ -498,7 +501,9 @@ class _WeightCard extends StatelessWidget {
           const Divider(color: RetroTokens.paperSunk, height: 1, thickness: 1),
           const SizedBox(height: 14),
           Text(
-            'ĐÃ ĐẠT ĐƯỢC ${(progress * 100).round()}% MỤC TIÊU',
+            AppL10n.of(
+              context,
+            ).goalReachedPercent('${(progress * 100).round()}'),
             style: const TextStyle(
               fontSize: 11,
               letterSpacing: 0.8,
@@ -535,7 +540,7 @@ class _WeightCard extends StatelessWidget {
               ),
               Text(
                 goal?.targetValue == null
-                    ? 'chưa đặt mục tiêu'
+                    ? AppL10n.of(context).chuaDatMucTieu
                     : '${_kg.format(goal!.targetValue)} kg',
                 style: const TextStyle(
                   fontSize: 12,
@@ -617,10 +622,10 @@ class _WeightChart extends StatelessWidget {
       children: [
         WeightLineChart(buckets: buckets, goalWeightKg: goal?.targetValue),
         const SizedBox(height: 10),
-        const ChartLegend(
+        ChartLegend(
           items: [
-            (RetroTokens.warn, 'Mục tiêu cân nặng'),
-            (RetroTokens.accent, 'Cân nặng ghi nhận'),
+            (RetroTokens.warn, AppL10n.of(context).mucTieuCanNang),
+            (RetroTokens.accent, AppL10n.of(context).canNangGhiNhan),
           ],
         ),
       ],
@@ -662,9 +667,12 @@ class _CaloriesInChart extends StatelessWidget {
         const SizedBox(height: 10),
         ChartLegend(
           items: [
-            (RetroTokens.fat, 'Trong mục tiêu'),
-            (RetroTokens.accent, 'Vượt mục tiêu'),
-            (RetroTokens.ink, 'Mục tiêu ${target.round()} kcal'),
+            (RetroTokens.fat, AppL10n.of(context).trongMucTieu),
+            (RetroTokens.accent, AppL10n.of(context).vuotMucTieu),
+            (
+              RetroTokens.ink,
+              AppL10n.of(context).targetKcal('${target.round()}'),
+            ),
           ],
         ),
       ],
@@ -694,8 +702,8 @@ class _CaloriesOutChart extends StatelessWidget {
           color: RetroTokens.info,
         ),
         const SizedBox(height: 10),
-        const ChartLegend(
-          items: [(RetroTokens.info, 'Calo tiêu hao từ vận động')],
+        ChartLegend(
+          items: [(RetroTokens.info, AppL10n.of(context).caloTieuHaoTuVanDong)],
         ),
       ],
     );
@@ -728,8 +736,11 @@ class _WaterChart extends ConsumerWidget {
         const SizedBox(height: 10),
         ChartLegend(
           items: [
-            (RetroTokens.water, 'Lượng nước (ml)'),
-            (RetroTokens.ink, 'Mục tiêu ${target.round()} ml'),
+            (RetroTokens.water, AppL10n.of(context).luongNuocMl),
+            (
+              RetroTokens.ink,
+              AppL10n.of(context).targetMl('${target.round()}'),
+            ),
           ],
         ),
       ],
@@ -749,11 +760,11 @@ class _BmiBand {
   final Color color;
 }
 
-const _bmiBands = [
-  _BmiBand('Thiếu cân', '<18.5', RetroTokens.info),
-  _BmiBand('Khỏe mạnh', '18.5–24.9', RetroTokens.fat),
-  _BmiBand('Thừa cân', '25.0–29.9', RetroTokens.warn),
-  _BmiBand('Béo phì', '>30.0', RetroTokens.accent),
+List<_BmiBand> _bmiBands(BuildContext context) => [
+  _BmiBand(AppL10n.of(context).thieuCan, '<18.5', RetroTokens.info),
+  _BmiBand(AppL10n.of(context).khoeManh, '18.5–24.9', RetroTokens.fat),
+  _BmiBand(AppL10n.of(context).thuaCan, '25.0–29.9', RetroTokens.warn),
+  _BmiBand(AppL10n.of(context).beoPhi, '>30.0', RetroTokens.accent),
 ];
 
 class _BmiCard extends StatelessWidget {
@@ -765,11 +776,11 @@ class _BmiCard extends StatelessWidget {
   static const _min = 15.0;
   static const _max = 40.0;
 
-  static _BmiBand _bandFor(double bmi) {
-    if (bmi < 18.5) return _bmiBands[0];
-    if (bmi < 25) return _bmiBands[1];
-    if (bmi < 30) return _bmiBands[2];
-    return _bmiBands[3];
+  static _BmiBand _bandFor(BuildContext context, double bmi) {
+    if (bmi < 18.5) return _bmiBands(context)[0];
+    if (bmi < 25) return _bmiBands(context)[1];
+    if (bmi < 30) return _bmiBands(context)[2];
+    return _bmiBands(context)[3];
   }
 
   @override
@@ -798,18 +809,16 @@ class _BmiCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Chỉ số BMI của bạn',
+                  AppL10n.of(context).chiSoBmiCuaBan,
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
               ),
               Tooltip(
                 triggerMode: TooltipTriggerMode.tap,
                 showDuration: const Duration(seconds: 6),
-                message:
-                    'BMI = cân nặng (kg) chia cho bình phương chiều cao '
-                    '(m). Là chỉ số tham khảo, không phân biệt cơ và mỡ.',
+                message: AppL10n.of(context).bmiCanNangKgChiaCho,
                 child: Container(
                   width: 22,
                   height: 22,
@@ -832,8 +841,8 @@ class _BmiCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           if (bmi == null)
-            const Text(
-              'Cần cân nặng và chiều cao để tính BMI.',
+            Text(
+              AppL10n.of(context).canCanNangVaChieuCao,
               style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
             )
           else ...[
@@ -851,11 +860,11 @@ class _BmiCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: _bandFor(bmi).color,
+                    color: _bandFor(context, bmi).color,
                     borderRadius: BorderRadius.circular(RetroTokens.radiusPill),
                   ),
                   child: Text(
-                    _bandFor(bmi).label,
+                    _bandFor(context, bmi).label,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -917,7 +926,7 @@ class _BmiCard extends StatelessWidget {
               spacing: 14,
               runSpacing: 8,
               children: [
-                for (final band in _bmiBands)
+                for (final band in _bmiBands(context))
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

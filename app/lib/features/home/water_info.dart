@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The "i" next to the day's water: the total is two numbers added together,
 /// and this is where the split is shown.
@@ -29,15 +30,16 @@ class WaterInfoButton extends StatelessWidget {
     onTap: () => showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Nước hôm nay'),
+        title: Text(AppL10n.of(context).nuocHomNay),
         content: Text(
-          'Tự ghi ${_ml.format(drunk)} ml\n'
-          'Đồ ăn ${_ml.format(fromMeals)} ml',
+          AppL10n.of(
+            ctx,
+          ).waterBreakdown(_ml.format(drunk), _ml.format(fromMeals)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Đóng'),
+            child: Text(AppL10n.of(context).dong),
           ),
         ],
       ),

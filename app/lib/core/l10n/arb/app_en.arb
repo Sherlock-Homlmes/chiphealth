@@ -1,46 +1,799 @@
 {
   "@@locale": "en",
-  "appTitle": "ChipHealth",
-  "signInWithGoogle": "Sign in with Google",
-  "tabHome": "Home",
-  "tabNutrition": "Food",
-  "tabTraining": "Train",
-  "tabSleep": "Sleep",
-  "tabMoments": "Community",
-  "today": "Today",
-  "consumed": "consumed",
-  "deficitVsTdee": "deficit vs TDEE",
-  "sleepDebt": "sleep debt",
-  "coachSays": "Your coach says",
-  "askCoach": "Ask the coach",
-  "capturePhoto": "Snap a meal",
-  "scanBarcode": "Scan barcode",
-  "barcodeUnknown": "No data for this barcode yet",
-  "barcodeUnknownHint": "The scan was recorded. An admin will add the product.",
-  "mealComponents": "Components",
-  "editComponent": "Edit component",
-  "aiValuesKept": "The original AI values are kept to improve the model.",
-  "lowConfidence": "low confidence — please check",
-  "youCorrected": "you corrected this",
-  "startWorkout": "Start",
-  "finishWorkout": "Finish and save",
-  "autoPaused": "auto-paused",
-  "personalRecords": "Personal records",
-  "newRecord": "New record!",
-  "heartRateZones": "Heart-rate zones",
-  "splitsPerKm": "Splits (per km)",
-  "recordNight": "Record tonight",
-  "iAmAwake": "I'm awake",
-  "snoreAndSleepTalk": "Snoring / sleep talk",
-  "friends": "Friends",
-  "inviteFriend": "Invite",
-  "addCaption": "Add a caption",
-  "post": "Post",
-  "goals": "Goals",
-  "chronicConditions": "Chronic conditions",
-  "weight": "weight",
-  "height": "height",
-  "signOut": "Sign out",
-  "retry": "Retry",
-  "noData": "No data yet"
+  "anhHoatDong": "Activity photos",
+  "anhQuaNangChupLaiVoi": "That photo is too large. Shoot it again at lower quality.",
+  "anhSeGuiKemCoThe": "The photo goes with it — a message is optional",
+  "anhTaiLenBiLoiChup": "The upload failed. Please shoot it again.",
+  "approxMinutesAtAvgPace": "~{minutes} min at an average pace",
+  "@approxMinutesAtAvgPace": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "audioEventCount": "{count} sound events",
+  "@audioEventCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "autoTdeeLine": "Calculated: BMR {bmr} × {factor} = {total} kcal{suffix}",
+  "@autoTdeeLine": {
+    "placeholders": {
+      "bmr": {
+        "type": "String"
+      },
+      "factor": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
+    }
+  },
+  "bamGioTheoDoiGps": "Stopwatch and GPS tracking",
+  "ban": "You",
+  "banBe": "Friends",
+  "banBeSeKhongThayAnh": "Your friends will no longer see this photo.",
+  "banBeTrongChiphealthNhinThay": "Visible to your ChipHealth friends",
+  "banDoHienKhiBatDau": "The map appears once recording starts",
+  "batDau": "Start",
+  "batDauGhi": "Start recording",
+  "batDauLuc": "Started at",
+  "batFlash": "Flash on",
+  "benhNen": "Conditions",
+  "beoG": "Fat (g)",
+  "beoPhi": "Obese",
+  "bmiCanNangKgChiaCho": "BMI is weight (kg) divided by height (m) squared. A rough guide only — it cannot tell muscle from fat.",
+  "bmrTimesFactor": "{bmr} × {factor} ({level}) = {total} kcal a day",
+  "@bmrTimesFactor": {
+    "placeholders": {
+      "bmr": {
+        "type": "String"
+      },
+      "factor": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "boAnh": "Remove photo",
+  "buaAn": "Meals",
+  "buaAnCuaBan": "Your meal",
+  "buaAnNayChuaDuocPhan": "This meal was never analysed and cannot be retried — log it again.",
+  "buaAnNayVaMoiThanh": "This meal and all of its components will be deleted.",
+  "buaAnNoiKhongPhanTich": "This spoken meal cannot be analysed again — type it in instead.",
+  "buaPhu": "Snack",
+  "buaSang": "Breakfast",
+  "buaToi": "Dinner",
+  "buaTrua": "Lunch",
+  "buoiChieu": "afternoon",
+  "buoiDaTapTinhKcalVao": "Workout done — its calories count towards",
+  "buoiDaiNhat": "longest session",
+  "buoiNayTheNaoChiaSe": "How did it go? Say a little more…",
+  "buoiSang": "morning",
+  "buoiTap": "Workout",
+  "buoiTapMoi": "New workout",
+  "buoiToi": "evening",
+  "buoiTrua": "midday",
+  "caNhan": "Profile",
+  "cacBuaAn": "Meals",
+  "cacDemGanDay": "Recent nights",
+  "caiDat": "Settings",
+  "caloCuaCacBuoiTapBan": "Calories from the workouts you log are added to that day, so there is no need to count training in your activity level.",
+  "caloDinhDuong": "Calories & nutrition",
+  "caloDotKcalTuyChon": "Calories burned (kcal) — optional",
+  "caloTieuHaoTuVanDong": "Calories burned by activity",
+  "caloTieuThuMoiNgay": "Daily calorie burn",
+  "caloTieuThuMoiNgayTdee": "Daily energy expenditure (TDEE) is what your body burns in 24 hours. The app estimates it in two steps:",
+  "caloTuNhapPhaiTu800": "A typed calorie figure must be between 800 and 6,000 kcal",
+  "camNhanNoLuc": "Perceived effort",
+  "camOnDaGuiThongTin": "Thanks — sent to the administrators.",
+  "canCanNangVaChieuCao": "Weight and height are needed to work out BMI.",
+  "canNang": "Weight",
+  "canNangGhiNhan": "Weight logged",
+  "canNangHienTai": "CURRENT WEIGHT",
+  "canNangPhaiTu20Den": "Weight must be between 20 and 400 kg",
+  "canQuyenMicroDePhatHien": "Microphone access is needed to detect snoring and sleep talk",
+  "canQuyenViTriDeGhi": "Location access is needed to record a route",
+  "cat": "Trim",
+  "catHoatDong": "Trim activity",
+  "catHoatDong2": "Trim this activity?",
+  "chatBeo": "Fat",
+  "chatDam": "Protein",
+  "chatXo": "Fibre",
+  "chiDungGoogleDeDangNhap": "Google is the only way in. Health data is read on the device; no wearable token is sent to the server.",
+  "chiSoBmiCuaBan": "Your BMI",
+  "chiaChangMoiKm": "Splits (per km)",
+  "chiaSe": "Share",
+  "chiaSeBuaAn": "Share this meal",
+  "chiaSeLenMangXaHoi": "Share to social media",
+  "chieuCao": "Height",
+  "chieuCaoPhaiTu80Den": "Height must be between 80 and 260 cm",
+  "chinhSua": "Edit",
+  "chinhSuaBuaAn": "Edit meal",
+  "chinhSuaHoatDong": "Edit activity",
+  "chiphealthPhanTichTheNao": "How does ChipHealth work this out?",
+  "chiphealthVanDangLangNgheCu": "ChipHealth is still listening — turn the screen off and sleep.",
+  "chiphealthVanGhiLoTrinhKhi": "ChipHealth keeps recording your route with the screen off.",
+  "choXacNhan": "Awaiting confirmation",
+  "chon": "Choose",
+  "chonKhoangThoiGian": "CHOOSE A PERIOD",
+  "chonMon": "Choose a sport",
+  "chonMonVaNhapThoiLuong": "Choose a sport and enter a duration or a distance.",
+  "chonNgay": "Pick a date",
+  "chonNgayBatKy": "Jump to any day",
+  "chonNgaySinh": "Pick your date of birth",
+  "chonTheoMucDoDiChuyen": "Pick the one that matches your ordinary day (work, getting around), not your workouts:",
+  "chonTuThuVien": "Choose from library",
+  "chuaChoPhepDungCameraMo": "Camera access has not been granted. Open Settings to allow it.",
+  "chuaChon": "Not set",
+  "chuaCoBanNao": "No friends yet.",
+  "chuaCoCanNangLayMac": " (no weight yet, using a default)",
+  "chuaCoCuocTroChuyen": "No conversations yet",
+  "chuaCoDemNaoDuocGhi": "No nights recorded yet.",
+  "chuaCoDuLieu": "No data yet",
+  "chuaCoDuLieuChoMa": "No data for this barcode yet",
+  "chuaCoDuLieuTrongKy": "No data in this period",
+  "chuaCoHoatDongNaoBam": "No activities yet — tap + to record your first.",
+  "chuaCoKhoanhKhacNaoChup": "No moments yet. Take one for your friends.",
+  "chuaCoPrNaoTapMot": "No records yet — train a session and they appear on their own.",
+  "chuaCoSoLieu": "No figures yet",
+  "chuaCoThanhPhanNao": "No components yet.",
+  "chuaCoTinNhanNao": "No messages yet.",
+  "chuaDatMucTieu": "no goal set",
+  "chuaDatMucTieuNaoBam": "No goals yet. Tap + to add one.",
+  "chuaDuDuLieuDeTinh": "Not enough data to work out your calorie balance",
+  "chuaDuocCapQuyenMicro": "Microphone access has not been granted.",
+  "chuaGhiBuaNaoNhanDe": "No meals yet. Tap \"+\" to start.",
+  "chuaLuu2": "unsaved",
+  "chuaPhanTichDuocBuaAn": "This meal was not analysed — the server could not be reached.",
+  "chup": "Shoot",
+  "chupAnh": "Take a photo",
+  "chupAnhChonAnhGoHoac": "Shoot or pick a photo, type or speak — the AI splits out the components",
+  "chupBaoBi": "Photograph the packaging",
+  "chupBuaAnDeAiNhan": "Photograph your meal and the AI names every component",
+  "chupLai": "Retake",
+  "clipPlaybackFailed": "The clip could not be played: {error}",
+  "@clipPlaybackFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "coLoiXayRa": "Something went wrong",
+  "coThongTinChuaCapNhat": "You have unsaved changes",
+  "componentCount": "{count} components",
+  "@componentCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "conditionUnsaved": "{description} · unsaved",
+  "@conditionUnsaved": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "congDong": "Community",
+  "congThucChiLaUocTinh": "The formula is only an estimate (roughly ±10%). If you know a better figure, turn on \"Enter calories myself\" and the app will use it instead. Your calorie, protein, carb and fat targets on the home screen all come from this number.",
+  "cuaQuay": "Restless",
+  "cuocTroChuyen": "Conversations",
+  "cuocTroChuyenMoi": "New conversation",
+  "daDangLenKhoanhKhac": "Posted to Moments",
+  "daGhiNhanLuotQuetCho": "The scan was recorded. Tell us what the product is so an administrator can add it sooner:",
+  "daHetHan": "Expired",
+  "daHieu": "Got it",
+  "daHuy": "Cancelled",
+  "daLuu": "Saved",
+  "daLuuAnhVaoMay": "Photo saved to your device.",
+  "daNap": "eaten",
+  "daSaoChep": "Copied",
+  "daTamDung": "Paused",
+  "daTamDung2": "paused",
+  "daThucHien": "Done",
+  "daTraLoiKhoanhKhac": "Replied to a moment",
+  "daTraLoiKhoanhKhacCua": "Replied to your moment",
+  "daXoa": "Deleted",
+  "damG": "Protein (g)",
+  "dang": "Post",
+  "dangChuyenGiongNoiThanhChu": "Turning speech into text…",
+  "dangDocDuLieuCuaBan": "Reading your data…",
+  "dangGhi": "Recording",
+  "dangGhiBuoiTap": "Recording a workout",
+  "dangGhiGiacNgu": "Recording your sleep",
+  "dangLenKhoanhKhac": "Post to Moments",
+  "dangLuu": "Saving…",
+  "dangNgheBamMicDeDung": "Listening… tap the mic to stop",
+  "dangNgheThaTayDeDung": "Listening… let go to stop",
+  "dangNgheThietBiKhongHo": "Listening — this device cannot analyse audio, only time the night",
+  "dangNhapBangGoogle": "Sign in with Google",
+  "dangPhanTich": "Analysing…",
+  "dangSoanCauTraLoi": "Writing a reply…",
+  "dangTimTinHieuGps": "Looking for a GPS signal…",
+  "dangXuat": "Sign out",
+  "datLai": "Reset",
+  "datLaiHomNay": "Reset today",
+  "datMayGanGiuongCamSac": "Put the phone near the bed, on the charger",
+  "deTrongTuUocTinhTheo": "Leave empty to estimate from the sport, the duration or distance, and your weight.",
+  "deficitKcal": "{kcal} kcal under",
+  "@deficitKcal": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "dem": "Night",
+  "demKhuya": "late night",
+  "diDungSuotNgayLaoDong": "On your feet all day, manual work",
+  "diLaiDiChuyenKhaNhieu": "Out and about a fair amount during the day",
+  "diNguLuc": "Asleep at",
+  "dienGioiTinhNgaySinhChieu": "Fill in sex, date of birth, height and weight and the app works it out.",
+  "dinhDuong": "Nutrition",
+  "dinhDuongLuyenTapGiacNgu": "Food, training and sleep — one place, one coach.",
+  "doCao": "elevation",
+  "doCaoLonNhat": "highest elevation gain",
+  "doanGhiQuaNganBamMic": "That clip was too short — tap the mic, speak, then tap again when you are done.",
+  "dobWithAge": "{date} · {age} years old",
+  "@dobWithAge": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "doiAnh": "Change photo",
+  "doiCamera": "Flip camera",
+  "doiChieuMucTieuVaBenh": "Checking your goals and conditions…",
+  "dong": "Close",
+  "dongY": "OK",
+  "dung": "Stop",
+  "dungChoGiaoDienChoNhan": "Used for the interface, for speech recognition and for the AI assistant's replies.",
+  "dungKhiBanBietSoCua": "Use this when you know your own figure — from a smartwatch, say, or a dietitian.",
+  "dungNghe": "Stop listening",
+  "duong": "Sugar",
+  "duongG": "Sugar (g)",
+  "duringStage": "during {stage}",
+  "@duringStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "emailCuaBanBe": "Your friend's email",
+  "estimatedKcalWith": "Estimated ≈ {kcal} kcal · {details}",
+  "@estimatedKcalWith": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "friendFallbackName": "Friend",
+  "ghiBuaAn": "Log a meal",
+  "ghiCanNang": "Log weight",
+  "ghiChu": "Note",
+  "ghiDemNay": "Record tonight",
+  "ghiGiacNguDem": "Night sleep recording",
+  "ghiHoatDongMoi": "Log a new activity",
+  "ghiLaiBuaDauTien": "Log your first meal!",
+  "ghiLaiHoatDongDauTien": "Log your first activity!",
+  "ghiTiep": "Resume",
+  "ghiTrucTiep": "Record live",
+  "giacNgu": "Sleep",
+  "giacNguCacGiaiDoanVa": "The night, its stages and any snoring or sleep-talk clips will be deleted for good.",
+  "giamCan": "Lose weight",
+  "giamMo": "Lose fat",
+  "gio": "Hours",
+  "gioAn": "Time eaten",
+  "gioThucDayPhaiSauGio": "Wake-up time must be after bedtime.",
+  "gioiTinh": "Sex",
+  "giuLai": "Keep",
+  "giupAiNhanMonVaKhau": "Helps the AI name the dish and judge the portion.",
+  "goalDeadline": "Due: {date}",
+  "@goalDeadline": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "goalDeadlineShort": "due {date}",
+  "@goalDeadlineShort": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "goalFromTo": "from {from} → {to} {unit}",
+  "@goalFromTo": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "goalReachedPercent": "{percent}% OF THE GOAL REACHED",
+  "@goalReachedPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "googleKhongTraVeIdToken": "Google returned no id_token",
+  "gui": "Send",
+  "guiChoBanBe": "Send to a friend",
+  "guiKemAnh": "Attach a photo",
+  "guiTinNhan": "Send a message…",
+  "hanHoanThanh": "Target date",
+  "hanHoanThanhKhongBatBuoc": "Target date (optional)",
+  "healthScoreOutOfTen": "Health: {score}/10",
+  "@healthScoreOutOfTen": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "hetRoi": "That is everything.",
+  "hienTaiKhongBatBuoc": "Current value (optional)",
+  "hoanThanh": "Done",
+  "hoatDong": "Activity",
+  "hoatDongNayKhongCoLo": "This activity has no GPS route to trim.",
+  "hoatDongNaySeBiXoa": "This activity will be deleted for good, along with its route, its splits and any personal record it set.",
+  "hoiVeAnUongTapLuyen": "Ask about food, training, sleep…",
+  "hoiVeBuaAnTapLuyen": "Ask about your meals, your training and your sleep. The assistant reads what you have logged, and can log or correct things for you — always waiting for your confirmation first.",
+  "homNay": "Today",
+  "homNayMinhAnDuChua": "Have I eaten enough today?",
+  "homQua": "Yesterday",
+  "huy": "Cancel",
+  "huy2": "Cancel",
+  "huyBai": "Discard post",
+  "huyBaiTap": "Discard this workout?",
+  "huyBo": "Discard",
+  "huyBoBuaAn": "Discard meal",
+  "huyBoBuaAn2": "Discard this meal?",
+  "itChatXo": "Low in fibre",
+  "itDam": "Low in protein",
+  "itVanDong": "Sedentary",
+  "keoHaiDauDeBoPhan": "Drag either end to cut the start or the finish off the session.",
+  "khac": "Other",
+  "khoanhKhac": "Moments",
+  "khoeManh": "Healthy",
+  "khoiLuongG": "Amount (g)",
+  "khoiLuongLonNhat": "heaviest load",
+  "khong": "No",
+  "khongChupDuocThuLai": "The shot failed. Try again.",
+  "khongCoAnhThiChiCan": "With no photo, just type or speak it — the app splits out the components.",
+  "khongCoDuLieuGiaiDoan": "No stage data",
+  "khongCoLoiMoiNao": "No invitations.",
+  "khongDangDuocAnhThuLai": "The photo could not be posted. Try again later.",
+  "khongGhiNhanSuKienNao": "Nothing was picked up.",
+  "khongKhaiBaoBenhNenBam": "No conditions declared. Tap + to add one.",
+  "khongLuuDuocAnhKiemTra": "The photo could not be saved. Check your photo permissions.",
+  "khongMoDuocCamera": "The camera could not be opened.",
+  "khongPhanTichDuocBuaAn": "This meal could not be analysed.",
+  "khongTaiDuocAnh": "The photo could not be loaded",
+  "khongThucHienDuoc": "Could not be done",
+  "khongTimThayCamera": "No camera found.",
+  "kiemSoatBenhNen": "Manage a condition",
+  "kyLucCaNhan": "Personal records",
+  "kyLucMoi": "New record!",
+  "kySau": "Next",
+  "kyTruoc": "Previous",
+  "laoDongNangKhuanVacCa": "Heavy labour, lifting all day",
+  "lenThucDon3BuaGiup": "Plan three meals to help me lose weight",
+  "loaiMucTieu": "Goal type",
+  "loiMoiDen": "Invitations",
+  "loiThuLai": "Error · try again",
+  "luongNuoc": "Water",
+  "luongNuocMl": "Amount of water (ml)",
+  "luu": "Save",
+  "luuAnh": "Save photo",
+  "luuCanNangCuaBanTai": "Records your weight as of this moment.",
+  "luuHoatDong": "Save activity",
+  "luuVaoMay": "Save to device",
+  "matBaoLauDeNguPhut": "How long to fall asleep (minutes)",
+  "matKetNoiKhiTaiAnh": "The connection dropped while uploading. Try again when you are online.",
+  "mealShareText": "{name} · {kcal}\nProtein {protein} · Carbs {carbs} · Fat {fat}",
+  "@mealShareText": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "kcal": {
+        "type": "String"
+      },
+      "protein": {
+        "type": "String"
+      },
+      "carbs": {
+        "type": "String"
+      },
+      "fat": {
+        "type": "String"
+      }
+    }
+  },
+  "mealsAndKcal": "{count} meals · {kcal}",
+  "@mealsAndKcal": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "micDienThoai": "phone mic",
+  "mifflinExplainer": "It uses the Mifflin-St Jeor formula, recommended because it is the most accurate for adults:\n• Male: 10 × weight (kg) + 6.25 × height (cm) − 5 × age + 5\n• Female: 10 × weight (kg) + 6.25 × height (cm) − 5 × age − 161\nMen carry more muscle and so burn more; the body burns less with age.",
+  "minutesCount": "{minutes} min",
+  "@minutesCount": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "mo": "Open",
+  "moTa": "Description",
+  "moTaThemTuyChon": "Say a little more — optional",
+  "moi": "Invite",
+  "moiBuoiSangChiCoMot": "There is one night per morning: saving replaces whatever was already recorded for that wake-up day.",
+  "mon": "Sport",
+  "mucTieu": "Goals",
+  "mucTieu1500Ml": "Target 1500 ml",
+  "mucTieu2000Ml": "Target 2000 ml",
+  "mucTieu2500Ml": "Target 2500 ml",
+  "mucTieu3000Ml": "Target 3000 ml",
+  "mucTieuCanNang": "Goal weight",
+  "mucVanDongHangNgay": "Everyday activity level",
+  "nam": "Male",
+  "namNay": "This year",
+  "nang": "Hard",
+  "nangDong": "Active",
+  "ngay": "Snoring",
+  "ngayAn": "Date eaten",
+  "ngayNoiMo": "Snoring / sleep talk",
+  "ngaySinh": "Date of birth",
+  "nghiNgungTho": "Possible apnoea",
+  "ngoiLamViecCaNgayIt": "Desk-bound all day, little walking",
+  "ngonNgu": "Language",
+  "nguTotHon": "Sleep better",
+  "nguoiNayChuaCoKhoanhKhac": "This person has no moments yet.",
+  "nha": "Home",
+  "nhanTin": "Message…",
+  "nhanVaGiuMicDeNoi": "Hold the mic and speak; the words are added to the box above",
+  "nhanVaGiuNutMicTrong": "Hold the mic button down while you speak.",
+  "nhapCanNangTu20Den": "Enter a weight between 20 and 400 kg",
+  "nhapGiaTriMucTieu": "Enter a target value",
+  "nhapGiacNgu": "Enter a night",
+  "nhapHoatDong": "Enter an activity",
+  "nhapTay": "Enter by hand",
+  "nhe": "Light",
+  "nhieuChatBeo": "High in fat",
+  "nhieuDuong": "High in sugar",
+  "nhieuMuoi": "High in salt",
+  "nhieuTinhBot": "High in carbs",
+  "nhipTimTb": "Avg heart rate",
+  "nightCounts": "Snoring {snore} · Sleep talk {talk} · Coughing {cough}",
+  "@nightCounts": {
+    "placeholders": {
+      "snore": {
+        "type": "String"
+      },
+      "talk": {
+        "type": "String"
+      },
+      "cough": {
+        "type": "String"
+      }
+    }
+  },
+  "noNgu": "Sleep debt",
+  "noi": "Speak",
+  "noiMo": "Sleep talk",
+  "nong": "Light",
+  "nu": "Female",
+  "nuoc": "Water",
+  "nuocHomNay": "Water today",
+  "nuocMl": "Water (ml)",
+  "overLastDays": "over the last {days} days",
+  "@overLastDays": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "paceTotNhat": "best pace",
+  "phanBiCatSeBiXoa": "The trimmed part is deleted for good; distance, time and splits are recalculated.",
+  "phanGiacNguGiaiDoanVa": "Sleep, stages and clips outside the new times are cut away.",
+  "phanTich": "Analyse",
+  "phanTichKeoDaiQua5": "The analysis took longer than 5 minutes. Please try again.",
+  "phat": "Play",
+  "phienDangNhapHetHanDang": "Your session expired. Sign in again, then post.",
+  "phut2": "Minutes",
+  "phut3": "min",
+  "prFastestDistance": "fastest {km} km",
+  "@prFastestDistance": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "quangDuong": "Distance",
+  "quangDuong2": "distance",
+  "quangDuongDaiNhat": "longest distance",
+  "quangDuongKmTuyChon": "Distance (km) — optional",
+  "quetMaVach": "Scan a barcode",
+  "ratNangDong": "Very active",
+  "ratNhe": "Very light",
+  "reactedToMoment": "Reacted {emoji} to a moment",
+  "@reactedToMoment": {
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
+  },
+  "routeMissing": "No screen at {uri}",
+  "@routeMissing": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+  "rpeOutOfTen": "Perceived effort: {rpe}/10",
+  "@rpeOutOfTen": {
+    "placeholders": {
+      "rpe": {
+        "type": "String"
+      }
+    }
+  },
+  "sanPhamDongGoi": "Packaged products",
+  "sanSang": "Ready",
+  "saoChepNoiDung": "Copy text",
+  "sau": "Deep",
+  "saveFailed": "Could not save: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scorePoints": "score {score}",
+  "@scorePoints": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "sleepTargetPerNight": "Target {hours} a night. Nights with no recording do not count towards the debt.",
+  "@sleepTargetPerNight": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "soRepNhieuNhat": "most reps",
+  "stepOneBmr": "1. BMR — the energy burned lying completely still",
+  "stepTwoActivityFactor": "2. Multiplied by your daily activity factor",
+  "suaGioNgu": "Edit sleep times",
+  "suaThanhPhan": "Edit component",
+  "suaTuoiVinamilk180ml": "Vinamilk fresh milk 180 ml",
+  "surplusKcal": "{kcal} kcal over",
+  "@surplusKcal": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "taNangNhat": "heaviest weight",
+  "taiLaiAnh": "Reload photo",
+  "taiThem": "Load more",
+  "tamDung": "Pause",
+  "tamDungTuDong": "auto-paused",
+  "tangCan": "Gain weight",
+  "tangCo": "Build muscle",
+  "tangSucBen": "Build endurance",
+  "tangSucManh": "Build strength",
+  "targetKcal": "Target {kcal} kcal",
+  "@targetKcal": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "targetMl": "Target {ml} ml",
+  "@targetMl": {
+    "placeholders": {
+      "ml": {
+        "type": "String"
+      }
+    }
+  },
+  "tatCa": "All",
+  "tatFlash": "Flash off",
+  "ten": "Name",
+  "tenMon": "Dish name",
+  "tenSanPhamTuyChon": "Product name (optional)",
+  "tepMediaKhongDocDuoc": "That media file could not be read.",
+  "thang": "Month",
+  "thangNay": "This month",
+  "thanhPhan2": "Components",
+  "thayDoi": "CHANGE",
+  "them": "Add",
+  "themBenhNen": "Add a condition",
+  "themBieuCam": "Add a reaction",
+  "themLuongNuocDaUongHom": "Add the water you have drunk today",
+  "themMucTieu": "Add a goal",
+  "themNuoc": "Add water",
+  "themThanhPhan": "Add component",
+  "themThanhPhanMoi": "+ Add a component",
+  "themTinNhan": "Add a message…",
+  "themVaoBuaAn": "Add to the meal",
+  "theoDoiCalo": "Track calories",
+  "theoDoiCaloTieuHao": "Track calories burned",
+  "theoDoiNuoc": "Track water",
+  "thietBiDeo": "wearable",
+  "thieuCan": "Underweight",
+  "thoi": "Not now",
+  "thoiGian": "Time",
+  "thoiGian2": "time",
+  "thoiGianNgu": "time asleep",
+  "thongBaoGiuChoViecGhi": "This notification keeps snoring and sleep-talk recording running all night.",
+  "thongTinCaNhan": "About you",
+  "thuLai": "Try again",
+  "thuVien": "Library",
+  "thuaCan": "Overweight",
+  "thuc": "Awake",
+  "thucDayLuc": "Awake at",
+  "tienTrinh": "Progress",
+  "tienTrinhCanNangKg": "Weight over time (kg)",
+  "tiengViet": "Vietnamese",
+  "tiepTuc": "Continue",
+  "tieuDe": "Title",
+  "tieuDeTuyChon": "Title — optional",
+  "tieuHao": "Burned",
+  "tinNhan": "Messages",
+  "tinhBot": "Carbs",
+  "tinhBotG": "Carbs (g)",
+  "tinhTheoSinhHoatThuongNgay": "Based on your ordinary day (work, getting around), not your workouts — training calories are added to the day you train.",
+  "toanBoDuLieuVuaGhi": "Everything recorded so far is thrown away, not saved.",
+  "tocDoTb": "Avg speed",
+  "todayOfTargetMl": "Today: {drunk} / {target} ml",
+  "@todayOfTargetMl": {
+    "placeholders": {
+      "drunk": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "toiDa": "Max",
+  "toiDayRoi": "I am awake",
+  "toiQuaMinhNguCoDu": "Did I sleep enough last night?",
+  "troLyAi": "AI assistant",
+  "trongMucTieu": "On target",
+  "truaNayAnHaiBatCom": "Two bowls of rice with braised pork and vegetable soup for lunch",
+  "tuNhapSoCalo": "Enter calories myself",
+  "tuan": "Week",
+  "tuanNay": "This week",
+  "tuanNayMinhTapLuyenThe": "How has my training gone this week?",
+  "tuanTruoc": "Last week",
+  "tuyChon": "Options",
+  "tuyChonKhoangThoiGian": "Period options",
+  "tuyChonNuoc": "Water options",
+  "tuyet": "Excellent",
+  "usingTypedFigure": " (using the figure you entered)",
+  "vanDongNhe": "Lightly active",
+  "vanDongVua": "Moderately active",
+  "vdPhoBoTaiItBanh": "e.g. rare beef pho, less noodle; ate half a plate…",
+  "viDuTieuDuongType2": "For example: type 2 diabetes, high blood pressure",
+  "viSaoLaiTinhNhuVay": "Why this number?",
+  "viecNgoiNhieuThinhThoangDi": "Mostly seated work, moving about now and then",
+  "vietVaiDongVeBuaAn": "Write a line or two about the meal…",
+  "voiSoLieuCuaBan": "With your figures",
+  "vua": "Moderate",
+  "vungNhipTim": "Heart-rate zones",
+  "vuotMucTieu": "Over target",
+  "waterAddedToday": "Added {added} ml · {total} ml today",
+  "@waterAddedToday": {
+    "placeholders": {
+      "added": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "waterBreakdown": "Logged by hand {drunk} ml\nFrom food {meals} ml",
+  "@waterBreakdown": {
+    "placeholders": {
+      "drunk": {
+        "type": "String"
+      },
+      "meals": {
+        "type": "String"
+      }
+    }
+  },
+  "weightLogged": "Logged {kg} kg",
+  "@weightLogged": {
+    "placeholders": {
+      "kg": {
+        "type": "String"
+      }
+    }
+  },
+  "workoutWhenAt": "{date} at {time}",
+  "@workoutWhenAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "xacNhan": "Confirm",
+  "xemDangLuoi": "Grid view",
+  "xemLaiBuaAnVaBuoi": "Looking over your recent meals and workouts…",
+  "xemLaiQuaTrinh": "Replay",
+  "xemTatCa": "See all",
+  "xemTungAnh": "View photos",
+  "xoG": "Fibre (g)",
+  "xoa": "Delete",
+  "xoaCuocTroChuyen": "Delete this conversation?",
+  "xoaDemNay": "Delete this night",
+  "xoaDemNay2": "Delete this night?",
+  "xoaHoatDong": "Delete activity",
+  "xoaHoatDong2": "Delete this activity?",
+  "xoaKhoanhKhac": "Delete this moment?"
 }

@@ -5,6 +5,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import 'floating_emoji.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The emoji that sit beside the message box, plus the picker behind "+".
 /// One reaction per person: tapping a second one replaces the first.
@@ -144,7 +145,7 @@ class _MomentComposerState extends ConsumerState<MomentComposer> {
           maxLength: 500,
           onSubmitted: (_) => _send(),
           decoration: InputDecoration(
-            hintText: 'Gửi tin nhắn…',
+            hintText: AppL10n.of(context).guiTinNhan,
             counterText: '',
             isDense: true,
             filled: true,
@@ -171,7 +172,7 @@ class _MomentComposerState extends ConsumerState<MomentComposer> {
         ),
       // One more tap for anything outside the three above.
       IconButton(
-        tooltip: 'Thêm biểu cảm',
+        tooltip: AppL10n.of(context).themBieuCam,
         onPressed: _busy ? null : _pickMore,
         icon: const Icon(
           Icons.add_reaction_outlined,
@@ -215,7 +216,7 @@ class MessagesBadge extends ConsumerWidget {
       alignment: Alignment.center,
       children: [
         IconButton(
-          tooltip: 'Tin nhắn',
+          tooltip: AppL10n.of(context).tinNhan,
           icon: const Icon(Icons.chat_bubble_outline),
           onPressed: onTap,
         ),

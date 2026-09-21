@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// What the one "+" can start. Photo, typing and dictation are one entry —
 /// they are the same screen, not three ways in. Water is not a meal, but it is
@@ -42,23 +43,23 @@ Future<LogMealMethod?> showLogMealSheet(BuildContext context) =>
                 ctx,
                 LogMealMethod.meal,
                 Icons.photo_camera,
-                'Ghi bữa ăn',
-                'Chụp ảnh, chọn ảnh, gõ hoặc nói — AI tách thành phần',
+                AppL10n.of(context).ghiBuaAn,
+                AppL10n.of(context).chupAnhChonAnhGoHoac,
               ),
               _option(
                 ctx,
                 LogMealMethod.barcode,
                 Icons.qr_code_scanner,
-                'Quét mã vạch',
-                'Sản phẩm đóng gói',
+                AppL10n.of(context).quetMaVach,
+                AppL10n.of(context).sanPhamDongGoi,
               ),
               const Divider(height: 1, color: RetroTokens.paperSunk),
               _option(
                 ctx,
                 LogMealMethod.water,
                 Icons.local_drink,
-                'Nước',
-                'Thêm lượng nước đã uống hôm nay',
+                AppL10n.of(context).nuoc,
+                AppL10n.of(context).themLuongNuocDaUongHom,
                 color: RetroTokens.water,
               ),
               const SizedBox(height: 8),

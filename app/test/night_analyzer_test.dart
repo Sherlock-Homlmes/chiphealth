@@ -16,7 +16,7 @@ const _noneWin = SleepWindowScores(snore: 0.05, sleepTalk: 0.05, cough: 0.05);
 /// reach it, so scripts are built loud-window-aligned.
 class _FakeClassifier implements SleepAudioClassifier {
   _FakeClassifier(Iterable<SleepWindowScores?> script)
-      : _script = List.of(script);
+    : _script = List.of(script);
 
   final List<SleepWindowScores?> _script;
   int calls = 0;
@@ -34,7 +34,9 @@ const _windowSamples = 15600;
 /// a 100 Hz sine at 16 kHz) keeps generating whole nights fast.
 Uint8List _pcm(int amplitude, {int sampleCount = _windowSamples}) {
   final lut = List<int>.generate(
-      160, (i) => (amplitude * math.sin(2 * math.pi * i / 160)).round());
+    160,
+    (i) => (amplitude * math.sin(2 * math.pi * i / 160)).round(),
+  );
   final b = ByteData(sampleCount * 2);
   for (var i = 0; i < sampleCount; i++) {
     b.setInt16(i * 2, lut[i % 160], Endian.little);
@@ -91,8 +93,11 @@ void main() {
       // One window pushed in odd-sized pieces, then a whole one.
       final window = _pcm(_loudAmp);
       for (var i = 0; i < window.length; i += 7777) {
-        analyzer.pushBytes(Uint8List.fromList(
-            window.sublist(i, math.min(i + 7777, window.length))));
+        analyzer.pushBytes(
+          Uint8List.fromList(
+            window.sublist(i, math.min(i + 7777, window.length)),
+          ),
+        );
       }
       analyzer.pushBytes(_pcm(_loudAmp));
       await analyzer.idle;
@@ -102,38 +107,44 @@ void main() {
   });
 
   group('event coalescing', () {
-    test('consecutive snore windows merge into one long event with a clip',
-        () async {
-      final fake = _FakeClassifier(List.filled(10, _snoreWin));
-      final analyzer = NightAnalyzer(startedAt: 0, classifier: fake);
+    test(
+      'consecutive snore windows merge into one long event with a clip',
+      () async {
+        final fake = _FakeClassifier(List.filled(10, _snoreWin));
+        final analyzer = NightAnalyzer(startedAt: 0, classifier: fake);
 
-      for (var i = 0; i < 10; i++) {
-        analyzer.pushBytes(_pcm(_loudAmp));
-      }
-      for (var i = 0; i < 4; i++) {
-        analyzer.pushBytes(_pcm(_quietAmp));
-      }
-      await analyzer.idle;
-      final result = analyzer.finish();
+        for (var i = 0; i < 10; i++) {
+          analyzer.pushBytes(_pcm(_loudAmp));
+        }
+        for (var i = 0; i < 4; i++) {
+          analyzer.pushBytes(_pcm(_quietAmp));
+        }
+        await analyzer.idle;
+        final result = analyzer.finish();
 
-      expect(result.events, hasLength(1));
-      final e = result.events.single;
-      expect(e.eventType, 'snore');
-      expect(e.occurredAt, 0);
-      expect(e.durationMs, 10 * 975);
-      expect(e.peakDb, closeTo(-23.8, 0.3));
-      expect(e.clip, isNotNull);
-      // A WAV, not raw PCM.
-      expect(String.fromCharCodes(e.clip!.sublist(0, 4)), 'RIFF');
-      expect(String.fromCharCodes(e.clip!.sublist(8, 12)), 'WAVE');
-      // pre-roll clamped to night start + ten windows + 2 s of tail.
-      expect((e.clip!.length - 44) / 32000, closeTo(0.975 * 10 + 2, 0.01));
-    });
+        expect(result.events, hasLength(1));
+        final e = result.events.single;
+        expect(e.eventType, 'snore');
+        expect(e.occurredAt, 0);
+        expect(e.durationMs, 10 * 975);
+        expect(e.peakDb, closeTo(-23.8, 0.3));
+        expect(e.clip, isNotNull);
+        // A WAV, not raw PCM.
+        expect(String.fromCharCodes(e.clip!.sublist(0, 4)), 'RIFF');
+        expect(String.fromCharCodes(e.clip!.sublist(8, 12)), 'WAVE');
+        // pre-roll clamped to night start + ten windows + 2 s of tail.
+        expect((e.clip!.length - 44) / 32000, closeTo(0.975 * 10 + 2, 0.01));
+      },
+    );
 
-    test('a different event type interrupts and closes the open one',
-        () async {
-      final fake =
-          _FakeClassifier([_snoreWin, _snoreWin, _snoreWin, _coughWin, _coughWin]);
+    test('a different event type interrupts and closes the open one', () async {
+      final fake = _FakeClassifier([
+        _snoreWin,
+        _snoreWin,
+        _snoreWin,
+        _coughWin,
+        _coughWin,
+      ]);
       final analyzer = NightAnalyzer(startedAt: 0, classifier: fake);
 
       for (var i = 0; i < 5; i++) {
@@ -145,8 +156,10 @@ void main() {
       await analyzer.idle;
       final result = analyzer.finish();
 
-      expect(result.events.map((e) => e.eventType).toList(),
-          ['snore', 'cough']);
+      expect(result.events.map((e) => e.eventType).toList(), [
+        'snore',
+        'cough',
+      ]);
       expect(result.events[0].durationMs, 3 * 975);
       expect(result.events[1].durationMs, 2 * 975);
     });
@@ -155,11 +168,14 @@ void main() {
       // Loud bursts at windows 0-1, 6-7, 12-13, 18-19; quiet between.
       final script = <SleepWindowScores?>[
         for (var i = 0; i < 20; i++)
-          if (i % 6 < 2) _snoreWin
+          if (i % 6 < 2) _snoreWin,
       ];
       final fake = _FakeClassifier(script);
-      final analyzer =
-          NightAnalyzer(startedAt: 0, classifier: fake, maxEvents: 3);
+      final analyzer = NightAnalyzer(
+        startedAt: 0,
+        classifier: fake,
+        maxEvents: 3,
+      );
 
       for (var i = 0; i < 20; i++) {
         analyzer.pushBytes(_pcm(i % 6 < 2 ? _loudAmp : _quietAmp));
@@ -171,10 +187,16 @@ void main() {
 
     test('snore clips stop at maxSnoreClips; a talk clip never does', () async {
       // Two snore bursts, then one talk burst, all separated by quiet gaps.
-      final fake = _FakeClassifier(
-          [...List.filled(2, _snoreWin), ...List.filled(2, _snoreWin), ...List.filled(2, _talkWin)]);
+      final fake = _FakeClassifier([
+        ...List.filled(2, _snoreWin),
+        ...List.filled(2, _snoreWin),
+        ...List.filled(2, _talkWin),
+      ]);
       final analyzer = NightAnalyzer(
-          startedAt: 0, classifier: fake, maxSnoreClips: 1);
+        startedAt: 0,
+        classifier: fake,
+        maxSnoreClips: 1,
+      );
 
       final pattern = [
         ...List.filled(2, _loudAmp), // snore burst 1 (clip ok)
@@ -190,8 +212,11 @@ void main() {
       await analyzer.idle;
       final result = analyzer.finish();
 
-      expect(result.events.map((e) => e.eventType).toList(),
-          ['snore', 'snore', 'sleep_talk']);
+      expect(result.events.map((e) => e.eventType).toList(), [
+        'snore',
+        'snore',
+        'sleep_talk',
+      ]);
       expect(result.events[0].clip, isNotNull);
       expect(result.events[1].clip, isNull);
       expect(result.events[2].clip, isNotNull);
@@ -199,24 +224,26 @@ void main() {
   });
 
   group('hypnogram', () {
-    test('short night or no classifier yields the fallback (null stages)',
-        () async {
-      final none = NightAnalyzer(startedAt: 0, classifier: null);
-      none.pushBytes(_pcm(_loudAmp));
-      await none.idle;
-      final r = none.finish();
-      expect(r.events, isEmpty);
-      expect(r.stages, isNull);
+    test(
+      'short night or no classifier yields the fallback (null stages)',
+      () async {
+        final none = NightAnalyzer(startedAt: 0, classifier: null);
+        none.pushBytes(_pcm(_loudAmp));
+        await none.idle;
+        final r = none.finish();
+        expect(r.events, isEmpty);
+        expect(r.stages, isNull);
 
-      // ~11 classified minutes is under the 30-minute floor.
-      final fake = _FakeClassifier(List.filled(700, _noneWin));
-      final short = NightAnalyzer(startedAt: 0, classifier: fake);
-      for (var i = 0; i < 700; i++) {
-        short.pushBytes(_pcm(_loudAmp));
-      }
-      await short.idle;
-      expect(short.finish().stages, isNull);
-    });
+        // ~11 classified minutes is under the 30-minute floor.
+        final fake = _FakeClassifier(List.filled(700, _noneWin));
+        final short = NightAnalyzer(startedAt: 0, classifier: fake);
+        for (var i = 0; i < 700; i++) {
+          short.pushBytes(_pcm(_loudAmp));
+        }
+        await short.idle;
+        expect(short.finish().stages, isNull);
+      },
+    );
 
     test('three-hour night gets prior-shaped stages', () async {
       const nightMinutes = 180;
@@ -236,13 +263,13 @@ void main() {
       SleepWindowScores? scoreFor(int minute) => (minute >= 40 && minute < 46)
           ? _snoreWin
           : (minute >= 120 && minute < 126)
-              ? _talkWin
-              : _noneWin;
+          ? _talkWin
+          : _noneWin;
 
       final script = <SleepWindowScores?>[
         for (var i = 0; i < windows; i++)
           if (ampFor((i * 975) ~/ 60000) != _quietAmp)
-            scoreFor((i * 975) ~/ 60000)
+            scoreFor((i * 975) ~/ 60000),
       ];
       final fake = _FakeClassifier(script);
       final analyzer = NightAnalyzer(startedAt: 0, classifier: fake);

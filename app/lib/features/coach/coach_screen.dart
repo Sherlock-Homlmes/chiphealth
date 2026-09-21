@@ -23,6 +23,7 @@ import '../home/water_controller.dart';
 import '../nutrition/meal_timeline.dart';
 import '../sleep/sleep_screen.dart';
 import 'typing_effects.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// "Trợ lý AI": a chat with the health agent.
 ///
@@ -71,11 +72,11 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   /// Action ids with a confirm/cancel request in flight.
   final _busyActions = <String>{};
 
-  static const _suggestions = [
-    'Hôm nay mình ăn đủ chưa?',
-    'Lên thực đơn 3 bữa giúp mình giảm cân',
-    'Tuần này mình tập luyện thế nào?',
-    'Tối qua mình ngủ có đủ không?',
+  static List<String> _suggestions(BuildContext context) => [
+    AppL10n.of(context).homNayMinhAnDuChua,
+    AppL10n.of(context).lenThucDon3BuaGiup,
+    AppL10n.of(context).tuanNayMinhTapLuyenThe,
+    AppL10n.of(context).toiQuaMinhNguCoDu,
   ];
 
   @override
@@ -250,7 +251,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         // A tap-length burst is not speech; transcribing it would only earn
         // a "không nghe rõ".
         if (spokenFor < const Duration(milliseconds: 500)) {
-          _snack('Đoạn ghi quá ngắn — bấm mic để nói rồi bấm lại khi hết.');
+          _snack(AppL10n.of(context).doanGhiQuaNganBamMic);
           if (path != null) unawaited(deleteClip(path));
           return;
         }
@@ -258,7 +259,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
         return;
       }
       if (!await _recorder.hasPermission()) {
-        if (mounted) _snack('Chưa được cấp quyền micro.');
+        if (mounted) _snack(AppL10n.of(context).chuaDuocCapQuyenMicro);
         return;
       }
       if (!mounted) return;
@@ -428,15 +429,15 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trợ lý AI'),
+        title: Text(AppL10n.of(context).troLyAi),
         actions: [
           IconButton(
-            tooltip: 'Cuộc trò chuyện',
+            tooltip: AppL10n.of(context).cuocTroChuyen,
             icon: const Icon(Icons.history),
             onPressed: _sending ? null : _showHistory,
           ),
           IconButton(
-            tooltip: 'Cuộc trò chuyện mới',
+            tooltip: AppL10n.of(context).cuocTroChuyenMoi,
             icon: const Icon(Icons.add_comment_outlined),
             onPressed: _sending ? null : _startNew,
           ),
@@ -470,7 +471,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   Widget _body() {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_messages.isEmpty && !_sending) {
-      return _EmptyState(suggestions: _suggestions, onPick: _send);
+      return _EmptyState(suggestions: _suggestions(context), onPick: _send);
     }
     return ListView.builder(
       controller: _scroll,
@@ -536,17 +537,17 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
                   inputFormatters: [LengthLimitingTextInputFormatter(4000)],
                   decoration: InputDecoration(
                     hintText: _recording
-                        ? 'Đang nghe… bấm mic để dừng'
+                        ? AppL10n.of(context).dangNgheBamMicDeDung
                         : _transcribing
-                        ? 'Đang chuyển giọng nói thành chữ…'
-                        : 'Hỏi về ăn uống, tập luyện, giấc ngủ…',
+                        ? AppL10n.of(context).dangChuyenGiongNoiThanhChu
+                        : AppL10n.of(context).hoiVeAnUongTapLuyen,
                   ),
                   onSubmitted: (_) => _send(),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'Gửi kèm ảnh',
+                tooltip: AppL10n.of(context).guiKemAnh,
                 onPressed: _sending || _recording || _transcribing
                     ? null
                     : _pickPhoto,
@@ -585,14 +586,14 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        const Expanded(
+        Expanded(
           child: Text(
-            'Ảnh sẽ gửi kèm — có thể bỏ trống lời nhắn',
+            AppL10n.of(context).anhSeGuiKemCoThe,
             style: TextStyle(fontSize: 12),
           ),
         ),
         IconButton(
-          tooltip: 'Bỏ ảnh',
+          tooltip: AppL10n.of(context).boAnh,
           onPressed: _sending ? null : () => setState(() => _photoBytes = null),
           icon: const Icon(Icons.close, size: 18),
         ),
@@ -613,7 +614,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       );
     }
     return Tooltip(
-      message: _recording ? 'Dừng nghe' : 'Nói',
+      message: _recording
+          ? AppL10n.of(context).dungNghe
+          : AppL10n.of(context).noi,
       child: GestureDetector(
         onTap: _sending ? null : _toggleMic,
         child: AnimatedContainer(
@@ -706,7 +709,7 @@ class _BubblePhoto extends ConsumerWidget {
             height: 56,
             child: Center(
               child: Text(
-                'Không tải được ảnh',
+                AppL10n.of(context).khongTaiDuocAnh,
                 style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
               ),
             ),
@@ -742,27 +745,47 @@ class _ActionCard extends StatelessWidget {
     return Icons.monitor_weight;
   }
 
-  (String, Color, Color) get _status {
+  (String, Color, Color) _status(BuildContext context) {
     // Confirmed, then the target was deleted — a record, nothing to open.
     if (action.deleted) {
-      return ('Đã xóa', RetroTokens.inkFaint, RetroTokens.paperSunk);
+      return (
+        AppL10n.of(context).daXoa,
+        RetroTokens.inkFaint,
+        RetroTokens.paperSunk,
+      );
     }
     return switch (action.status) {
-      'confirmed' => ('Đã thực hiện', RetroTokens.ok, RetroTokens.okSoft),
-      'cancelled' => ('Đã huỷ', RetroTokens.inkFaint, RetroTokens.paperSunk),
+      'confirmed' => (
+        AppL10n.of(context).daThucHien,
+        RetroTokens.ok,
+        RetroTokens.okSoft,
+      ),
+      'cancelled' => (
+        AppL10n.of(context).daHuy,
+        RetroTokens.inkFaint,
+        RetroTokens.paperSunk,
+      ),
       'failed' => (
-        'Không thực hiện được',
+        AppL10n.of(context).khongThucHienDuoc,
         RetroTokens.accent,
         RetroTokens.accentSoft,
       ),
-      'expired' => ('Đã hết hạn', RetroTokens.inkFaint, RetroTokens.paperSunk),
-      _ => ('Chờ xác nhận', RetroTokens.warn, RetroTokens.warnSoft),
+      'expired' => (
+        AppL10n.of(context).daHetHan,
+        RetroTokens.inkFaint,
+        RetroTokens.paperSunk,
+      ),
+      _ => (
+        AppL10n.of(context).choXacNhan,
+        RetroTokens.warn,
+        RetroTokens.warnSoft,
+      ),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    final (label, tone, background) = _status;
+    final (label, tone, background) = _status(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       constraints: const BoxConstraints(maxWidth: 312),
@@ -822,12 +845,12 @@ class _ActionCard extends StatelessWidget {
                   children: [
                     OutlinedButton(
                       onPressed: onCancel,
-                      child: const Text('Huỷ'),
+                      child: Text(AppL10n.of(context).huy),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
                       onPressed: onConfirm,
-                      child: const Text('Xác nhận'),
+                      child: Text(AppL10n.of(context).xacNhan),
                     ),
                   ],
                 ),
@@ -836,7 +859,10 @@ class _ActionCard extends StatelessWidget {
                 !action.deleted)
               Align(
                 alignment: Alignment.centerRight,
-                child: TextButton(onPressed: onOpen, child: const Text('Mở')),
+                child: TextButton(
+                  onPressed: onOpen,
+                  child: Text(AppL10n.of(context).mo),
+                ),
               ),
           ],
         ),
@@ -858,16 +884,14 @@ class _EmptyState extends StatelessWidget {
       children: [
         const Icon(Icons.smart_toy_outlined, size: 40, color: RetroTokens.ink),
         const SizedBox(height: 12),
-        const Text(
-          'Trợ lý AI',
+        Text(
+          AppL10n.of(context).troLyAi,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Hỏi về bữa ăn, tập luyện, giấc ngủ của bạn. Trợ lý đọc dữ liệu '
-          'bạn đã ghi, và có thể ghi hay sửa giúp — luôn chờ bạn xác nhận '
-          'trước.',
+        Text(
+          AppL10n.of(context).hoiVeBuaAnTapLuyen,
           textAlign: TextAlign.center,
           style: TextStyle(color: RetroTokens.inkSoft),
         ),
@@ -912,16 +936,16 @@ class _HistorySheetState extends ConsumerState<_HistorySheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xoá cuộc trò chuyện?'),
-        content: Text(c.title ?? 'Cuộc trò chuyện'),
+        title: Text(AppL10n.of(context).xoaCuocTroChuyen),
+        content: Text(c.title ?? AppL10n.of(context).cuocTroChuyen),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Thôi'),
+            child: Text(AppL10n.of(context).thoi),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xoá'),
+            child: Text(AppL10n.of(context).xoa),
           ),
         ],
       ),
@@ -951,7 +975,7 @@ class _HistorySheetState extends ConsumerState<_HistorySheet> {
             children: [
               ListTile(
                 leading: const Icon(Icons.add_comment_outlined),
-                title: const Text('Cuộc trò chuyện mới'),
+                title: Text(AppL10n.of(context).cuocTroChuyenMoi),
                 onTap: () => Navigator.of(context).pop(_HistorySheet.newThread),
               ),
               const Divider(height: 1),
@@ -967,8 +991,8 @@ class _HistorySheetState extends ConsumerState<_HistorySheet> {
                     }
                     final items = snap.data!;
                     if (items.isEmpty) {
-                      return const Center(
-                        child: Text('Chưa có cuộc trò chuyện'),
+                      return Center(
+                        child: Text(AppL10n.of(context).chuaCoCuocTroChuyen),
                       );
                     }
                     return ListView.builder(
@@ -979,7 +1003,7 @@ class _HistorySheetState extends ConsumerState<_HistorySheet> {
                         return ListTile(
                           selected: c.id == widget.current,
                           title: Text(
-                            c.title ?? 'Cuộc trò chuyện',
+                            c.title ?? AppL10n.of(context).cuocTroChuyen,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -991,7 +1015,7 @@ class _HistorySheetState extends ConsumerState<_HistorySheet> {
                                   ),
                                 ),
                           trailing: IconButton(
-                            tooltip: 'Xoá',
+                            tooltip: AppL10n.of(context).xoa,
                             icon: const Icon(Icons.delete_outline),
                             onPressed: () => _delete(c),
                           ),

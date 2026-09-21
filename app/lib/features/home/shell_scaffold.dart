@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/tokens.dart';
 import 'home_widgets.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Bottom navigation, a standard mobile tab bar: home and progress on either
 /// side of the green "+". Everything that *writes* data hangs off that button —
@@ -18,13 +19,21 @@ class ShellScaffold extends StatelessWidget {
 
   final Widget child;
 
-  static const _tabs = [
-    ('/', Icons.home_outlined, Icons.home, 'Nhà'),
+  /// Routing only — no label, so it stays const and `_indexFor` needs no
+  /// context.
+  static const _tabPaths = ['/', '/progress'];
+
+  /// Labels are read per build rather than held in a const list: they change
+  /// with the language setting.
+  static List<(String, IconData, IconData, String)> _tabs(
+    BuildContext context,
+  ) => [
+    ('/', Icons.home_outlined, Icons.home, AppL10n.of(context).nha),
     (
       '/progress',
       Icons.insert_chart_outlined,
       Icons.insert_chart,
-      'Tiến trình',
+      AppL10n.of(context).tienTrinh,
     ),
   ];
 
@@ -35,14 +44,14 @@ class ShellScaffold extends StatelessWidget {
 
   /// What the green "+" opens. Sleep and the assistant have no other entry
   /// point, so they live here.
-  static const _logOptions = [
-    ('/nutrition', Icons.restaurant, 'Bữa ăn'),
+  static List<(String, IconData, String)> _logOptions(BuildContext context) => [
+    ('/nutrition', Icons.restaurant, AppL10n.of(context).buaAn),
     // The feed, not the recorder: its own "+" starts a new activity.
-    ('/training', Icons.directions_run, 'Hoạt động'),
-    ('/sleep', Icons.bedtime, 'Giấc ngủ'),
-    ('/moments', Icons.groups, 'Cộng đồng'),
+    ('/training', Icons.directions_run, AppL10n.of(context).hoatDong),
+    ('/sleep', Icons.bedtime, AppL10n.of(context).giacNgu),
+    ('/moments', Icons.groups, AppL10n.of(context).congDong),
     // Chat with the health agent; its writes wait for the user's confirm.
-    ('/coach', Icons.smart_toy_outlined, 'Trợ lý AI'),
+    ('/coach', Icons.smart_toy_outlined, AppL10n.of(context).troLyAi),
   ];
 
   Future<void> _openLogSheet(BuildContext context) async {
@@ -53,7 +62,7 @@ class ShellScaffold extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            for (final (target, icon, label) in _logOptions)
+            for (final (target, icon, label) in _logOptions(context))
               ListTile(
                 leading: Icon(icon, color: RetroTokens.ink),
                 title: Text(label),
@@ -75,8 +84,8 @@ class ShellScaffold extends StatelessWidget {
   /// ngủ, cộng đồng, coach, cá nhân): nothing is highlighted rather than the
   /// wrong thing.
   int _indexFor(String location) {
-    for (var i = _tabs.length - 1; i >= 0; i--) {
-      final path = _tabs[i].$1;
+    for (var i = _tabPaths.length - 1; i >= 0; i--) {
+      final path = _tabPaths[i];
       if (path == '/' ? location == '/' : location.startsWith(path)) return i;
     }
     return -1;
@@ -92,6 +101,7 @@ class ShellScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     final index = _indexFor(location);
+    final tabs = _tabs(context);
 
     return Scaffold(
       body: child,
@@ -117,10 +127,10 @@ class ShellScaffold extends StatelessWidget {
               children: [
                 Expanded(
                   child: _NavTab(
-                    icon: index == 0 ? _tabs[0].$3 : _tabs[0].$2,
-                    label: _tabs[0].$4,
+                    icon: index == 0 ? tabs[0].$3 : tabs[0].$2,
+                    label: tabs[0].$4,
                     selected: index == 0,
-                    onTap: () => context.go(_tabs[0].$1),
+                    onTap: () => context.go(tabs[0].$1),
                   ),
                 ),
                 // The one control that writes anything stays a green disc so
@@ -136,10 +146,10 @@ class ShellScaffold extends StatelessWidget {
                 ),
                 Expanded(
                   child: _NavTab(
-                    icon: index == 1 ? _tabs[1].$3 : _tabs[1].$2,
-                    label: _tabs[1].$4,
+                    icon: index == 1 ? tabs[1].$3 : tabs[1].$2,
+                    label: tabs[1].$4,
                     selected: index == 1,
-                    onTap: () => context.go(_tabs[1].$1),
+                    onTap: () => context.go(tabs[1].$1),
                   ),
                 ),
               ],

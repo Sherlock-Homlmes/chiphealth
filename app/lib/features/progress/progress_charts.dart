@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// One plotted column: an x label plus the value, already aggregated. Charts
 /// never see raw dates, so a week (7 daily buckets) and a year (12 monthly
@@ -66,9 +67,9 @@ class ChartEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     height: height,
-    child: const Center(
+    child: Center(
       child: Text(
-        'Chưa có dữ liệu trong kỳ này',
+        AppL10n.of(context).chuaCoDuLieuTrongKy,
         style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
       ),
     ),

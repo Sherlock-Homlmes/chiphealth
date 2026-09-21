@@ -15,6 +15,7 @@ import '../../widgets/unsaved_changes_bar.dart';
 import 'meal_health_score.dart';
 import 'meal_photo.dart';
 import 'moment_compose_dialog.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The correction surface, and the last step of logging a meal.
 ///
@@ -109,9 +110,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     // away, so there is nothing left to analyse a second time.
     if (meal.photoAssetId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bữa ăn nói không phân tích lại được — hãy nhập lại.'),
-        ),
+        SnackBar(content: Text(AppL10n.of(context).buaAnNoiKhongPhanTich)),
       );
       return;
     }
@@ -131,16 +130,16 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Hủy bỏ bữa ăn?'),
-        content: const Text('Bữa ăn này và mọi thành phần của nó sẽ bị xóa.'),
+        title: Text(AppL10n.of(context).huyBoBuaAn2),
+        content: Text(AppL10n.of(context).buaAnNayVaMoiThanh),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Giữ lại'),
+            child: Text(AppL10n.of(context).giuLai),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Hủy bỏ'),
+            child: Text(AppL10n.of(context).huyBo),
           ),
         ],
       ),
@@ -290,12 +289,12 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'Chia sẻ bữa ăn',
+                  AppL10n.of(context).chiaSeBuaAn,
                   style: TextStyle(
                     color: RetroTokens.onPanel,
                     fontWeight: FontWeight.w700,
@@ -312,20 +311,20 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                   Icons.auto_awesome_motion,
                   color: RetroTokens.onPanel,
                 ),
-                title: const Text(
-                  'Đăng lên Khoảnh khắc',
+                title: Text(
+                  AppL10n.of(context).dangLenKhoanhKhac,
                   style: TextStyle(color: RetroTokens.onPanel),
                 ),
-                subtitle: const Text(
-                  'Bạn bè trong ChipHealth nhìn thấy',
+                subtitle: Text(
+                  AppL10n.of(context).banBeTrongChiphealthNhinThay,
                   style: TextStyle(color: RetroTokens.onPanelSoft),
                 ),
                 onTap: () => Navigator.pop(ctx, _ShareTarget.moment),
               ),
             ListTile(
               leading: const Icon(Icons.share, color: RetroTokens.onPanel),
-              title: const Text(
-                'Chia sẻ lên mạng xã hội',
+              title: Text(
+                AppL10n.of(context).chiaSeLenMangXaHoi,
                 style: TextStyle(color: RetroTokens.onPanel),
               ),
               subtitle: const Text(
@@ -336,8 +335,8 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.copy, color: RetroTokens.onPanel),
-              title: const Text(
-                'Sao chép nội dung',
+              title: Text(
+                AppL10n.of(context).saoChepNoiDung,
                 style: TextStyle(color: RetroTokens.onPanel),
               ),
               onTap: () => Navigator.pop(ctx, _ShareTarget.clipboard),
@@ -359,7 +358,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context)
             ..clearSnackBars()
-            ..showSnackBar(const SnackBar(content: Text('Đã sao chép')));
+            ..showSnackBar(
+              SnackBar(content: Text(AppL10n.of(context).daSaoChep)),
+            );
         }
     }
   }
@@ -369,12 +370,8 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   String _shareText(MealLog meal) {
     final name = meal.dishName?.isNotEmpty == true
         ? meal.dishName!
-        : _mealLabel(meal.mealType);
-    return '$name · ${Units.kcal(meal.totalCaloriesKcal)}\n'
-        'Đạm ${Units.grams(meal.totalProteinG)} · '
-        'Tinh bột ${Units.grams(meal.totalCarbsG)} · '
-        'Béo ${Units.grams(meal.totalFatG)}\n'
-        'Ghi bằng ChipHealth';
+        : _mealLabel(context, meal.mealType);
+    return '${AppL10n.of(context).mealShareText(name, Units.kcal(meal.totalCaloriesKcal), Units.grams(meal.totalProteinG), Units.grams(meal.totalCarbsG), Units.grams(meal.totalFatG))}\nChipHealth';
   }
 
   /// The meal's own photo becomes the moment, linked back to the meal so the
@@ -400,7 +397,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(content: Text('Đã đăng lên Khoảnh khắc')),
+            SnackBar(content: Text(AppL10n.of(context).daDangLenKhoanhKhac)),
           );
       }
     } catch (err) {
@@ -454,7 +451,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                     Expanded(
                       child: _CenteredMessage(
                         text: '$_error',
-                        actionLabel: 'Thử lại',
+                        actionLabel: AppL10n.of(context).thuLai,
                         onAction: () {
                           setState(() => _error = null);
                           _load();
@@ -513,8 +510,8 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                   const SizedBox(height: 28),
                   const CircularProgressIndicator(),
                   const SizedBox(height: 14),
-                  const Text(
-                    'Đang phân tích…',
+                  Text(
+                    AppL10n.of(context).dangPhanTich,
                     style: TextStyle(color: RetroTokens.inkSoft),
                   ),
                 ],
@@ -541,15 +538,17 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
           Expanded(
             child: _CenteredMessage(
               text: !canRetry
-                  ? 'Bữa ăn này chưa được phân tích và không chạy lại được — hãy ghi lại.'
+                  ? AppL10n.of(context).buaAnNayChuaDuocPhan
                   : timedOut
-                  ? 'Phân tích kéo dài quá 5 phút. Hãy thử lại nhé.'
+                  ? AppL10n.of(context).phanTichKeoDaiQua5
                   : never
-                  ? 'Chưa phân tích được bữa ăn này — không kết nối được máy chủ.'
-                  : 'Không phân tích được bữa ăn này.',
-              actionLabel: canRetry ? 'Thử lại' : 'Hủy bỏ',
+                  ? AppL10n.of(context).chuaPhanTichDuocBuaAn
+                  : AppL10n.of(context).khongPhanTichDuocBuaAn,
+              actionLabel: canRetry
+                  ? AppL10n.of(context).thuLai
+                  : AppL10n.of(context).huyBo,
               onAction: canRetry ? _retry : _discard,
-              secondaryLabel: canRetry ? 'Hủy bỏ' : null,
+              secondaryLabel: canRetry ? AppL10n.of(context).huyBo : null,
               onSecondary: canRetry ? _discard : null,
             ),
           ),
@@ -563,7 +562,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     final view = meal.withItems(
       meal.items.where((i) => !_removed.contains(i.id)).toList(),
     );
-    final score = MealHealthScore.of(view);
+    final score = MealHealthScore.of(context, view);
 
     return ListView(
       // Room for the save bar, so it never hides the last card.
@@ -590,7 +589,7 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                     Text(
                       meal.dishName?.isNotEmpty == true
                           ? meal.dishName!
-                          : _mealLabel(meal.mealType),
+                          : _mealLabel(context, meal.mealType),
                       style: const TextStyle(
                         fontSize: 28,
                         height: 1.15,
@@ -608,7 +607,9 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Sức Khỏe: ${score.value}/10',
+                          AppL10n.of(
+                            context,
+                          ).healthScoreOutOfTen('${score.value}'),
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: RetroTokens.inkSoft,
@@ -661,11 +662,11 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
 /// Where a shared meal can go.
 enum _ShareTarget { moment, external, clipboard }
 
-String _mealLabel(String type) => switch (type) {
-  'breakfast' => 'Bữa sáng',
-  'lunch' => 'Bữa trưa',
-  'dinner' => 'Bữa tối',
-  _ => 'Bữa phụ',
+String _mealLabel(BuildContext context, String type) => switch (type) {
+  'breakfast' => AppL10n.of(context).buaSang,
+  'lunch' => AppL10n.of(context).buaTrua,
+  'dinner' => AppL10n.of(context).buaToi,
+  _ => AppL10n.of(context).buaPhu,
 };
 
 /// Back arrow on the left; share and the "hủy bỏ" menu in the top-right corner.
@@ -694,7 +695,7 @@ class _Header extends StatelessWidget {
               if (onShare != null)
                 IconButton(
                   icon: const Icon(Icons.ios_share, color: RetroTokens.ink),
-                  tooltip: 'Chia sẻ',
+                  tooltip: AppL10n.of(context).chiaSe,
                   onPressed: onShare,
                 ),
               PopupMenuButton<String>(
@@ -702,11 +703,11 @@ class _Header extends StatelessWidget {
                 onSelected: (v) {
                   if (v == 'discard') onDiscard();
                 },
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'discard',
                     child: Text(
-                      'Hủy bỏ bữa ăn',
+                      AppL10n.of(context).huyBoBuaAn,
                       style: TextStyle(color: RetroTokens.accent),
                     ),
                   ),
@@ -745,9 +746,9 @@ class _NutritionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Calo & Dinh dưỡng',
+                  AppL10n.of(context).caloDinhDuong,
                   style: TextStyle(
                     color: RetroTokens.onPanelSoft,
                     fontSize: 13,
@@ -755,7 +756,7 @@ class _NutritionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _Pill(label: 'Chỉnh sửa', onTap: onEdit),
+              _Pill(label: AppL10n.of(context).chinhSua, onTap: onEdit),
             ],
           ),
           const SizedBox(height: 18),
@@ -783,7 +784,7 @@ class _NutritionCard extends StatelessWidget {
                 child: _MacroColumn(
                   color: RetroTokens.carbs,
                   icon: Icons.bakery_dining,
-                  label: 'Tinh bột',
+                  label: AppL10n.of(context).tinhBot,
                   grams: meal.totalCarbsG,
                 ),
               ),
@@ -791,7 +792,7 @@ class _NutritionCard extends StatelessWidget {
                 child: _MacroColumn(
                   color: RetroTokens.protein,
                   icon: Icons.egg_alt,
-                  label: 'Chất đạm',
+                  label: AppL10n.of(context).chatDam,
                   grams: meal.totalProteinG,
                 ),
               ),
@@ -799,7 +800,7 @@ class _NutritionCard extends StatelessWidget {
                 child: _MacroColumn(
                   color: RetroTokens.fat,
                   icon: Icons.water_drop,
-                  label: 'Chất béo',
+                  label: AppL10n.of(context).chatBeo,
                   grams: meal.totalFatG,
                 ),
               ),
@@ -814,7 +815,7 @@ class _NutritionCard extends StatelessWidget {
                 child: _MacroColumn(
                   color: RetroTokens.sugar,
                   icon: Icons.grain,
-                  label: 'Đường',
+                  label: AppL10n.of(context).duong,
                   grams: sugar,
                 ),
               ),
@@ -831,7 +832,7 @@ class _NutritionCard extends StatelessWidget {
                 child: _MacroColumn(
                   color: RetroTokens.fiber,
                   icon: Icons.grass,
-                  label: 'Chất xơ',
+                  label: AppL10n.of(context).chatXo,
                   grams: fiber,
                 ),
               ),
@@ -869,9 +870,9 @@ class _WaterLine extends StatelessWidget {
     children: [
       const Icon(Icons.water_drop, size: 15, color: RetroTokens.water),
       const SizedBox(width: 6),
-      const Expanded(
+      Expanded(
         child: Text(
-          'Nước',
+          AppL10n.of(context).nuoc,
           style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 12),
         ),
       ),
@@ -942,9 +943,9 @@ class _AnalysisVoteState extends ConsumerState<_AnalysisVote> {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(
+        Expanded(
           child: Text(
-            'ChipHealth phân tích thế nào?',
+            AppL10n.of(context).chiphealthPhanTichTheNao,
             style: TextStyle(color: RetroTokens.onPanelSoft, fontSize: 13),
           ),
         ),
@@ -994,8 +995,8 @@ class _IngredientsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Thành phần',
+          Text(
+            AppL10n.of(context).thanhPhan2,
             style: TextStyle(
               color: RetroTokens.onPanelSoft,
               fontSize: 13,
@@ -1004,10 +1005,10 @@ class _IngredientsCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           if (meal.items.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Text(
-                'Chưa có thành phần nào.',
+                AppL10n.of(context).chuaCoThanhPhanNao,
                 style: TextStyle(color: RetroTokens.onPanelSoft),
               ),
             ),
@@ -1023,8 +1024,8 @@ class _IngredientsCard extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: onAdd,
-              child: const Text(
-                '+ Thêm thành phần mới',
+              child: Text(
+                AppL10n.of(context).themThanhPhanMoi,
                 style: TextStyle(color: RetroTokens.onPanel),
               ),
             ),
@@ -1468,8 +1469,8 @@ class _MealEditorState extends State<_MealEditor> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Chỉnh sửa bữa ăn',
+            Text(
+              AppL10n.of(context).chinhSuaBuaAn,
               style: TextStyle(
                 color: RetroTokens.onPanel,
                 fontWeight: FontWeight.w700,
@@ -1480,8 +1481,8 @@ class _MealEditorState extends State<_MealEditor> {
             TextField(
               controller: _name,
               style: const TextStyle(color: RetroTokens.onPanel),
-              decoration: const InputDecoration(
-                labelText: 'Tên món',
+              decoration: InputDecoration(
+                labelText: AppL10n.of(context).tenMon,
                 labelStyle: TextStyle(color: RetroTokens.onPanelSoft),
               ),
             ),
@@ -1491,7 +1492,7 @@ class _MealEditorState extends State<_MealEditor> {
               children: [
                 for (final t in _types)
                   ChoiceChip(
-                    label: Text(_mealLabel(t)),
+                    label: Text(_mealLabel(context, t)),
                     selected: _type == t,
                     onSelected: (_) => setState(() => _type = t),
                   ),
@@ -1506,6 +1507,7 @@ class _MealEditorState extends State<_MealEditor> {
                     icon: const Icon(Icons.event, size: 18),
                     label: Text(
                       Units.dayHeading(
+                        context,
                         '${_at.year.toString().padLeft(4, '0')}-'
                         '${_at.month.toString().padLeft(2, '0')}-'
                         '${_at.day.toString().padLeft(2, '0')}',
@@ -1528,17 +1530,17 @@ class _MealEditorState extends State<_MealEditor> {
               controller: _note,
               style: const TextStyle(color: RetroTokens.onPanel),
               maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Ghi chú',
+              decoration: InputDecoration(
+                labelText: AppL10n.of(context).ghiChu,
                 labelStyle: TextStyle(color: RetroTokens.onPanelSoft),
               ),
             ),
             const SizedBox(height: 14),
             const Divider(color: RetroTokens.panelLine, height: 1),
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 10, bottom: 2),
               child: Text(
-                'Thành phần',
+                AppL10n.of(context).thanhPhan2,
                 style: TextStyle(
                   color: RetroTokens.onPanelSoft,
                   fontSize: 13,
@@ -1567,8 +1569,8 @@ class _MealEditorState extends State<_MealEditor> {
               alignment: Alignment.centerLeft,
               child: TextButton(
                 onPressed: () => Navigator.pop(context, const _AddComponent()),
-                child: const Text(
-                  '+ Thêm thành phần mới',
+                child: Text(
+                  AppL10n.of(context).themThanhPhanMoi,
                   style: TextStyle(color: RetroTokens.onPanel),
                 ),
               ),
@@ -1584,7 +1586,7 @@ class _MealEditorState extends State<_MealEditor> {
                   note: _note.text.trim(),
                 ),
               ),
-              child: const Text('Lưu'),
+              child: Text(AppL10n.of(context).luu),
             ),
           ],
         ),
@@ -1647,7 +1649,9 @@ class _ItemEditorState extends State<_ItemEditor> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              adding ? 'Thêm thành phần' : 'Sửa thành phần',
+              adding
+                  ? AppL10n.of(context).themThanhPhan
+                  : AppL10n.of(context).suaThanhPhan,
               style: const TextStyle(
                 color: RetroTokens.onPanel,
                 fontWeight: FontWeight.w700,
@@ -1655,33 +1659,33 @@ class _ItemEditorState extends State<_ItemEditor> {
               ),
             ),
             const SizedBox(height: 12),
-            _field(_name, 'Tên', text: true),
+            _field(_name, AppL10n.of(context).ten, text: true),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _field(_grams, 'Khối lượng (g)')),
+                Expanded(child: _field(_grams, AppL10n.of(context).khoiLuongG)),
                 const SizedBox(width: 8),
                 Expanded(child: _field(_kcal, 'Calo (kcal)')),
                 const SizedBox(width: 8),
-                Expanded(child: _field(_water, 'Nước (ml)')),
+                Expanded(child: _field(_water, AppL10n.of(context).nuocMl)),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _field(_carbs, 'Tinh bột (g)')),
+                Expanded(child: _field(_carbs, AppL10n.of(context).tinhBotG)),
                 const SizedBox(width: 8),
-                Expanded(child: _field(_protein, 'Đạm (g)')),
+                Expanded(child: _field(_protein, AppL10n.of(context).damG)),
                 const SizedBox(width: 8),
-                Expanded(child: _field(_fat, 'Béo (g)')),
+                Expanded(child: _field(_fat, AppL10n.of(context).beoG)),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               children: [
-                Expanded(child: _field(_fiber, 'Xơ (g)')),
+                Expanded(child: _field(_fiber, AppL10n.of(context).xoG)),
                 const SizedBox(width: 8),
-                Expanded(child: _field(_sugar, 'Đường (g)')),
+                Expanded(child: _field(_sugar, AppL10n.of(context).duongG)),
                 const SizedBox(width: 8),
                 Expanded(child: _field(_sodium, 'Natri (mg)')),
               ],
@@ -1708,7 +1712,9 @@ class _ItemEditorState extends State<_ItemEditor> {
                   ),
                 );
               },
-              child: Text(adding ? 'Thêm' : 'Lưu'),
+              child: Text(
+                adding ? AppL10n.of(context).them : AppL10n.of(context).luu,
+              ),
             ),
           ],
         ),

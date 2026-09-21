@@ -1,46 +1,799 @@
 {
   "@@locale": "vi",
-  "appTitle": "ChipHealth",
-  "signInWithGoogle": "Đăng nhập bằng Google",
-  "tabHome": "Nhà",
-  "tabNutrition": "Ăn",
-  "tabTraining": "Tập",
-  "tabSleep": "Ngủ",
-  "tabMoments": "Cộng đồng",
-  "today": "Hôm nay",
-  "consumed": "đã nạp",
-  "deficitVsTdee": "thâm hụt so với TDEE",
-  "sleepDebt": "nợ ngủ",
-  "coachSays": "Huấn luyện viên nói",
-  "askCoach": "Hỏi coach",
-  "capturePhoto": "Chụp bữa ăn",
-  "scanBarcode": "Quét mã vạch",
-  "barcodeUnknown": "Chưa có dữ liệu cho mã này",
-  "barcodeUnknownHint": "Đã ghi nhận lượt quét. Quản trị viên sẽ bổ sung sản phẩm.",
-  "mealComponents": "Thành phần",
-  "editComponent": "Sửa thành phần",
-  "aiValuesKept": "Giá trị AI đoán vẫn được giữ lại để cải thiện mô hình.",
-  "lowConfidence": "độ tin cậy thấp — kiểm tra lại",
-  "youCorrected": "bạn đã sửa",
-  "startWorkout": "Bắt đầu",
-  "finishWorkout": "Kết thúc và lưu",
-  "autoPaused": "tạm dừng tự động",
-  "personalRecords": "Kỷ lục cá nhân",
-  "newRecord": "Kỷ lục mới!",
-  "heartRateZones": "Vùng nhịp tim",
-  "splitsPerKm": "Chia chặng (mỗi km)",
-  "recordNight": "Ghi đêm nay",
-  "iAmAwake": "Tôi dậy rồi",
-  "snoreAndSleepTalk": "Ngáy / nói mớ",
-  "friends": "Bạn bè",
-  "inviteFriend": "Mời",
-  "addCaption": "Thêm chú thích",
-  "post": "Đăng",
-  "goals": "Mục tiêu",
-  "chronicConditions": "Bệnh nền",
-  "weight": "cân nặng",
-  "height": "chiều cao",
-  "signOut": "Đăng xuất",
-  "retry": "Thử lại",
-  "noData": "Chưa có dữ liệu"
+  "anhHoatDong": "Ảnh hoạt động",
+  "anhQuaNangChupLaiVoi": "Ảnh quá nặng. Chụp lại với chất lượng thấp hơn.",
+  "anhSeGuiKemCoThe": "Ảnh sẽ gửi kèm — có thể bỏ trống lời nhắn",
+  "anhTaiLenBiLoiChup": "Ảnh tải lên bị lỗi. Chụp lại giúp tao.",
+  "approxMinutesAtAvgPace": "~{minutes} phút theo tốc độ trung bình",
+  "@approxMinutesAtAvgPace": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "audioEventCount": "{count} sự kiện âm thanh",
+  "@audioEventCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "autoTdeeLine": "Tự tính: BMR {bmr} × {factor} = {total} kcal{suffix}",
+  "@autoTdeeLine": {
+    "placeholders": {
+      "bmr": {
+        "type": "String"
+      },
+      "factor": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      },
+      "suffix": {
+        "type": "String"
+      }
+    }
+  },
+  "bamGioTheoDoiGps": "Bấm giờ, theo dõi GPS",
+  "ban": "Bạn",
+  "banBe": "Bạn bè",
+  "banBeSeKhongThayAnh": "Bạn bè sẽ không thấy ảnh này nữa.",
+  "banBeTrongChiphealthNhinThay": "Bạn bè trong ChipHealth nhìn thấy",
+  "banDoHienKhiBatDau": "Bản đồ hiện khi bắt đầu ghi",
+  "batDau": "Bắt đầu",
+  "batDauGhi": "Bắt đầu ghi",
+  "batDauLuc": "Bắt đầu lúc",
+  "batFlash": "Bật flash",
+  "benhNen": "Bệnh nền",
+  "beoG": "Béo (g)",
+  "beoPhi": "Béo phì",
+  "bmiCanNangKgChiaCho": "BMI = cân nặng (kg) chia cho bình phương chiều cao (m). Là chỉ số tham khảo, không phân biệt cơ và mỡ.",
+  "bmrTimesFactor": "{bmr} × {factor} ({level}) = {total} kcal/ngày",
+  "@bmrTimesFactor": {
+    "placeholders": {
+      "bmr": {
+        "type": "String"
+      },
+      "factor": {
+        "type": "String"
+      },
+      "level": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "boAnh": "Bỏ ảnh",
+  "buaAn": "Bữa ăn",
+  "buaAnCuaBan": "Bữa ăn của bạn",
+  "buaAnNayChuaDuocPhan": "Bữa ăn này chưa được phân tích và không chạy lại được — hãy ghi lại.",
+  "buaAnNayVaMoiThanh": "Bữa ăn này và mọi thành phần của nó sẽ bị xóa.",
+  "buaAnNoiKhongPhanTich": "Bữa ăn nói không phân tích lại được — hãy nhập lại.",
+  "buaPhu": "Bữa phụ",
+  "buaSang": "Bữa sáng",
+  "buaToi": "Bữa tối",
+  "buaTrua": "Bữa trưa",
+  "buoiChieu": "buổi chiều",
+  "buoiDaTapTinhKcalVao": "Buổi đã tập — tính kcal vào ngày",
+  "buoiDaiNhat": "buổi dài nhất",
+  "buoiNayTheNaoChiaSe": "Buổi này thế nào? Chia sẻ thêm…",
+  "buoiSang": "buổi sáng",
+  "buoiTap": "Buổi tập",
+  "buoiTapMoi": "Buổi tập mới",
+  "buoiToi": "buổi tối",
+  "buoiTrua": "buổi trưa",
+  "caNhan": "Cá nhân",
+  "cacBuaAn": "Các bữa ăn",
+  "cacDemGanDay": "Các đêm gần đây",
+  "caiDat": "Cài đặt",
+  "caloCuaCacBuoiTapBan": "Calo của các buổi tập bạn ghi lại được cộng thêm vào đúng ngày đó, nên không cần tính buổi tập vào mức vận động.",
+  "caloDinhDuong": "Calo & Dinh dưỡng",
+  "caloDotKcalTuyChon": "Calo đốt (kcal) — tuỳ chọn",
+  "caloTieuHaoTuVanDong": "Calo tiêu hao từ vận động",
+  "caloTieuThuMoiNgay": "Calo tiêu thụ mỗi ngày",
+  "caloTieuThuMoiNgayTdee": "Calo tiêu thụ mỗi ngày (TDEE) là năng lượng cơ thể bạn đốt trong 24 giờ. App ước tính theo 2 bước:",
+  "caloTuNhapPhaiTu800": "Calo tự nhập phải từ 800 đến 6.000 kcal",
+  "camNhanNoLuc": "Cảm nhận nỗ lực",
+  "camOnDaGuiThongTin": "Cảm ơn — đã gửi thông tin cho quản trị viên.",
+  "canCanNangVaChieuCao": "Cần cân nặng và chiều cao để tính BMI.",
+  "canNang": "Cân nặng",
+  "canNangGhiNhan": "Cân nặng ghi nhận",
+  "canNangHienTai": "CÂN NẶNG HIỆN TẠI",
+  "canNangPhaiTu20Den": "Cân nặng phải từ 20 đến 400 kg",
+  "canQuyenMicroDePhatHien": "Cần quyền micro để phát hiện ngáy / nói mớ",
+  "canQuyenViTriDeGhi": "Cần quyền vị trí để ghi lộ trình",
+  "cat": "Cắt",
+  "catHoatDong": "Cắt hoạt động",
+  "catHoatDong2": "Cắt hoạt động?",
+  "chatBeo": "Chất béo",
+  "chatDam": "Chất đạm",
+  "chatXo": "Chất xơ",
+  "chiDungGoogleDeDangNhap": "Chỉ dùng Google để đăng nhập. Dữ liệu sức khoẻ đọc trên máy, không gửi token thiết bị đeo lên máy chủ.",
+  "chiSoBmiCuaBan": "Chỉ số BMI của bạn",
+  "chiaChangMoiKm": "Chia chặng (mỗi km)",
+  "chiaSe": "Chia sẻ",
+  "chiaSeBuaAn": "Chia sẻ bữa ăn",
+  "chiaSeLenMangXaHoi": "Chia sẻ lên mạng xã hội",
+  "chieuCao": "Chiều cao",
+  "chieuCaoPhaiTu80Den": "Chiều cao phải từ 80 đến 260 cm",
+  "chinhSua": "Chỉnh sửa",
+  "chinhSuaBuaAn": "Chỉnh sửa bữa ăn",
+  "chinhSuaHoatDong": "Chỉnh sửa hoạt động",
+  "chiphealthPhanTichTheNao": "ChipHealth phân tích thế nào?",
+  "chiphealthVanDangLangNgheCu": "ChipHealth vẫn đang lắng nghe — cứ tắt màn hình và ngủ.",
+  "chiphealthVanGhiLoTrinhKhi": "ChipHealth vẫn ghi lộ trình khi tắt màn hình.",
+  "choXacNhan": "Chờ xác nhận",
+  "chon": "Chọn",
+  "chonKhoangThoiGian": "CHỌN KHOẢNG THỜI GIAN",
+  "chonMon": "Chọn môn",
+  "chonMonVaNhapThoiLuong": "Chọn môn và nhập thời lượng hoặc quãng đường.",
+  "chonNgay": "Chọn ngày",
+  "chonNgayBatKy": "Chọn ngày bất kỳ",
+  "chonNgaySinh": "Chọn ngày sinh",
+  "chonTheoMucDoDiChuyen": "Chọn theo mức độ di chuyển thường nhật (công việc, đi lại), không tính các buổi tập:",
+  "chonTuThuVien": "Chọn từ thư viện",
+  "chuaChoPhepDungCameraMo": "Chưa cho phép dùng camera. Mở cài đặt để cấp quyền.",
+  "chuaChon": "Chưa chọn",
+  "chuaCoBanNao": "Chưa có bạn nào.",
+  "chuaCoCanNangLayMac": " (chưa có cân nặng, lấy mặc định)",
+  "chuaCoCuocTroChuyen": "Chưa có cuộc trò chuyện",
+  "chuaCoDemNaoDuocGhi": "Chưa có đêm nào được ghi.",
+  "chuaCoDuLieu": "Chưa có dữ liệu",
+  "chuaCoDuLieuChoMa": "Chưa có dữ liệu cho mã này",
+  "chuaCoDuLieuTrongKy": "Chưa có dữ liệu trong kỳ này",
+  "chuaCoHoatDongNaoBam": "Chưa có hoạt động nào — bấm + để ghi buổi đầu tiên.",
+  "chuaCoKhoanhKhacNaoChup": "Chưa có khoảnh khắc nào. Chụp một tấm cho bạn bè.",
+  "chuaCoPrNaoTapMot": "Chưa có PR nào — tập một buổi để hệ thống tự phát hiện.",
+  "chuaCoSoLieu": "Chưa có số liệu",
+  "chuaCoThanhPhanNao": "Chưa có thành phần nào.",
+  "chuaCoTinNhanNao": "Chưa có tin nhắn nào.",
+  "chuaDatMucTieu": "chưa đặt mục tiêu",
+  "chuaDatMucTieuNaoBam": "Chưa đặt mục tiêu nào. Bấm + để thêm.",
+  "chuaDuDuLieuDeTinh": "Chưa đủ dữ liệu để tính cân bằng calo",
+  "chuaDuocCapQuyenMicro": "Chưa được cấp quyền micro.",
+  "chuaGhiBuaNaoNhanDe": "Chưa ghi bữa nào. Nhấn \"+\" để bắt đầu.",
+  "chuaLuu2": "chưa lưu",
+  "chuaPhanTichDuocBuaAn": "Chưa phân tích được bữa ăn này — không kết nối được máy chủ.",
+  "chup": "Chụp",
+  "chupAnh": "Chụp ảnh",
+  "chupAnhChonAnhGoHoac": "Chụp ảnh, chọn ảnh, gõ hoặc nói — AI tách thành phần",
+  "chupBaoBi": "Chụp bao bì",
+  "chupBuaAnDeAiNhan": "Chụp bữa ăn để AI nhận diện từng thành phần",
+  "chupLai": "Chụp lại",
+  "clipPlaybackFailed": "Không phát được clip: {error}",
+  "@clipPlaybackFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "coLoiXayRa": "Có lỗi xảy ra",
+  "coThongTinChuaCapNhat": "Có thông tin chưa cập nhật",
+  "componentCount": "{count} thành phần",
+  "@componentCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "conditionUnsaved": "{description} · chưa lưu",
+  "@conditionUnsaved": {
+    "placeholders": {
+      "description": {
+        "type": "String"
+      }
+    }
+  },
+  "congDong": "Cộng đồng",
+  "congThucChiLaUocTinh": "Công thức chỉ là ước tính (lệch khoảng ±10%). Nếu bạn biết số chính xác hơn, hãy bật \"Tự nhập số calo\" — app sẽ dùng số đó thay cho công thức. Mục tiêu calo, đạm, tinh bột và chất béo trên trang chủ đều tính từ con số này.",
+  "cuaQuay": "Cựa quậy",
+  "cuocTroChuyen": "Cuộc trò chuyện",
+  "cuocTroChuyenMoi": "Cuộc trò chuyện mới",
+  "daDangLenKhoanhKhac": "Đã đăng lên Khoảnh khắc",
+  "daGhiNhanLuotQuetCho": "Đã ghi nhận lượt quét. Cho biết đây là sản phẩm gì để quản trị viên bổ sung nhanh hơn:",
+  "daHetHan": "Đã hết hạn",
+  "daHieu": "Đã hiểu",
+  "daHuy": "Đã huỷ",
+  "daLuu": "Đã lưu",
+  "daLuuAnhVaoMay": "Đã lưu ảnh vào máy.",
+  "daNap": "Đã nạp",
+  "daSaoChep": "Đã sao chép",
+  "daTamDung": "Đã tạm dừng",
+  "daTamDung2": "đã tạm dừng",
+  "daThucHien": "Đã thực hiện",
+  "daTraLoiKhoanhKhac": "Đã trả lời khoảnh khắc",
+  "daTraLoiKhoanhKhacCua": "Đã trả lời khoảnh khắc của bạn",
+  "daXoa": "Đã xóa",
+  "damG": "Đạm (g)",
+  "dang": "Đăng",
+  "dangChuyenGiongNoiThanhChu": "Đang chuyển giọng nói thành chữ…",
+  "dangDocDuLieuCuaBan": "Đang đọc dữ liệu của bạn…",
+  "dangGhi": "Đang ghi",
+  "dangGhiBuoiTap": "Đang ghi buổi tập",
+  "dangGhiGiacNgu": "Đang ghi giấc ngủ",
+  "dangLenKhoanhKhac": "Đăng lên Khoảnh khắc",
+  "dangLuu": "Đang lưu…",
+  "dangNgheBamMicDeDung": "Đang nghe… bấm mic để dừng",
+  "dangNgheThaTayDeDung": "Đang nghe… thả tay để dừng",
+  "dangNgheThietBiKhongHo": "Đang nghe — thiết bị không hỗ trợ phân tích, chỉ đo thời lượng",
+  "dangNhapBangGoogle": "Đăng nhập bằng Google",
+  "dangPhanTich": "Đang phân tích…",
+  "dangSoanCauTraLoi": "Đang soạn câu trả lời…",
+  "dangTimTinHieuGps": "Đang tìm tín hiệu GPS…",
+  "dangXuat": "Đăng xuất",
+  "datLai": "Đặt lại",
+  "datLaiHomNay": "Đặt lại hôm nay",
+  "datMayGanGiuongCamSac": "Đặt máy gần giường, cắm sạc",
+  "deTrongTuUocTinhTheo": "Để trống: tự ước tính theo môn, thời lượng / quãng đường và cân nặng.",
+  "deficitKcal": "Thâm hụt {kcal} kcal",
+  "@deficitKcal": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "dem": "Đêm",
+  "demKhuya": "đêm khuya",
+  "diDungSuotNgayLaoDong": "Đi đứng suốt ngày, lao động chân tay",
+  "diLaiDiChuyenKhaNhieu": "Đi lại, di chuyển khá nhiều trong ngày",
+  "diNguLuc": "Đi ngủ lúc",
+  "dienGioiTinhNgaySinhChieu": "Điền giới tính, ngày sinh, chiều cao và cân nặng để app tự tính.",
+  "dinhDuong": "Dinh dưỡng",
+  "dinhDuongLuyenTapGiacNgu": "Dinh dưỡng, luyện tập, giấc ngủ — một chỗ, một huấn luyện viên.",
+  "doCao": "độ cao",
+  "doCaoLonNhat": "độ cao lớn nhất",
+  "doanGhiQuaNganBamMic": "Đoạn ghi quá ngắn — bấm mic để nói rồi bấm lại khi hết.",
+  "dobWithAge": "{date} · {age} tuổi",
+  "@dobWithAge": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "age": {
+        "type": "String"
+      }
+    }
+  },
+  "doiAnh": "Đổi ảnh",
+  "doiCamera": "Đổi camera",
+  "doiChieuMucTieuVaBenh": "Đối chiếu mục tiêu và bệnh nền…",
+  "dong": "Đóng",
+  "dongY": "Đồng ý",
+  "dung": "Dừng",
+  "dungChoGiaoDienChoNhan": "Dùng cho giao diện, cho nhận dạng giọng nói và cho câu trả lời của Trợ lý AI.",
+  "dungKhiBanBietSoCua": "Dùng khi bạn biết số của mình, ví dụ từ đồng hồ thông minh hoặc chuyên gia dinh dưỡng.",
+  "dungNghe": "Dừng nghe",
+  "duong": "Đường",
+  "duongG": "Đường (g)",
+  "duringStage": "trong giai đoạn {stage}",
+  "@duringStage": {
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      }
+    }
+  },
+  "emailCuaBanBe": "Email của bạn bè",
+  "estimatedKcalWith": "Ước tính ≈ {kcal} kcal · {details}",
+  "@estimatedKcalWith": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      },
+      "details": {
+        "type": "String"
+      }
+    }
+  },
+  "friendFallbackName": "Bạn bè",
+  "ghiBuaAn": "Ghi bữa ăn",
+  "ghiCanNang": "Ghi cân nặng",
+  "ghiChu": "Ghi chú",
+  "ghiDemNay": "Ghi đêm nay",
+  "ghiGiacNguDem": "Ghi giấc ngủ đêm",
+  "ghiHoatDongMoi": "Ghi hoạt động mới",
+  "ghiLaiBuaDauTien": "Ghi lại bữa đầu tiên!",
+  "ghiLaiHoatDongDauTien": "Ghi lại hoạt động đầu tiên!",
+  "ghiTiep": "Ghi tiếp",
+  "ghiTrucTiep": "Ghi trực tiếp",
+  "giacNgu": "Giấc ngủ",
+  "giacNguCacGiaiDoanVa": "Giấc ngủ, các giai đoạn và clip ngáy / nói mớ sẽ bị xoá hẳn.",
+  "giamCan": "Giảm cân",
+  "giamMo": "Giảm mỡ",
+  "gio": "Giờ",
+  "gioAn": "Giờ ăn",
+  "gioThucDayPhaiSauGio": "Giờ thức dậy phải sau giờ đi ngủ.",
+  "gioiTinh": "Giới tính",
+  "giuLai": "Giữ lại",
+  "giupAiNhanMonVaKhau": "Giúp AI nhận món và khẩu phần chính xác hơn.",
+  "goalDeadline": "Hạn: {date}",
+  "@goalDeadline": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "goalDeadlineShort": "hạn {date}",
+  "@goalDeadlineShort": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "goalFromTo": "từ {from} → {to} {unit}",
+  "@goalFromTo": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "goalReachedPercent": "ĐÃ ĐẠT ĐƯỢC {percent}% MỤC TIÊU",
+  "@goalReachedPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "googleKhongTraVeIdToken": "Google không trả về id_token",
+  "gui": "Gửi",
+  "guiChoBanBe": "Gửi cho bạn bè",
+  "guiKemAnh": "Gửi kèm ảnh",
+  "guiTinNhan": "Gửi tin nhắn…",
+  "hanHoanThanh": "Hạn hoàn thành",
+  "hanHoanThanhKhongBatBuoc": "Hạn hoàn thành (không bắt buộc)",
+  "healthScoreOutOfTen": "Sức Khỏe: {score}/10",
+  "@healthScoreOutOfTen": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "hetRoi": "Hết rồi.",
+  "hienTaiKhongBatBuoc": "Hiện tại (không bắt buộc)",
+  "hoanThanh": "Hoàn thành",
+  "hoatDong": "Hoạt động",
+  "hoatDongNayKhongCoLo": "Hoạt động này không có lộ trình GPS để cắt.",
+  "hoatDongNaySeBiXoa": "Hoạt động này sẽ bị xoá vĩnh viễn, cùng với lộ trình, các chặng và kỷ lục cá nhân nó lập được.",
+  "hoiVeAnUongTapLuyen": "Hỏi về ăn uống, tập luyện, giấc ngủ…",
+  "hoiVeBuaAnTapLuyen": "Hỏi về bữa ăn, tập luyện, giấc ngủ của bạn. Trợ lý đọc dữ liệu bạn đã ghi, và có thể ghi hay sửa giúp — luôn chờ bạn xác nhận trước.",
+  "homNay": "Hôm nay",
+  "homNayMinhAnDuChua": "Hôm nay mình ăn đủ chưa?",
+  "homQua": "Hôm qua",
+  "huy": "Huỷ",
+  "huy2": "Hủy",
+  "huyBai": "Huỷ bài",
+  "huyBaiTap": "Huỷ bài tập?",
+  "huyBo": "Hủy bỏ",
+  "huyBoBuaAn": "Hủy bỏ bữa ăn",
+  "huyBoBuaAn2": "Hủy bỏ bữa ăn?",
+  "itChatXo": "Ít chất xơ",
+  "itDam": "Ít đạm",
+  "itVanDong": "Ít vận động",
+  "keoHaiDauDeBoPhan": "Kéo hai đầu để bỏ phần đầu hoặc cuối của bài tập.",
+  "khac": "Khác",
+  "khoanhKhac": "Khoảnh khắc",
+  "khoeManh": "Khỏe mạnh",
+  "khoiLuongG": "Khối lượng (g)",
+  "khoiLuongLonNhat": "khối lượng lớn nhất",
+  "khong": "Không",
+  "khongChupDuocThuLai": "Không chụp được. Thử lại.",
+  "khongCoAnhThiChiCan": "Không có ảnh thì chỉ cần gõ hoặc nói, máy tự tách thành phần.",
+  "khongCoDuLieuGiaiDoan": "Không có dữ liệu giai đoạn",
+  "khongCoLoiMoiNao": "Không có lời mời nào.",
+  "khongDangDuocAnhThuLai": "Không đăng được ảnh. Thử lại sau.",
+  "khongGhiNhanSuKienNao": "Không ghi nhận sự kiện nào.",
+  "khongKhaiBaoBenhNenBam": "Không khai báo bệnh nền. Bấm + để thêm.",
+  "khongLuuDuocAnhKiemTra": "Không lưu được ảnh. Kiểm tra quyền truy cập ảnh.",
+  "khongMoDuocCamera": "Không mở được camera.",
+  "khongPhanTichDuocBuaAn": "Không phân tích được bữa ăn này.",
+  "khongTaiDuocAnh": "Không tải được ảnh",
+  "khongThucHienDuoc": "Không thực hiện được",
+  "khongTimThayCamera": "Không tìm thấy camera.",
+  "kiemSoatBenhNen": "Kiểm soát bệnh nền",
+  "kyLucCaNhan": "Kỷ lục cá nhân",
+  "kyLucMoi": "Kỷ lục mới!",
+  "kySau": "Kỳ sau",
+  "kyTruoc": "Kỳ trước",
+  "laoDongNangKhuanVacCa": "Lao động nặng, khuân vác cả ngày",
+  "lenThucDon3BuaGiup": "Lên thực đơn 3 bữa giúp mình giảm cân",
+  "loaiMucTieu": "Loại mục tiêu",
+  "loiMoiDen": "Lời mời đến",
+  "loiThuLai": "Lỗi · thử lại",
+  "luongNuoc": "Lượng nước",
+  "luongNuocMl": "Lượng nước (ml)",
+  "luu": "Lưu",
+  "luuAnh": "Lưu ảnh",
+  "luuCanNangCuaBanTai": "Lưu cân nặng của bạn tại thời điểm này.",
+  "luuHoatDong": "Lưu hoạt động",
+  "luuVaoMay": "Lưu vào máy",
+  "matBaoLauDeNguPhut": "Mất bao lâu để ngủ (phút)",
+  "matKetNoiKhiTaiAnh": "Mất kết nối khi tải ảnh lên. Thử lại khi có mạng.",
+  "mealShareText": "{name} · {kcal}\nĐạm {protein} · Tinh bột {carbs} · Béo {fat}",
+  "@mealShareText": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "kcal": {
+        "type": "String"
+      },
+      "protein": {
+        "type": "String"
+      },
+      "carbs": {
+        "type": "String"
+      },
+      "fat": {
+        "type": "String"
+      }
+    }
+  },
+  "mealsAndKcal": "{count} bữa · {kcal}",
+  "@mealsAndKcal": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      },
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "micDienThoai": "mic điện thoại",
+  "mifflinExplainer": "Dùng công thức Mifflin-St Jeor, được khuyên dùng vì cho sai số thấp nhất ở người trưởng thành:\n• Nam: 10 × cân nặng (kg) + 6,25 × chiều cao (cm) − 5 × tuổi + 5\n• Nữ: 10 × cân nặng (kg) + 6,25 × chiều cao (cm) − 5 × tuổi − 161\nNam có nhiều cơ hơn nên đốt nhiều hơn; tuổi càng cao cơ thể đốt càng ít.",
+  "minutesCount": "{minutes} phút",
+  "@minutesCount": {
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "mo": "Mở",
+  "moTa": "Mô tả",
+  "moTaThemTuyChon": "Mô tả thêm — tuỳ chọn",
+  "moi": "Mời",
+  "moiBuoiSangChiCoMot": "Mỗi buổi sáng chỉ có một đêm: lưu sẽ thay đêm đã ghi cho ngày thức dậy đó (nếu có).",
+  "mon": "Môn",
+  "mucTieu": "Mục tiêu",
+  "mucTieu1500Ml": "Mục tiêu 1500 ml",
+  "mucTieu2000Ml": "Mục tiêu 2000 ml",
+  "mucTieu2500Ml": "Mục tiêu 2500 ml",
+  "mucTieu3000Ml": "Mục tiêu 3000 ml",
+  "mucTieuCanNang": "Mục tiêu cân nặng",
+  "mucVanDongHangNgay": "Mức vận động hằng ngày",
+  "nam": "Năm",
+  "namNay": "Năm nay",
+  "nang": "Nặng",
+  "nangDong": "Năng động",
+  "ngay": "Ngáy",
+  "ngayAn": "Ngày ăn",
+  "ngayNoiMo": "Ngáy / nói mớ",
+  "ngaySinh": "Ngày sinh",
+  "nghiNgungTho": "Nghi ngưng thở",
+  "ngoiLamViecCaNgayIt": "Ngồi làm việc cả ngày, ít đi lại",
+  "ngonNgu": "Ngôn ngữ",
+  "nguTotHon": "Ngủ tốt hơn",
+  "nguoiNayChuaCoKhoanhKhac": "Người này chưa có khoảnh khắc nào.",
+  "nha": "Nhà",
+  "nhanTin": "Nhắn tin…",
+  "nhanVaGiuMicDeNoi": "Nhấn và giữ mic để nói, chữ sẽ được thêm vào ô trên",
+  "nhanVaGiuNutMicTrong": "Nhấn và giữ nút mic trong lúc nói.",
+  "nhapCanNangTu20Den": "Nhập cân nặng từ 20 đến 400 kg",
+  "nhapGiaTriMucTieu": "Nhập giá trị mục tiêu",
+  "nhapGiacNgu": "Nhập giấc ngủ",
+  "nhapHoatDong": "Nhập hoạt động",
+  "nhapTay": "Nhập tay",
+  "nhe": "Nhẹ",
+  "nhieuChatBeo": "Nhiều chất béo",
+  "nhieuDuong": "Nhiều đường",
+  "nhieuMuoi": "Nhiều muối",
+  "nhieuTinhBot": "Nhiều tinh bột",
+  "nhipTimTb": "Nhịp tim TB",
+  "nightCounts": "Ngáy {snore} · Nói mớ {talk} · Ho {cough}",
+  "@nightCounts": {
+    "placeholders": {
+      "snore": {
+        "type": "String"
+      },
+      "talk": {
+        "type": "String"
+      },
+      "cough": {
+        "type": "String"
+      }
+    }
+  },
+  "noNgu": "Nợ ngủ",
+  "noi": "Nói",
+  "noiMo": "Nói mớ",
+  "nong": "Nông",
+  "nu": "Nữ",
+  "nuoc": "Nước",
+  "nuocHomNay": "Nước hôm nay",
+  "nuocMl": "Nước (ml)",
+  "overLastDays": "trong {days} ngày gần nhất",
+  "@overLastDays": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      }
+    }
+  },
+  "paceTotNhat": "pace tốt nhất",
+  "phanBiCatSeBiXoa": "Phần bị cắt sẽ bị xoá vĩnh viễn, quãng đường, thời gian và chia chặng được tính lại.",
+  "phanGiacNguGiaiDoanVa": "Phần giấc ngủ, giai đoạn và clip nằm ngoài khoảng giờ mới sẽ bị cắt bỏ.",
+  "phanTich": "Phân tích",
+  "phanTichKeoDaiQua5": "Phân tích kéo dài quá 5 phút. Hãy thử lại nhé.",
+  "phat": "Phát",
+  "phienDangNhapHetHanDang": "Phiên đăng nhập hết hạn. Đăng nhập lại rồi đăng.",
+  "phut2": "Phút",
+  "phut3": "phút",
+  "prFastestDistance": "nhanh nhất {km} km",
+  "@prFastestDistance": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "quangDuong": "Quãng đường",
+  "quangDuong2": "quãng đường",
+  "quangDuongDaiNhat": "quãng đường dài nhất",
+  "quangDuongKmTuyChon": "Quãng đường (km) — tuỳ chọn",
+  "quetMaVach": "Quét mã vạch",
+  "ratNangDong": "Rất năng động",
+  "ratNhe": "Rất nhẹ",
+  "reactedToMoment": "Đã thả {emoji} vào khoảnh khắc",
+  "@reactedToMoment": {
+    "placeholders": {
+      "emoji": {
+        "type": "String"
+      }
+    }
+  },
+  "routeMissing": "Không có màn hình {uri}",
+  "@routeMissing": {
+    "placeholders": {
+      "uri": {
+        "type": "String"
+      }
+    }
+  },
+  "rpeOutOfTen": "Cảm nhận nỗ lực: {rpe}/10",
+  "@rpeOutOfTen": {
+    "placeholders": {
+      "rpe": {
+        "type": "String"
+      }
+    }
+  },
+  "sanPhamDongGoi": "Sản phẩm đóng gói",
+  "sanSang": "Sẵn sàng",
+  "saoChepNoiDung": "Sao chép nội dung",
+  "sau": "Sâu",
+  "saveFailed": "Không lưu được: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "scorePoints": "điểm {score}",
+  "@scorePoints": {
+    "placeholders": {
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "sleepTargetPerNight": "Mục tiêu {hours}/đêm. Đêm không ghi nhận không tính vào nợ.",
+  "@sleepTargetPerNight": {
+    "placeholders": {
+      "hours": {
+        "type": "String"
+      }
+    }
+  },
+  "soRepNhieuNhat": "số rep nhiều nhất",
+  "stepOneBmr": "1. BMR — năng lượng đốt khi nằm nghỉ hoàn toàn",
+  "stepTwoActivityFactor": "2. Nhân với hệ số vận động hằng ngày",
+  "suaGioNgu": "Sửa giờ ngủ",
+  "suaThanhPhan": "Sửa thành phần",
+  "suaTuoiVinamilk180ml": "Sữa tươi Vinamilk 180ml",
+  "surplusKcal": "Vượt {kcal} kcal",
+  "@surplusKcal": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "taNangNhat": "tạ nặng nhất",
+  "taiLaiAnh": "Tải lại ảnh",
+  "taiThem": "Tải thêm",
+  "tamDung": "Tạm dừng",
+  "tamDungTuDong": "tạm dừng tự động",
+  "tangCan": "Tăng cân",
+  "tangCo": "Tăng cơ",
+  "tangSucBen": "Tăng sức bền",
+  "tangSucManh": "Tăng sức mạnh",
+  "targetKcal": "Mục tiêu {kcal} kcal",
+  "@targetKcal": {
+    "placeholders": {
+      "kcal": {
+        "type": "String"
+      }
+    }
+  },
+  "targetMl": "Mục tiêu {ml} ml",
+  "@targetMl": {
+    "placeholders": {
+      "ml": {
+        "type": "String"
+      }
+    }
+  },
+  "tatCa": "Tất cả",
+  "tatFlash": "Tắt flash",
+  "ten": "Tên",
+  "tenMon": "Tên món",
+  "tenSanPhamTuyChon": "Tên sản phẩm (tuỳ chọn)",
+  "tepMediaKhongDocDuoc": "Tệp media không đọc được.",
+  "thang": "Tháng",
+  "thangNay": "Tháng này",
+  "thanhPhan2": "Thành phần",
+  "thayDoi": "THAY ĐỔI",
+  "them": "Thêm",
+  "themBenhNen": "Thêm bệnh nền",
+  "themBieuCam": "Thêm biểu cảm",
+  "themLuongNuocDaUongHom": "Thêm lượng nước đã uống hôm nay",
+  "themMucTieu": "Thêm mục tiêu",
+  "themNuoc": "Thêm nước",
+  "themThanhPhan": "Thêm thành phần",
+  "themThanhPhanMoi": "+ Thêm thành phần mới",
+  "themTinNhan": "Thêm tin nhắn…",
+  "themVaoBuaAn": "Thêm vào bữa ăn",
+  "theoDoiCalo": "Theo dõi calo",
+  "theoDoiCaloTieuHao": "Theo dõi calo tiêu hao",
+  "theoDoiNuoc": "Theo dõi nước",
+  "thietBiDeo": "thiết bị đeo",
+  "thieuCan": "Thiếu cân",
+  "thoi": "Thôi",
+  "thoiGian": "Thời gian",
+  "thoiGian2": "thời gian",
+  "thoiGianNgu": "thời gian ngủ",
+  "thongBaoGiuChoViecGhi": "Thông báo giữ cho việc ghi âm tiếng ngáy / nói mớ chạy suốt đêm.",
+  "thongTinCaNhan": "Thông tin cá nhân",
+  "thuLai": "Thử lại",
+  "thuVien": "Thư viện",
+  "thuaCan": "Thừa cân",
+  "thuc": "Thức",
+  "thucDayLuc": "Thức dậy lúc",
+  "tienTrinh": "Tiến trình",
+  "tienTrinhCanNangKg": "Tiến trình cân nặng (kg)",
+  "tiengViet": "Tiếng Việt",
+  "tiepTuc": "Tiếp tục",
+  "tieuDe": "Tiêu đề",
+  "tieuDeTuyChon": "Tiêu đề — tuỳ chọn",
+  "tieuHao": "Tiêu hao",
+  "tinNhan": "Tin nhắn",
+  "tinhBot": "Tinh bột",
+  "tinhBotG": "Tinh bột (g)",
+  "tinhTheoSinhHoatThuongNgay": "Tính theo sinh hoạt thường ngày (công việc, đi lại), không tính buổi tập — calo tập được cộng riêng vào ngày tập.",
+  "toanBoDuLieuVuaGhi": "Toàn bộ dữ liệu vừa ghi sẽ bị bỏ, không lưu lại.",
+  "tocDoTb": "Tốc độ TB",
+  "todayOfTargetMl": "Hôm nay: {drunk} / {target} ml",
+  "@todayOfTargetMl": {
+    "placeholders": {
+      "drunk": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "toiDa": "Tối đa",
+  "toiDayRoi": "Tôi dậy rồi",
+  "toiQuaMinhNguCoDu": "Tối qua mình ngủ có đủ không?",
+  "troLyAi": "Trợ lý AI",
+  "trongMucTieu": "Trong mục tiêu",
+  "truaNayAnHaiBatCom": "Trưa nay ăn hai bát cơm với thịt kho và canh rau",
+  "tuNhapSoCalo": "Tự nhập số calo",
+  "tuan": "Tuần",
+  "tuanNay": "Tuần này",
+  "tuanNayMinhTapLuyenThe": "Tuần này mình tập luyện thế nào?",
+  "tuanTruoc": "Tuần trước",
+  "tuyChon": "Tuỳ chọn",
+  "tuyChonKhoangThoiGian": "Tùy chọn khoảng thời gian",
+  "tuyChonNuoc": "Tuỳ chọn nước",
+  "tuyet": "Tuyệt",
+  "usingTypedFigure": " (đang dùng số bạn nhập)",
+  "vanDongNhe": "Vận động nhẹ",
+  "vanDongVua": "Vận động vừa",
+  "vdPhoBoTaiItBanh": "VD: phở bò tái, ít bánh; ăn một nửa đĩa…",
+  "viDuTieuDuongType2": "Ví dụ: tiểu đường type 2, cao huyết áp",
+  "viSaoLaiTinhNhuVay": "Vì sao lại tính như vậy?",
+  "viecNgoiNhieuThinhThoangDi": "Việc ngồi nhiều, thỉnh thoảng đi lại",
+  "vietVaiDongVeBuaAn": "Viết vài dòng về bữa ăn…",
+  "voiSoLieuCuaBan": "Với số liệu của bạn",
+  "vua": "Vừa",
+  "vungNhipTim": "Vùng nhịp tim",
+  "vuotMucTieu": "Vượt mục tiêu",
+  "waterAddedToday": "Đã thêm {added} ml · hôm nay {total} ml",
+  "@waterAddedToday": {
+    "placeholders": {
+      "added": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "waterBreakdown": "Tự ghi {drunk} ml\nĐồ ăn {meals} ml",
+  "@waterBreakdown": {
+    "placeholders": {
+      "drunk": {
+        "type": "String"
+      },
+      "meals": {
+        "type": "String"
+      }
+    }
+  },
+  "weightLogged": "Đã ghi {kg} kg",
+  "@weightLogged": {
+    "placeholders": {
+      "kg": {
+        "type": "String"
+      }
+    }
+  },
+  "workoutWhenAt": "{date} lúc {time}",
+  "@workoutWhenAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "xacNhan": "Xác nhận",
+  "xemDangLuoi": "Xem dạng lưới",
+  "xemLaiBuaAnVaBuoi": "Xem lại bữa ăn và buổi tập gần đây…",
+  "xemLaiQuaTrinh": "Xem lại quá trình",
+  "xemTatCa": "Xem tất cả",
+  "xemTungAnh": "Xem từng ảnh",
+  "xoG": "Xơ (g)",
+  "xoa": "Xoá",
+  "xoaCuocTroChuyen": "Xoá cuộc trò chuyện?",
+  "xoaDemNay": "Xoá đêm này",
+  "xoaDemNay2": "Xoá đêm này?",
+  "xoaHoatDong": "Xoá hoạt động",
+  "xoaHoatDong2": "Xoá hoạt động?",
+  "xoaKhoanhKhac": "Xoá khoảnh khắc?"
 }

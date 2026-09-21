@@ -1,15 +1,18 @@
+import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
+
+import '../l10n/gen/app_localizations.dart';
 
 /// How the progress screen slices time. The ‹ › buttons step by whichever unit
 /// is selected; `custom` is a fixed range the user picked and does not step.
 enum PeriodMode { week, month, year, custom }
 
 extension PeriodModeLabel on PeriodMode {
-  String get label => switch (this) {
-    PeriodMode.week => 'Tuần',
-    PeriodMode.month => 'Tháng',
-    PeriodMode.year => 'Năm',
-    PeriodMode.custom => 'Tùy chọn khoảng thời gian',
+  String label(BuildContext context) => switch (this) {
+    PeriodMode.week => AppL10n.of(context).tuan,
+    PeriodMode.month => AppL10n.of(context).thang,
+    PeriodMode.year => AppL10n.of(context).nam,
+    PeriodMode.custom => AppL10n.of(context).tuyChonKhoangThoiGian,
   };
 }
 
@@ -138,23 +141,24 @@ class Period {
     return !range.end.isBefore(today);
   }
 
-  String get label {
+  String label(BuildContext context) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     switch (mode) {
       case PeriodMode.week:
-        if (range.contains(today)) return 'Tuần này';
+        if (range.contains(today)) return AppL10n.of(context).tuanNay;
         final lastWeek = Period(mode: mode, anchor: today).step(-1).range;
-        if (range == lastWeek) return 'Tuần trước';
+        if (range == lastWeek) return AppL10n.of(context).tuanTruoc;
         return '${_dayMonth.format(range.start)} – ${_dayMonth.format(range.end)}';
       case PeriodMode.month:
         if (anchor.year == today.year && anchor.month == today.month) {
-          return 'Tháng này';
+          return AppL10n.of(context).thangNay;
         }
-        return 'Tháng ${_monthYear.format(range.start)}';
+        return '${AppL10n.of(context).thang} '
+            '${_monthYear.format(range.start)}';
       case PeriodMode.year:
-        if (anchor.year == today.year) return 'Năm nay';
-        return 'Năm ${range.start.year}';
+        if (anchor.year == today.year) return AppL10n.of(context).namNay;
+        return '${AppL10n.of(context).nam} ${range.start.year}';
       case PeriodMode.custom:
         return '${_dayMonth.format(range.start)} – ${_dayMonth.format(range.end)}';
     }

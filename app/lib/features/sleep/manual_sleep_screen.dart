@@ -7,6 +7,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../widgets/retro_widgets.dart';
 import 'sleep_screen.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// A night typed in after the fact: bedtime, wake-up and how long it took to
 /// fall asleep. No stages — the server counts in-bed time minus the latency
@@ -73,7 +74,7 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
   Future<void> _save() async {
     if (!_wake.isAfter(_bed)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Giờ thức dậy phải sau giờ đi ngủ.')),
+        SnackBar(content: Text(AppL10n.of(context).gioThucDayPhaiSauGio)),
       );
       return;
     }
@@ -149,11 +150,15 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(editing ? 'Sửa giờ ngủ' : 'Nhập giấc ngủ'),
+        title: Text(
+          editing
+              ? AppL10n.of(context).suaGioNgu
+              : AppL10n.of(context).nhapGiacNgu,
+        ),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
-            child: const Text('Lưu'),
+            child: Text(AppL10n.of(context).luu),
           ),
         ],
       ),
@@ -161,10 +166,15 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _timeField('Đi ngủ lúc', _bed, Icons.bedtime, (v) => _bed = v),
+            _timeField(
+              AppL10n.of(context).diNguLuc,
+              _bed,
+              Icons.bedtime,
+              (v) => _bed = v,
+            ),
             const SizedBox(height: 12),
             _timeField(
-              'Thức dậy lúc',
+              AppL10n.of(context).thucDayLuc,
               _wake,
               Icons.wb_sunny_outlined,
               (v) => _wake = v,
@@ -173,8 +183,8 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: _latency,
-                decoration: const InputDecoration(
-                  labelText: 'Mất bao lâu để ngủ (phút)',
+                decoration: InputDecoration(
+                  labelText: AppL10n.of(context).matBaoLauDeNguPhut,
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -185,15 +195,13 @@ class _ManualSleepScreenState extends ConsumerState<ManualSleepScreen> {
             if (!inBed.isNegative && !editing)
               StatTile(
                 value: Units.duration(asleep.isNegative ? 0 : asleep.inSeconds),
-                label: 'thời gian ngủ',
+                label: AppL10n.of(context).thoiGianNgu,
               ),
             const SizedBox(height: 12),
             Text(
               editing
-                  ? 'Phần giấc ngủ, giai đoạn và clip nằm ngoài khoảng giờ mới '
-                        'sẽ bị cắt bỏ.'
-                  : 'Mỗi buổi sáng chỉ có một đêm: lưu sẽ thay đêm đã ghi cho '
-                        'ngày thức dậy đó (nếu có).',
+                  ? AppL10n.of(context).phanGiacNguGiaiDoanVa
+                  : AppL10n.of(context).moiBuoiSangChiCoMot,
               style: const TextStyle(fontSize: 12),
             ),
           ],

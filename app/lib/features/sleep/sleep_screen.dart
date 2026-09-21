@@ -9,6 +9,7 @@ import '../../widgets/retro_widgets.dart';
 import 'clip_play_button.dart';
 import 'manual_sleep_screen.dart';
 import 'night_recorder_screen.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 final sleepSessionsProvider = FutureProvider<List<SleepSession>>(
   (ref) => ref.watch(sleepRepositoryProvider).sessions(),
@@ -24,10 +25,10 @@ class SleepScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Giấc ngủ'),
+        title: Text(AppL10n.of(context).giacNgu),
         actions: [
           IconButton(
-            tooltip: 'Nhập tay',
+            tooltip: AppL10n.of(context).nhapTay,
             icon: const Icon(Icons.edit_note),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
@@ -44,7 +45,7 @@ class SleepScreen extends ConsumerWidget {
         backgroundColor: RetroTokens.accent,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.bedtime),
-        label: const Text('Ghi đêm nay'),
+        label: Text(AppL10n.of(context).ghiDemNay),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -54,7 +55,7 @@ class SleepScreen extends ConsumerWidget {
         child: PhoneFrame(
           child: ListView(
             children: [
-              const SectionTitle('Nợ ngủ'),
+              SectionTitle(AppL10n.of(context).noNgu),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: asyncBody(
@@ -75,7 +76,9 @@ class SleepScreen extends ConsumerWidget {
                             Padding(
                               padding: const EdgeInsets.only(bottom: 4),
                               child: Text(
-                                'trong ${d.windowDays} ngày gần nhất',
+                                AppL10n.of(
+                                  context,
+                                ).overLastDays('${d.windowDays}'),
                                 style: const TextStyle(
                                   color: RetroTokens.inkSoft,
                                 ),
@@ -90,8 +93,9 @@ class SleepScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Mục tiêu ${Units.hoursMinutes(d.targetSeconds)}/đêm. '
-                          'Đêm không ghi nhận không tính vào nợ.',
+                          AppL10n.of(context).sleepTargetPerNight(
+                            Units.hoursMinutes(d.targetSeconds),
+                          ),
                           style: const TextStyle(
                             fontSize: 12,
                             color: RetroTokens.inkFaint,
@@ -102,11 +106,11 @@ class SleepScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SectionTitle('Các đêm gần đây'),
+              SectionTitle(AppL10n.of(context).cacDemGanDay),
               asyncBody(
                 sessions,
                 emptyWhen: (list) => list.isEmpty,
-                emptyText: 'Chưa có đêm nào được ghi.',
+                emptyText: AppL10n.of(context).chuaCoDemNaoDuocGhi,
                 data: (list) => Column(
                   children: [
                     for (final night in list)
@@ -146,18 +150,24 @@ class SleepScreen extends ConsumerWidget {
                                 spacing: 6,
                                 children: [
                                   if (night.sleepScore != null)
-                                    RetroChip('điểm ${night.sleepScore}'),
+                                    RetroChip(
+                                      AppL10n.of(
+                                        context,
+                                      ).scorePoints('${night.sleepScore}'),
+                                    ),
                                   RetroChip(
                                     night.source == 'health_sync'
-                                        ? 'thiết bị đeo'
-                                        : 'mic điện thoại',
+                                        ? AppL10n.of(context).thietBiDeo
+                                        : AppL10n.of(context).micDienThoai,
                                     tone: night.stagesAreEstimated
                                         ? RetroTokens.warn
                                         : RetroTokens.ok,
                                   ),
                                   if (night.events.isNotEmpty)
                                     RetroChip(
-                                      '${night.events.length} sự kiện âm thanh',
+                                      AppL10n.of(context).audioEventCount(
+                                        '${night.events.length}',
+                                      ),
                                     ),
                                 ],
                               ),
@@ -370,15 +380,23 @@ class _StageBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <_Stage>[
-      _Stage('Sâu', night.deepSeconds, RetroTokens.sleepDeep),
+      _Stage(AppL10n.of(context).sau, night.deepSeconds, RetroTokens.sleepDeep),
       _Stage('REM', night.remSeconds, RetroTokens.sleepRem),
-      _Stage('Nông', night.lightSeconds, RetroTokens.sleepLight),
-      _Stage('Thức', night.awakeSeconds, RetroTokens.sleepAwake),
+      _Stage(
+        AppL10n.of(context).nong,
+        night.lightSeconds,
+        RetroTokens.sleepLight,
+      ),
+      _Stage(
+        AppL10n.of(context).thuc,
+        night.awakeSeconds,
+        RetroTokens.sleepAwake,
+      ),
     ].where((s) => s.seconds > 0).toList();
 
     if (parts.isEmpty) {
-      return const Text(
-        'Không có dữ liệu giai đoạn',
+      return Text(
+        AppL10n.of(context).khongCoDuLieuGiaiDoan,
         style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
       );
     }
@@ -483,19 +501,17 @@ class _NightDetail extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
-        title: const Text('Xoá đêm này?'),
-        content: const Text(
-          'Giấc ngủ, các giai đoạn và clip ngáy / nói mớ sẽ bị xoá hẳn.',
-        ),
+        title: Text(AppL10n.of(context).xoaDemNay2),
+        content: Text(AppL10n.of(context).giacNguCacGiaiDoanVa),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialog).pop(false),
-            child: const Text('Giữ lại'),
+            child: Text(AppL10n.of(context).giuLai),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: RetroTokens.accent),
             onPressed: () => Navigator.of(dialog).pop(true),
-            child: const Text('Xoá'),
+            child: Text(AppL10n.of(context).xoa),
           ),
         ],
       ),
@@ -522,11 +538,11 @@ class _NightDetail extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Đêm'),
+        title: Text(AppL10n.of(context).dem),
         actions: [
           if (n != null) ...[
             IconButton(
-              tooltip: 'Sửa giờ ngủ',
+              tooltip: AppL10n.of(context).suaGioNgu,
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
@@ -535,7 +551,7 @@ class _NightDetail extends ConsumerWidget {
               ),
             ),
             IconButton(
-              tooltip: 'Xoá đêm này',
+              tooltip: AppL10n.of(context).xoaDemNay,
               icon: const Icon(Icons.delete_outline),
               onPressed: () => _delete(context, ref),
             ),
@@ -563,13 +579,13 @@ class _NightDetail extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SectionTitle('Ngáy / nói mớ'),
+              SectionTitle(AppL10n.of(context).ngayNoiMo),
               if (n.events.isEmpty)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.all(24),
                   child: Center(
                     child: Text(
-                      'Không ghi nhận sự kiện nào.',
+                      AppL10n.of(context).khongGhiNhanSuKienNao,
                       style: TextStyle(color: RetroTokens.inkFaint),
                     ),
                   ),
@@ -585,7 +601,7 @@ class _NightDetail extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${_eventLabel(event.eventType)} · '
+                                '${_eventLabel(context, event.eventType)} · '
                                 '${Units.timeOfDay(event.occurredAt)}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -601,7 +617,9 @@ class _NightDetail extends ConsumerWidget {
                                 ),
                               if (event.stageAtEvent != null)
                                 Text(
-                                  'trong giai đoạn ${event.stageAtEvent}',
+                                  AppL10n.of(
+                                    context,
+                                  ).duringStage('${event.stageAtEvent}'),
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: RetroTokens.inkFaint,
@@ -625,13 +643,13 @@ class _NightDetail extends ConsumerWidget {
   }
 }
 
-String _eventLabel(String type) => switch (type) {
-  'snore' => 'Ngáy',
-  'sleep_talk' => 'Nói mớ',
+String _eventLabel(BuildContext context, String type) => switch (type) {
+  'snore' => AppL10n.of(context).ngay,
+  'sleep_talk' => AppL10n.of(context).noiMo,
   'cough' => 'Ho',
-  'movement' => 'Cựa quậy',
-  'apnea_suspect' => 'Nghi ngưng thở',
-  _ => 'Khác',
+  'movement' => AppL10n.of(context).cuaQuay,
+  'apnea_suspect' => AppL10n.of(context).nghiNgungTho,
+  _ => AppL10n.of(context).khac,
 };
 
 /// Full-night stage timeline in the four standard stages.
@@ -644,18 +662,18 @@ class _Hypnogram extends StatelessWidget {
 
   /// The axis is labelled the way the legend on the previous screen is: the
   /// list card says "Nông", so the chart it opens cannot say "light".
-  static const _labels = {
-    'awake': 'Thức',
+  static Map<String, String> _labels(BuildContext context) => {
+    'awake': AppL10n.of(context).thuc,
     'rem': 'REM',
-    'light': 'Nông',
-    'deep': 'Sâu',
+    'light': AppL10n.of(context).nong,
+    'deep': AppL10n.of(context).sau,
   };
 
   @override
   Widget build(BuildContext context) {
     if (stages.isEmpty) {
-      return const Text(
-        'Không có dữ liệu giai đoạn',
+      return Text(
+        AppL10n.of(context).khongCoDuLieuGiaiDoan,
         style: TextStyle(color: RetroTokens.inkFaint),
       );
     }
@@ -670,7 +688,7 @@ class _Hypnogram extends StatelessWidget {
                   SizedBox(
                     width: 44,
                     child: Text(
-                      _labels[stage] ?? stage,
+                      _labels(context)[stage] ?? stage,
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ),

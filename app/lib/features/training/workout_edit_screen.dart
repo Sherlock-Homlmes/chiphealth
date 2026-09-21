@@ -7,6 +7,7 @@ import '../../core/providers.dart';
 import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
 import 'workout_form.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 class WorkoutEditScreen extends ConsumerStatefulWidget {
   const WorkoutEditScreen({super.key, required this.sessionId});
@@ -63,7 +64,7 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
         ? null
         : WorkoutDraft(
             activity: type,
-            title: session.title ?? defaultWorkoutTitle(session, type),
+            title: session.title ?? defaultWorkoutTitle(context, session, type),
             notes: session.notes ?? '',
             perceivedExertion: session.perceivedExertion,
             photoAssetIds: session.photoAssetIds,
@@ -72,11 +73,11 @@ class _WorkoutEditScreenState extends ConsumerState<WorkoutEditScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chỉnh sửa hoạt động'),
+        title: Text(AppL10n.of(context).chinhSuaHoatDong),
         actions: [
           TextButton(
             onPressed: _saving || draft == null ? null : () => _save(draft),
-            child: const Text('Lưu'),
+            child: Text(AppL10n.of(context).luu),
           ),
         ],
       ),

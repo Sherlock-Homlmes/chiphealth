@@ -11,6 +11,7 @@ import 'activity_format.dart';
 import 'route_map.dart';
 import 'route_replay.dart';
 import 'workout_photos.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 enum _Action { edit, crop, delete }
 
@@ -31,35 +32,35 @@ class WorkoutDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buổi tập'),
+        title: Text(AppL10n.of(context).buoiTap),
         actions: [
           PopupMenuButton<_Action>(
             icon: const Icon(Icons.more_horiz),
-            tooltip: 'Tuỳ chọn',
+            tooltip: AppL10n.of(context).tuyChon,
             onSelected: (action) => switch (action) {
               _Action.edit => context.push('/workouts/$sessionId/edit'),
               _Action.crop => context.push('/workouts/$sessionId/crop'),
               _Action.delete => _delete(context, ref),
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: _Action.edit,
                 child: ListTile(
                   leading: Icon(Icons.edit_outlined),
-                  title: Text('Chỉnh sửa hoạt động'),
+                  title: Text(AppL10n.of(context).chinhSuaHoatDong),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
               if (hasRoute)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: _Action.crop,
                   child: ListTile(
                     leading: Icon(Icons.content_cut),
-                    title: Text('Cắt hoạt động'),
+                    title: Text(AppL10n.of(context).catHoatDong),
                     contentPadding: EdgeInsets.zero,
                   ),
                 ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: _Action.delete,
                 child: ListTile(
                   leading: Icon(
@@ -67,7 +68,7 @@ class WorkoutDetailScreen extends ConsumerWidget {
                     color: RetroTokens.accent,
                   ),
                   title: Text(
-                    'Xoá hoạt động',
+                    AppL10n.of(context).xoaHoatDong,
                     style: TextStyle(color: RetroTokens.accent),
                   ),
                   contentPadding: EdgeInsets.zero,
@@ -145,7 +146,7 @@ class WorkoutDetailScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            workoutWhen(session.startedAt),
+                            workoutWhen(context, session.startedAt),
                             style: const TextStyle(
                               fontSize: 12,
                               color: RetroTokens.inkSoft,
@@ -155,7 +156,8 @@ class WorkoutDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        session.title ?? defaultWorkoutTitle(session, type),
+                        session.title ??
+                            defaultWorkoutTitle(context, session, type),
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w800,
@@ -168,7 +170,9 @@ class WorkoutDetailScreen extends ConsumerWidget {
                       if (session.perceivedExertion != null) ...[
                         const SizedBox(height: 6),
                         Text(
-                          'Cảm nhận nỗ lực: ${session.perceivedExertion}/10',
+                          AppL10n.of(
+                            context,
+                          ).rpeOutOfTen('${session.perceivedExertion}'),
                           style: const TextStyle(
                             fontSize: 12,
                             color: RetroTokens.inkSoft,
@@ -187,14 +191,14 @@ class WorkoutDetailScreen extends ConsumerWidget {
                           child: _stat(
                             context,
                             units.distance(session.distanceM),
-                            'quãng đường',
+                            AppL10n.of(context).quangDuong2,
                           ),
                         ),
                         Expanded(
                           child: _stat(
                             context,
                             Units.duration(session.durationSeconds),
-                            'thời gian',
+                            AppL10n.of(context).thoiGian2,
                           ),
                         ),
                         Expanded(
@@ -209,14 +213,14 @@ class WorkoutDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 if (zones.isNotEmpty) ...[
-                  const SectionTitle('Vùng nhịp tim'),
+                  SectionTitle(AppL10n.of(context).vungNhipTim),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: RetroBox(child: _ZoneBars(zones: zones)),
                   ),
                 ],
                 if (splits.isNotEmpty) ...[
-                  const SectionTitle('Chia chặng (mỗi km)'),
+                  SectionTitle(AppL10n.of(context).chiaChangMoiKm),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: RetroBox(
@@ -277,20 +281,17 @@ class WorkoutDetailScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xoá hoạt động?'),
-        content: const Text(
-          'Hoạt động này sẽ bị xoá vĩnh viễn, cùng với lộ trình, các chặng và '
-          'kỷ lục cá nhân nó lập được.',
-        ),
+        title: Text(AppL10n.of(context).xoaHoatDong2),
+        content: Text(AppL10n.of(context).hoatDongNaySeBiXoa),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Huỷ'),
+            child: Text(AppL10n.of(context).huy),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: RetroTokens.accent),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Xoá'),
+            child: Text(AppL10n.of(context).xoa),
           ),
         ],
       ),

@@ -16,6 +16,7 @@ import '../../core/storage/uuid.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/clip_reader.dart';
 import '../../widgets/retro_widgets.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The one way into a meal: a photo (shot or picked) on top, what the camera
 /// cannot see typed or dictated underneath.
@@ -80,9 +81,9 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
       // land on; a year back is more history than the diary needs.
       firstDate: DateTime(now.year - 1),
       lastDate: now,
-      helpText: 'Ngày ăn',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
+      helpText: AppL10n.of(context).ngayAn,
+      cancelText: AppL10n.of(context).huy,
+      confirmText: AppL10n.of(context).chon,
     );
     if (picked == null) return;
     setState(() {
@@ -100,9 +101,9 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.fromDateTime(_at),
-      helpText: 'Giờ ăn',
-      cancelText: 'Huỷ',
-      confirmText: 'Chọn',
+      helpText: AppL10n.of(context).gioAn,
+      cancelText: AppL10n.of(context).huy,
+      confirmText: AppL10n.of(context).chon,
     );
     if (picked == null) return;
     setState(() {
@@ -144,7 +145,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     _starting = true;
     try {
       if (!await _recorder.hasPermission()) {
-        setState(() => _error = 'Chưa được cấp quyền micro.');
+        setState(() => _error = AppL10n.of(context).chuaDuocCapQuyenMicro);
         return;
       }
       if (!_held || !mounted) return;
@@ -189,7 +190,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
     setState(() => _recording = false);
     // A tap is not speech; sending it would only earn a "không nghe rõ".
     if (heldFor < const Duration(milliseconds: 500)) {
-      setState(() => _error = 'Nhấn và giữ nút mic trong lúc nói.');
+      setState(() => _error = AppL10n.of(context).nhanVaGiuNutMicTrong);
       if (path != null) unawaited(deleteClip(path));
       return;
     }
@@ -301,7 +302,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                       ? null
                       : () => _pickPhoto(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera, size: 18),
-                  label: const Text('Chụp lại'),
+                  label: Text(AppL10n.of(context).chupLai),
                 ),
               ),
               const SizedBox(width: 8),
@@ -311,12 +312,12 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                       ? null
                       : () => _pickPhoto(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined, size: 18),
-                  label: const Text('Đổi ảnh'),
+                  label: Text(AppL10n.of(context).doiAnh),
                 ),
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'Bỏ ảnh',
+                tooltip: AppL10n.of(context).boAnh,
                 onPressed: _busy ? null : () => setState(() => _photo = null),
                 icon: const Icon(Icons.close, color: RetroTokens.accent),
               ),
@@ -350,8 +351,8 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
               color: RetroTokens.inkFaint,
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Chụp bữa ăn để AI nhận diện từng thành phần',
+            Text(
+              AppL10n.of(context).chupBuaAnDeAiNhan,
               textAlign: TextAlign.center,
               style: TextStyle(color: RetroTokens.inkSoft, fontSize: 12),
             ),
@@ -369,7 +370,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                       ? null
                       : () => _pickPhoto(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera, size: 18),
-                  label: const Text('Chụp ảnh'),
+                  label: Text(AppL10n.of(context).chupAnh),
                 ),
               ),
               const SizedBox(width: 8),
@@ -382,7 +383,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                       ? null
                       : () => _pickPhoto(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined, size: 18),
-                  label: const Text('Thư viện'),
+                  label: Text(AppL10n.of(context).thuVien),
                 ),
               ),
             ],
@@ -403,6 +404,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
           icon: const Icon(Icons.event, size: 18),
           label: Text(
             Units.dayHeading(
+              context,
               '${_at.year.toString().padLeft(4, '0')}-'
               '${_at.month.toString().padLeft(2, '0')}-'
               '${_at.day.toString().padLeft(2, '0')}',
@@ -458,7 +460,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
 
     return Scaffold(
       backgroundColor: RetroTokens.paper,
-      appBar: AppBar(title: const Text('Ghi bữa ăn')),
+      appBar: AppBar(title: Text(AppL10n.of(context).ghiBuaAn)),
       body: PhoneFrame(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -476,14 +478,14 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
               decoration: InputDecoration(
                 border: const OutlineInputBorder(),
                 labelText: hasPhoto
-                    ? 'Mô tả thêm — tuỳ chọn'
-                    : 'Bữa ăn của bạn',
+                    ? AppL10n.of(context).moTaThemTuyChon
+                    : AppL10n.of(context).buaAnCuaBan,
                 hintText: hasPhoto
-                    ? 'VD: phở bò tái, ít bánh; ăn một nửa đĩa…'
-                    : 'Trưa nay ăn hai bát cơm với thịt kho và canh rau',
+                    ? AppL10n.of(context).vdPhoBoTaiItBanh
+                    : AppL10n.of(context).truaNayAnHaiBatCom,
                 helperText: hasPhoto
-                    ? 'Giúp AI nhận món và khẩu phần chính xác hơn.'
-                    : 'Không có ảnh thì chỉ cần gõ hoặc nói, máy tự tách thành phần.',
+                    ? AppL10n.of(context).giupAiNhanMonVaKhau
+                    : AppL10n.of(context).khongCoAnhThiChiCan,
                 helperMaxLines: 2,
               ),
             ),
@@ -495,10 +497,10 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                 Expanded(
                   child: Text(
                     _recording
-                        ? 'Đang nghe… thả tay để dừng'
+                        ? AppL10n.of(context).dangNgheThaTayDeDung
                         : _transcribing
-                        ? 'Đang chuyển giọng nói thành chữ…'
-                        : 'Nhấn và giữ mic để nói, chữ sẽ được thêm vào ô trên',
+                        ? AppL10n.of(context).dangChuyenGiongNoiThanhChu
+                        : AppL10n.of(context).nhanVaGiuMicDeNoi,
                     style: const TextStyle(
                       color: RetroTokens.inkSoft,
                       fontSize: 12,
@@ -525,7 +527,7 @@ class _LogMealScreenState extends ConsumerState<LogMealScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Phân tích'),
+                  : Text(AppL10n.of(context).phanTich),
             ),
             if (_error != null)
               Padding(

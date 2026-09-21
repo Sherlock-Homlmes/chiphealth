@@ -3,6 +3,10 @@
 /// epoch-millisecond timestamps, metric units, `YYYY-MM-DD` local dates).
 library;
 
+import 'package:flutter/widgets.dart';
+
+import '../l10n/gen/app_localizations.dart';
+
 int _int(dynamic v, [int fallback = 0]) => (v as num?)?.toInt() ?? fallback;
 int? _intOrNull(dynamic v) => (v as num?)?.toInt();
 double? _dbl(dynamic v) => (v as num?)?.toDouble();
@@ -1263,7 +1267,9 @@ class Conversation {
   final String? avatarUrl;
   final int unread;
 
-  String get label => displayName ?? 'Bạn bè';
+  /// The context is the caller's: a model cannot localize itself.
+  String label(BuildContext context) =>
+      displayName ?? AppL10n.of(context).friendFallbackName;
 
   factory Conversation.fromJson(Map<String, dynamic> json) => Conversation(
     userId: json['userId'] as String,

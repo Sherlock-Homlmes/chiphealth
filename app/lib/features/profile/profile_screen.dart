@@ -10,6 +10,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import '../../widgets/unsaved_changes_bar.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 final meProvider = FutureProvider<Map<String, dynamic>>(
   (ref) => ref.watch(profileRepositoryProvider).me(),
@@ -31,12 +32,12 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cá nhân'),
+        title: Text(AppL10n.of(context).caNhan),
         actions: [
           TextButton(
             onPressed: () =>
                 ref.read(authControllerProvider.notifier).signOut(),
-            child: const Text('Đăng xuất'),
+            child: Text(AppL10n.of(context).dangXuat),
           ),
         ],
       ),
@@ -74,30 +75,69 @@ double? _num(Object? v) => v is num ? v.toDouble() : null;
 /// describes everyday lifestyle movement only (work, commuting, chores) —
 /// logged workout calories are added on top of TDEE separately, so counting
 /// sessions here would double them.
-const _activityLevels = <String, (String, String, double)>{
-  'sedentary': ('Ít vận động', 'Ngồi làm việc cả ngày, ít đi lại', 1.2),
-  'light': ('Vận động nhẹ', 'Việc ngồi nhiều, thỉnh thoảng đi lại', 1.375),
-  'moderate': ('Vận động vừa', 'Đi lại, di chuyển khá nhiều trong ngày', 1.55),
-  'active': ('Năng động', 'Đi đứng suốt ngày, lao động chân tay', 1.725),
-  'very_active': ('Rất năng động', 'Lao động nặng, khuân vác cả ngày', 1.9),
+/// The multipliers are data and stay const; the wording is localized, so it
+/// is looked up per build instead.
+const _activityMultipliers = <String, double>{
+  'sedentary': 1.2,
+  'light': 1.375,
+  'moderate': 1.55,
+  'active': 1.725,
+  'very_active': 1.9,
 };
+
+/// Activity level → (label, what an ordinary day looks like).
+(String, String) _activityLabel(BuildContext context, String key) =>
+    switch (key) {
+      'sedentary' => (
+        AppL10n.of(context).itVanDong,
+        AppL10n.of(context).ngoiLamViecCaNgayIt,
+      ),
+      'light' => (
+        AppL10n.of(context).vanDongNhe,
+        AppL10n.of(context).viecNgoiNhieuThinhThoangDi,
+      ),
+      'moderate' => (
+        AppL10n.of(context).vanDongVua,
+        AppL10n.of(context).diLaiDiChuyenKhaNhieu,
+      ),
+      'active' => (
+        AppL10n.of(context).nangDong,
+        AppL10n.of(context).diDungSuotNgayLaoDong,
+      ),
+      _ => (
+        AppL10n.of(context).ratNangDong,
+        AppL10n.of(context).laoDongNangKhuanVacCa,
+      ),
+    };
 
 /// Goal type → (label, unit the server stores it in). Mirrors GOAL_UNITS in
 /// the backend's routes/me.ts.
-const _goalTypes = <String, (String, String?)>{
-  'lose_weight': ('Giảm cân', 'kg'),
-  'gain_weight': ('Tăng cân', 'kg'),
-  'gain_muscle': ('Tăng cơ', 'kg'),
-  'reduce_body_fat': ('Giảm mỡ', 'percent'),
-  'improve_endurance': ('Tăng sức bền', 'km'),
-  'improve_strength': ('Tăng sức mạnh', 'kg'),
-  'sleep_better': ('Ngủ tốt hơn', 'minutes'),
-  'manage_condition': ('Kiểm soát bệnh nền', null),
+const _goalUnits = <String, String?>{
+  'lose_weight': 'kg',
+  'gain_weight': 'kg',
+  'gain_muscle': 'kg',
+  'reduce_body_fat': 'percent',
+  'improve_endurance': 'km',
+  'improve_strength': 'kg',
+  'sleep_better': 'minutes',
+  'manage_condition': null,
 };
 
-String _unitLabel(String? unit) => switch (unit) {
+String _goalLabel(BuildContext context, String key) => switch (key) {
+  'lose_weight' => AppL10n.of(context).giamCan,
+  'gain_weight' => AppL10n.of(context).tangCan,
+  'gain_muscle' => AppL10n.of(context).tangCo,
+  'reduce_body_fat' => AppL10n.of(context).giamMo,
+  'improve_endurance' => AppL10n.of(context).tangSucBen,
+  'improve_strength' => AppL10n.of(context).tangSucManh,
+  'sleep_better' => AppL10n.of(context).nguTotHon,
+  'manage_condition' => AppL10n.of(context).kiemSoatBenhNen,
+  _ => key,
+};
+
+String _unitLabel(BuildContext context, String? unit) => switch (unit) {
   'percent' => '%',
-  'minutes' => 'phút',
+  'minutes' => AppL10n.of(context).phut3,
   null => '',
   _ => unit,
 };
@@ -156,7 +196,7 @@ class _GoalDraft {
   final double? targetValue;
   final String? deadline;
 
-  String? get unit => _goalTypes[goalType]?.$2;
+  String? get unit => _goalUnits[goalType];
 
   Object toSignature() => id ?? [goalType, startValue, targetValue, deadline];
 }
@@ -188,7 +228,14 @@ class _LanguageCard extends ConsumerStatefulWidget {
 }
 
 class _LanguageCardState extends ConsumerState<_LanguageCard> {
-  static const _languages = {'vi': 'Tiếng Việt', 'en': 'English'};
+  /// (code, flag, name in that language). The name is not translated — a
+  /// language picker that says "Tiếng Việt" only to a Vietnamese reader is
+  /// no use to the person trying to get back out of English.
+  static List<(String, String, String)> _languages(BuildContext context) =>
+      const [
+        ('vi', '\u{1F1FB}\u{1F1F3}', 'Tiếng Việt'),
+        ('en', '\u{1F1EC}\u{1F1E7}', 'English'),
+      ];
 
   bool _saving = false;
 
@@ -217,35 +264,82 @@ class _LanguageCardState extends ConsumerState<_LanguageCard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionTitle('Ngôn ngữ'),
+        SectionTitle(AppL10n.of(context).ngonNgu),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Dùng cho giao diện, cho nhận dạng giọng nói và cho câu trả '
-                'lời của Trợ lý AI.',
-                style: TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final entry in _languages.entries)
-                    ChoiceChip(
-                      label: Text(entry.value),
-                      selected: current == entry.key,
-                      onSelected: _saving ? null : (_) => _pick(entry.key),
-                    ),
-                ],
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: RetroBox(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  AppL10n.of(context).dungChoGiaoDienChoNhan,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: RetroTokens.inkSoft,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                for (final (code, flag, name) in _languages(context))
+                  _LanguageRow(
+                    flag: flag,
+                    name: name,
+                    selected: current == code,
+                    busy: _saving,
+                    onTap: () => _pick(code),
+                  ),
+              ],
+            ),
           ),
         ),
+        const SizedBox(height: 8),
       ],
     );
   }
+}
+
+/// One language, picked on the tap. The flag carries the recognition; the
+/// tick, not a chip outline, says which one is on — the rest of this screen
+/// is rows in a card, and the language belongs in the same shape.
+class _LanguageRow extends StatelessWidget {
+  const _LanguageRow({
+    required this.flag,
+    required this.name,
+    required this.selected,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final String flag;
+  final String name;
+  final bool selected;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: busy ? null : onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Text(flag, style: const TextStyle(fontSize: 22)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              name,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: RetroTokens.ink,
+              ),
+            ),
+          ),
+          if (selected)
+            const Icon(Icons.check, size: 20, color: RetroTokens.accent),
+        ],
+      ),
+    ),
+  );
 }
 
 class _SettingsForm extends ConsumerStatefulWidget {
@@ -294,7 +388,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
   void _load() {
     _sex = _inputs['biologicalSex'] as String?;
     _dob = DateTime.tryParse(_inputs['dateOfBirth'] as String? ?? '');
-    _activity = _activityLevels.containsKey(_inputs['activityLevel'])
+    _activity = _activityMultipliers.containsKey(_inputs['activityLevel'])
         ? _inputs['activityLevel'] as String
         : 'moderate';
     _height.text = _fmt(_num(_inputs['heightCm']));
@@ -351,7 +445,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     return 10 * kg + 6.25 * cm - 5 * age + (_sex == 'male' ? 5 : -161);
   }
 
-  double get _multiplier => _activityLevels[_activity]!.$3;
+  double get _multiplier => _activityMultipliers[_activity]!;
 
   double? get _computed => _bmr == null ? null : _bmr! * _multiplier;
 
@@ -369,7 +463,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
       firstDate: first,
       lastDate: last,
       initialEntryMode: DatePickerEntryMode.calendarOnly,
-      helpText: 'Chọn ngày sinh',
+      helpText: AppL10n.of(context).chonNgaySinh,
     );
     if (picked != null) setState(() => _dob = picked);
   }
@@ -397,6 +491,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
 
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppL10n.of(context);
     final kg = _parse(_weight.text);
     final cm = _parse(_height.text);
     final override = _manual ? _parse(_override.text) : null;
@@ -404,13 +499,13 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
     // Same bounds the API enforces, said in words rather than a 400.
     String? problem;
     if (_weight.text.trim().isNotEmpty && (kg == null || kg < 20 || kg > 400)) {
-      problem = 'Cân nặng phải từ 20 đến 400 kg';
+      problem = AppL10n.of(context).canNangPhaiTu20Den;
     } else if (_height.text.trim().isNotEmpty &&
         (cm == null || cm < 80 || cm > 260)) {
-      problem = 'Chiều cao phải từ 80 đến 260 cm';
+      problem = AppL10n.of(context).chieuCaoPhaiTu80Den;
     } else if (_manual &&
         (override == null || override < 800 || override > 6000)) {
-      problem = 'Calo tự nhập phải từ 800 đến 6.000 kcal';
+      problem = AppL10n.of(context).caloTuNhapPhaiTu800;
     }
     if (problem != null) {
       messenger.showSnackBar(SnackBar(content: Text(problem)));
@@ -462,9 +557,9 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
 
       // Hide the bar now rather than after the refetch lands.
       _savedSignature = _signature();
-      messenger.showSnackBar(const SnackBar(content: Text('Đã lưu')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.daLuu)));
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('Không lưu được: $e')));
+      messenger.showSnackBar(SnackBar(content: Text(l10n.saveFailed('$e'))));
     } finally {
       // Also after a failure: part of it may have landed, and the form should
       // show what did.
@@ -493,18 +588,21 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
           padding: const EdgeInsets.only(bottom: 96),
           children: [
             ?widget.header,
-            const SectionTitle('Thông tin cá nhân'),
+            SectionTitle(AppL10n.of(context).thongTinCaNhan),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: RetroBox(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _Label('Giới tính'),
+                    _Label(AppL10n.of(context).gioiTinh),
                     SegmentedButton<String>(
-                      segments: const [
+                      segments: [
                         ButtonSegment(value: 'male', label: Text('Nam')),
-                        ButtonSegment(value: 'female', label: Text('Nữ')),
+                        ButtonSegment(
+                          value: 'female',
+                          label: Text(AppL10n.of(context).nu),
+                        ),
                       ],
                       selected: {?_sex},
                       emptySelectionAllowed: true,
@@ -513,7 +611,7 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                           setState(() => _sex = s.isEmpty ? null : s.first),
                     ),
                     const SizedBox(height: 14),
-                    const _Label('Ngày sinh'),
+                    _Label(AppL10n.of(context).ngaySinh),
                     OutlinedButton.icon(
                       onPressed: _pickDob,
                       icon: const Icon(Icons.cake_outlined, size: 18),
@@ -522,8 +620,10 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                       ),
                       label: Text(
                         _dob == null
-                            ? 'Chọn ngày sinh'
-                            : '${_date.format(_dob!)} · $_age tuổi',
+                            ? AppL10n.of(context).chonNgaySinh
+                            : AppL10n.of(
+                                context,
+                              ).dobWithAge(_date.format(_dob!), '$_age'),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -536,8 +636,8 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                               decimal: true,
                             ),
                             onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              labelText: 'Chiều cao',
+                            decoration: InputDecoration(
+                              labelText: AppL10n.of(context).chieuCao,
                               suffixText: 'cm',
                             ),
                           ),
@@ -550,8 +650,8 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                               decimal: true,
                             ),
                             onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              labelText: 'Cân nặng',
+                            decoration: InputDecoration(
+                              labelText: AppL10n.of(context).canNang,
                               suffixText: 'kg',
                             ),
                           ),
@@ -564,21 +664,28 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                       key: ValueKey(_activity),
                       initialValue: _activity,
                       isExpanded: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Mức vận động hằng ngày',
-                        helperText:
-                            'Tính theo sinh hoạt thường ngày (công việc, '
-                            'đi lại), không tính buổi tập — calo tập được cộng '
-                            'riêng vào ngày tập.',
+                      decoration: InputDecoration(
+                        labelText: AppL10n.of(context).mucVanDongHangNgay,
+                        helperText: AppL10n.of(
+                          context,
+                        ).tinhTheoSinhHoatThuongNgay,
                         helperMaxLines: 3,
                       ),
                       items: [
-                        for (final e in _activityLevels.entries)
+                        for (final key in _activityMultipliers.keys)
                           DropdownMenuItem(
-                            value: e.key,
-                            child: Text(
-                              '${e.value.$1} · ${e.value.$2}',
-                              overflow: TextOverflow.ellipsis,
+                            value: key,
+                            child: Builder(
+                              builder: (context) {
+                                final (label, detail) = _activityLabel(
+                                  context,
+                                  key,
+                                );
+                                return Text(
+                                  '$label · $detail',
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                              },
                             ),
                           ),
                       ],
@@ -598,9 +705,9 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                   children: [
                     Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Calo tiêu thụ mỗi ngày',
+                            AppL10n.of(context).caloTieuThuMoiNgay,
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -631,11 +738,15 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                     const SizedBox(height: 2),
                     Text(
                       computed == null
-                          ? 'Điền giới tính, ngày sinh, chiều cao và cân nặng '
-                                'để app tự tính.'
-                          : 'Tự tính: BMR ${_kcal.format(_bmr)} × '
-                                '$_multiplier = ${_kcal.format(computed)} kcal'
-                                '${_manual ? ' (đang dùng số bạn nhập)' : ''}',
+                          ? AppL10n.of(context).dienGioiTinhNgaySinhChieu
+                          : AppL10n.of(context).autoTdeeLine(
+                              _kcal.format(_bmr),
+                              '$_multiplier',
+                              _kcal.format(computed),
+                              _manual
+                                  ? AppL10n.of(context).usingTypedFigure
+                                  : '',
+                            ),
                       style: const TextStyle(
                         fontSize: 12,
                         color: RetroTokens.inkSoft,
@@ -644,10 +755,9 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                     const SizedBox(height: 4),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Tự nhập số calo'),
-                      subtitle: const Text(
-                        'Dùng khi bạn biết số của mình, ví dụ từ đồng hồ '
-                        'thông minh hoặc chuyên gia dinh dưỡng.',
+                      title: Text(AppL10n.of(context).tuNhapSoCalo),
+                      subtitle: Text(
+                        AppL10n.of(context).dungKhiBanBietSoCua,
                         style: TextStyle(fontSize: 12),
                       ),
                       value: _manual,
@@ -663,8 +773,8 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                         controller: _override,
                         keyboardType: TextInputType.number,
                         onChanged: (_) => setState(() {}),
-                        decoration: const InputDecoration(
-                          labelText: 'Calo tiêu thụ mỗi ngày',
+                        decoration: InputDecoration(
+                          labelText: AppL10n.of(context).caloTieuThuMoiNgay,
                           suffixText: 'kcal',
                         ),
                       ),
@@ -673,15 +783,15 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
               ),
             ),
             SectionTitle(
-              'Mục tiêu',
+              AppL10n.of(context).mucTieu,
               action: IconButton(
-                tooltip: 'Thêm mục tiêu',
+                tooltip: AppL10n.of(context).themMucTieu,
                 icon: const Icon(Icons.add),
                 onPressed: _addGoal,
               ),
             ),
             if (_goals.isEmpty)
-              const _Empty('Chưa đặt mục tiêu nào. Bấm + để thêm.'),
+              _Empty(AppL10n.of(context).chuaDatMucTieuNaoBam),
             for (final goal in _goals)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -693,15 +803,15 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                 ),
               ),
             SectionTitle(
-              'Bệnh nền',
+              AppL10n.of(context).benhNen,
               action: IconButton(
-                tooltip: 'Thêm bệnh nền',
+                tooltip: AppL10n.of(context).themBenhNen,
                 icon: const Icon(Icons.add),
                 onPressed: _addCondition,
               ),
             ),
             if (_conditions.isEmpty)
-              const _Empty('Không khai báo bệnh nền. Bấm + để thêm.'),
+              _Empty(AppL10n.of(context).khongKhaiBaoBenhNenBam),
             for (final condition in _conditions)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -711,7 +821,9 @@ class _SettingsFormState extends ConsumerState<_SettingsForm> {
                       Expanded(
                         child: Text(
                           condition.id == null
-                              ? '${condition.description} · chưa lưu'
+                              ? AppL10n.of(
+                                  context,
+                                ).conditionUnsaved(condition.description)
                               : condition.description,
                         ),
                       ),
@@ -781,7 +893,7 @@ class _RemoveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => IconButton(
-    tooltip: 'Xoá',
+    tooltip: AppL10n.of(context).xoa,
     visualDensity: VisualDensity.compact,
     icon: const Icon(Icons.close, size: 18, color: RetroTokens.inkSoft),
     onPressed: onPressed,
@@ -801,7 +913,7 @@ class _GoalTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final unit = _unitLabel(goal.unit);
+    final unit = _unitLabel(context, goal.unit);
     final isWeight =
         goal.goalType == 'lose_weight' || goal.goalType == 'gain_weight';
     final target = goal.targetValue == null ? '—' : _fmt(goal.targetValue);
@@ -809,10 +921,14 @@ class _GoalTile extends StatelessWidget {
       if (goal.targetValue != null)
         goal.startValue == null
             ? '→ $target $unit'
-            : 'từ ${_fmt(goal.startValue)} → $target $unit',
+            : AppL10n.of(
+                context,
+              ).goalFromTo(_fmt(goal.startValue), target, unit),
       if (goal.deadline != null)
-        'hạn ${_date.format(DateTime.parse(goal.deadline!))}',
-      if (goal.id == null) 'chưa lưu',
+        AppL10n.of(
+          context,
+        ).goalDeadlineShort(_date.format(DateTime.parse(goal.deadline!))),
+      if (goal.id == null) AppL10n.of(context).chuaLuu2,
     ].join(' · ');
 
     return RetroBox(
@@ -823,7 +939,7 @@ class _GoalTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _goalTypes[goal.goalType]?.$1 ?? goal.goalType,
+                  _goalLabel(context, goal.goalType),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 if (detail.isNotEmpty)
@@ -911,7 +1027,7 @@ class _GoalDialogState extends State<_GoalDialog> {
       initialDate: _deadline ?? now.add(const Duration(days: 90)),
       firstDate: now,
       lastDate: DateTime(now.year + 10),
-      helpText: 'Hạn hoàn thành',
+      helpText: AppL10n.of(context).hanHoanThanh,
     );
     if (picked != null) setState(() => _deadline = picked);
   }
@@ -920,7 +1036,7 @@ class _GoalDialogState extends State<_GoalDialog> {
     final start = _parse(_start.text);
     final target = _parse(_target.text);
     if (_hasTarget && target == null) {
-      setState(() => _error = 'Nhập giá trị mục tiêu');
+      setState(() => _error = AppL10n.of(context).nhapGiaTriMucTieu);
       return;
     }
     Navigator.of(context).pop(
@@ -935,9 +1051,9 @@ class _GoalDialogState extends State<_GoalDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final unit = _unitLabel(_goalTypes[_type]!.$2);
+    final unit = _unitLabel(context, _goalUnits[_type]);
     return AlertDialog(
-      title: const Text('Thêm mục tiêu'),
+      title: Text(AppL10n.of(context).themMucTieu),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -946,10 +1062,15 @@ class _GoalDialogState extends State<_GoalDialog> {
             DropdownButtonFormField<String>(
               initialValue: _type,
               isExpanded: true,
-              decoration: const InputDecoration(labelText: 'Loại mục tiêu'),
+              decoration: InputDecoration(
+                labelText: AppL10n.of(context).loaiMucTieu,
+              ),
               items: [
-                for (final e in _goalTypes.entries)
-                  DropdownMenuItem(value: e.key, child: Text(e.value.$1)),
+                for (final key in _goalUnits.keys)
+                  DropdownMenuItem(
+                    value: key,
+                    child: Text(_goalLabel(context, key)),
+                  ),
               ],
               onChanged: (v) => setState(() {
                 _type = v ?? _type;
@@ -965,7 +1086,7 @@ class _GoalDialogState extends State<_GoalDialog> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: 'Hiện tại (không bắt buộc)',
+                  labelText: AppL10n.of(context).hienTaiKhongBatBuoc,
                   suffixText: unit,
                 ),
               ),
@@ -977,7 +1098,7 @@ class _GoalDialogState extends State<_GoalDialog> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
-                  labelText: 'Mục tiêu',
+                  labelText: AppL10n.of(context).mucTieu,
                   suffixText: unit,
                   errorText: _error,
                 ),
@@ -990,8 +1111,10 @@ class _GoalDialogState extends State<_GoalDialog> {
               style: OutlinedButton.styleFrom(alignment: Alignment.centerLeft),
               label: Text(
                 _deadline == null
-                    ? 'Hạn hoàn thành (không bắt buộc)'
-                    : 'Hạn: ${_date.format(_deadline!)}',
+                    ? AppL10n.of(context).hanHoanThanhKhongBatBuoc
+                    : AppL10n.of(
+                        context,
+                      ).goalDeadline(_date.format(_deadline!)),
               ),
             ),
           ],
@@ -1000,9 +1123,9 @@ class _GoalDialogState extends State<_GoalDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Huỷ'),
+          child: Text(AppL10n.of(context).huy),
         ),
-        FilledButton(onPressed: _submit, child: const Text('Thêm')),
+        FilledButton(onPressed: _submit, child: Text(AppL10n.of(context).them)),
       ],
     );
   }
@@ -1028,25 +1151,25 @@ class _ConditionDialogState extends State<_ConditionDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Thêm bệnh nền'),
+    title: Text(AppL10n.of(context).themBenhNen),
     content: TextField(
       controller: _field,
       autofocus: true,
       maxLength: 2000,
       textInputAction: TextInputAction.done,
       onSubmitted: (_) => _submit(),
-      decoration: const InputDecoration(
-        labelText: 'Bệnh nền',
-        hintText: 'Ví dụ: tiểu đường type 2, cao huyết áp',
+      decoration: InputDecoration(
+        labelText: AppL10n.of(context).benhNen,
+        hintText: AppL10n.of(context).viDuTieuDuongType2,
         counterText: '',
       ),
     ),
     actions: [
       TextButton(
         onPressed: () => Navigator.of(context).pop(),
-        child: const Text('Huỷ'),
+        child: Text(AppL10n.of(context).huy),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Thêm')),
+      FilledButton(onPressed: _submit, child: Text(AppL10n.of(context).them)),
     ],
   );
 }
@@ -1059,7 +1182,7 @@ class _HelpButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: 'Vì sao lại tính như vậy?',
+    message: AppL10n.of(context).viSaoLaiTinhNhuVay,
     child: InkResponse(
       onTap: onTap,
       radius: 18,
@@ -1093,75 +1216,57 @@ void _explain(
   required double? bmr,
   required String activity,
 }) {
-  final level = _activityLevels[activity]!;
+  final level = _activityLabel(context, activity);
   final yours = bmr == null
       ? null
       : '10 × ${weightKg!.toStringAsFixed(1)} + 6,25 × '
             '${heightCm!.toStringAsFixed(0)} − 5 × $age '
             '${sex == 'male' ? '+ 5' : '− 161'} = ${_kcal.format(bmr)} kcal\n'
-            '${_kcal.format(bmr)} × ${level.$3} (${level.$1}) = '
-            '${_kcal.format(bmr * level.$3)} kcal/ngày';
+            '${AppL10n.of(context).bmrTimesFactor(_kcal.format(bmr), '${_activityMultipliers[activity]}', level.$1, _kcal.format(bmr * _activityMultipliers[activity]!))}';
 
   showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Vì sao lại tính như vậy?'),
+      title: Text(AppL10n.of(context).viSaoLaiTinhNhuVay),
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Calo tiêu thụ mỗi ngày (TDEE) là năng lượng cơ thể bạn đốt '
-              'trong 24 giờ. App ước tính theo 2 bước:',
-            ),
+            Text(AppL10n.of(context).caloTieuThuMoiNgayTdee),
             const SizedBox(height: 10),
-            const Text(
-              '1. BMR — năng lượng đốt khi nằm nghỉ hoàn toàn',
+            Text(
+              AppL10n.of(context).stepOneBmr,
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
-            const Text(
-              'Dùng công thức Mifflin-St Jeor, được khuyên dùng vì cho sai số '
-              'thấp nhất ở người trưởng thành:\n'
-              '• Nam: 10 × cân nặng (kg) + 6,25 × chiều cao (cm) − 5 × tuổi + 5\n'
-              '• Nữ: 10 × cân nặng (kg) + 6,25 × chiều cao (cm) − 5 × tuổi − 161\n'
-              'Nam có nhiều cơ hơn nên đốt nhiều hơn; tuổi càng cao cơ thể '
-              'đốt càng ít.',
-            ),
+            Text(AppL10n.of(context).mifflinExplainer),
             const SizedBox(height: 10),
-            const Text(
-              '2. Nhân với hệ số vận động hằng ngày',
+            Text(
+              AppL10n.of(context).stepTwoActivityFactor,
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
-            const Text(
-              'Chọn theo mức độ di chuyển thường nhật (công việc, đi lại), '
-              'không tính các buổi tập:',
-            ),
+            Text(AppL10n.of(context).chonTheoMucDoDiChuyen),
             Text(
               [
-                for (final l in _activityLevels.values)
-                  '• ${l.$1} (${l.$2}): × ${l.$3}',
+                for (final key in _activityMultipliers.keys)
+                  '• ${_activityLabel(context, key).$1} '
+                      '(${_activityLabel(context, key).$2}): '
+                      '× ${_activityMultipliers[key]}',
               ].join('\n'),
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Calo của các buổi tập bạn ghi lại được cộng thêm vào đúng '
-              'ngày đó, nên không cần tính buổi tập vào mức vận động.',
-            ),
+            Text(AppL10n.of(context).caloCuaCacBuoiTapBan),
             if (yours != null) ...[
               const SizedBox(height: 10),
-              const Text(
-                'Với số liệu của bạn',
+              Text(
+                AppL10n.of(context).voiSoLieuCuaBan,
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
               Text(yours),
             ],
             const SizedBox(height: 10),
-            const Text(
-              'Công thức chỉ là ước tính (lệch khoảng ±10%). Nếu bạn biết số '
-              'chính xác hơn, hãy bật "Tự nhập số calo" — app sẽ dùng số đó '
-              'thay cho công thức. Mục tiêu calo, đạm, tinh bột và chất béo '
-              'trên trang chủ đều tính từ con số này.',
+            Text(
+              AppL10n.of(context).congThucChiLaUocTinh,
               style: TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
             ),
           ],
@@ -1170,7 +1275,7 @@ void _explain(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Đã hiểu'),
+          child: Text(AppL10n.of(context).daHieu),
         ),
       ],
     ),

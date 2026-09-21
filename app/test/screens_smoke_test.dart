@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:chiphealth/core/l10n/gen/app_localizations.dart';
 
 /// Renders the two dashboard screens at phone size with canned data. They are
 /// dense stacks of rows and charts, so the thing worth guarding is that nothing
@@ -41,20 +42,30 @@ void main() {
     burnedKcal: 320,
   );
 
-  Future<void> pump(WidgetTester tester, Widget child,
-      {List<Override> overrides = const []}) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Widget child, {
+    List<Override> overrides = const [],
+  }) async {
     // Both screens hold their requests until the session is restored, so a
     // signed-in auth state is part of the fixture.
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        authControllerProvider.overrideWith((ref) => _SignedInAuth(ref)),
-        ...overrides,
-      ],
-      child: MaterialApp(home: child),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _SignedInAuth(ref)),
+          ...overrides,
+        ],
+        child: MaterialApp(
+          locale: const Locale('vi'),
+          localizationsDelegates: AppL10n.localizationsDelegates,
+          supportedLocales: AppL10n.supportedLocales,
+          home: child,
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -73,8 +84,9 @@ void main() {
     expect(find.text('190/263 g'), findsOneWidget);
   });
 
-  testWidgets('the water "+" asks for millilitres and logs them',
-      (tester) async {
+  testWidgets('the water "+" asks for millilitres and logs them', (
+    tester,
+  ) async {
     await pump(
       tester,
       const HomeScreen(),
@@ -94,11 +106,16 @@ void main() {
     expect(find.text('1,080 ml'), findsOneWidget);
   });
 
-  testWidgets('progress renders every card without overflowing',
-      (tester) async {
+  testWidgets('progress renders every card without overflowing', (
+    tester,
+  ) async {
     final metrics = [
       const BodyMetric(
-          recordedAt: 1, localDate: '2026-09-07', weightKg: 68, heightCm: 172),
+        recordedAt: 1,
+        localDate: '2026-09-07',
+        weightKg: 68,
+        heightCm: 172,
+      ),
       const BodyMetric(recordedAt: 2, localDate: '2026-09-09', weightKg: 66.8),
     ];
 
@@ -109,18 +126,21 @@ void main() {
         nutritionRangeProvider.overrideWith((ref, arg) async => [daily]),
         bodyMetricsRangeProvider.overrideWith((ref, arg) async => metrics),
         allBodyMetricsProvider.overrideWith((ref) async => metrics),
-        goalsProvider.overrideWith((ref) async => [
-              const Goal(
-                id: 'g1',
-                goalType: 'lose_weight',
-                startValue: 68,
-                status: 'active',
-                targetValue: 62,
-                targetUnit: 'kg',
-              ),
-            ]),
-        waterRangeProvider
-            .overrideWith((ref, DateRange arg) async => {'2026-09-09': 750}),
+        goalsProvider.overrideWith(
+          (ref) async => [
+            const Goal(
+              id: 'g1',
+              goalType: 'lose_weight',
+              startValue: 68,
+              status: 'active',
+              targetValue: 62,
+              targetUnit: 'kg',
+            ),
+          ],
+        ),
+        waterRangeProvider.overrideWith(
+          (ref, DateRange arg) async => {'2026-09-09': 750},
+        ),
       ],
     );
 

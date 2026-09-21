@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'route_map.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Strava's Crop: drag the two handles to trim the start and end of a
 /// recording (the walk to the start line, the forgotten stop button).
@@ -28,19 +29,16 @@ class _WorkoutCropScreenState extends ConsumerState<WorkoutCropScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Cắt hoạt động?'),
-        content: const Text(
-          'Phần bị cắt sẽ bị xoá vĩnh viễn, quãng đường, thời gian và chia '
-          'chặng được tính lại.',
-        ),
+        title: Text(AppL10n.of(context).catHoatDong2),
+        content: Text(AppL10n.of(context).phanBiCatSeBiXoa),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Không'),
+            child: Text(AppL10n.of(context).khong),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Cắt'),
+            child: Text(AppL10n.of(context).cat),
           ),
         ],
       ),
@@ -79,11 +77,11 @@ class _WorkoutCropScreenState extends ConsumerState<WorkoutCropScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cắt hoạt động'),
+        title: Text(AppL10n.of(context).catHoatDong),
         actions: [
           TextButton(
             onPressed: !changed || _saving ? null : () => _crop(list!, range),
-            child: const Text('Lưu'),
+            child: Text(AppL10n.of(context).luu),
           ),
         ],
       ),
@@ -92,7 +90,7 @@ class _WorkoutCropScreenState extends ConsumerState<WorkoutCropScreen> {
           track,
           onRetry: () => ref.invalidate(workoutTrackProvider(widget.sessionId)),
           emptyWhen: (l) => l.length < 2,
-          emptyText: 'Hoạt động này không có lộ trình GPS để cắt.',
+          emptyText: AppL10n.of(context).hoatDongNayKhongCoLo,
           data: (points) {
             final r = range!;
             final all = points.map(trackLatLng).toList();
@@ -122,19 +120,19 @@ class _WorkoutCropScreenState extends ConsumerState<WorkoutCropScreen> {
                     children: [
                       Expanded(
                         child: _stat(
-                          'Bắt đầu',
+                          AppL10n.of(context).batDau,
                           Units.duration(r.start.round()),
                         ),
                       ),
                       Expanded(
                         child: _stat(
-                          'Quãng đường',
+                          AppL10n.of(context).quangDuong,
                           units.distance(end.d - start.d),
                         ),
                       ),
                       Expanded(
                         child: _stat(
-                          'Thời gian',
+                          AppL10n.of(context).thoiGian,
                           Units.duration((r.end - r.start).round()),
                         ),
                       ),
@@ -154,10 +152,10 @@ class _WorkoutCropScreenState extends ConsumerState<WorkoutCropScreen> {
                           setState(() => _range = v);
                         },
                 ),
-                const Padding(
+                Padding(
                   padding: EdgeInsets.fromLTRB(16, 0, 16, 24),
                   child: Text(
-                    'Kéo hai đầu để bỏ phần đầu hoặc cuối của bài tập.',
+                    AppL10n.of(context).keoHaiDauDeBoPhan,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
                   ),

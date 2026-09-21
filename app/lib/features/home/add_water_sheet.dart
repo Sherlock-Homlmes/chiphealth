@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/theme/tokens.dart';
 import 'water_controller.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Asks for an amount in millilitres and adds it to the day. Returns what was
 /// added, or null when the sheet was dismissed — callers away from the water
@@ -66,14 +67,16 @@ class _AddWaterSheetState extends State<_AddWaterSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Thêm nước',
+            Text(
+              AppL10n.of(context).themNuoc,
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 4),
             Text(
-              'Hôm nay: ${_ml.format(widget.drunk)} / '
-              '${_ml.format(widget.target)} ml',
+              AppL10n.of(context).todayOfTargetMl(
+                _ml.format(widget.drunk),
+                _ml.format(widget.target),
+              ),
               style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
             ),
             const SizedBox(height: 16),
@@ -104,14 +107,17 @@ class _AddWaterSheetState extends State<_AddWaterSheet> {
                     keyboardType: TextInputType.number,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
-                    decoration: const InputDecoration(
-                      labelText: 'Lượng nước',
+                    decoration: InputDecoration(
+                      labelText: AppL10n.of(context).luongNuoc,
                       suffixText: 'ml',
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                FilledButton(onPressed: _submit, child: const Text('Thêm')),
+                FilledButton(
+                  onPressed: _submit,
+                  child: Text(AppL10n.of(context).them),
+                ),
               ],
             ),
           ],

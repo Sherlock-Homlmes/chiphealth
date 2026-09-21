@@ -8,23 +8,30 @@ void main() {
   group('period', () {
     test('a week runs Monday to Sunday whatever day it is anchored on', () {
       // 2026-09-09 is a Wednesday.
-      final period =
-          Period(mode: PeriodMode.week, anchor: DateTime(2026, 9, 9));
+      final period = Period(
+        mode: PeriodMode.week,
+        anchor: DateTime(2026, 9, 9),
+      );
       expect(DateRange.iso(period.range.start), '2026-09-07');
       expect(DateRange.iso(period.range.end), '2026-09-13');
       expect(period.range.days, 7);
     });
 
     test('stepping a month lands on the month, not 30 days back', () {
-      final period =
-          Period(mode: PeriodMode.month, anchor: DateTime(2026, 3, 31));
+      final period = Period(
+        mode: PeriodMode.month,
+        anchor: DateTime(2026, 3, 31),
+      );
       final previous = period.step(-1);
       expect(DateRange.iso(previous.range.start), '2026-02-01');
       expect(DateRange.iso(previous.range.end), '2026-02-28');
     });
 
     test('a year covers the whole calendar year', () {
-      final period = Period(mode: PeriodMode.year, anchor: DateTime(2025, 6, 4));
+      final period = Period(
+        mode: PeriodMode.year,
+        anchor: DateTime(2025, 6, 4),
+      );
       expect(DateRange.iso(period.range.start), '2025-01-01');
       expect(DateRange.iso(period.range.end), '2025-12-31');
       expect(period.range.days, 365);
@@ -33,7 +40,10 @@ void main() {
     test('a custom range does not step', () {
       final custom = DateRange(DateTime(2026, 1, 5), DateTime(2026, 1, 9));
       final period = Period(
-          mode: PeriodMode.custom, anchor: custom.start, custom: custom);
+        mode: PeriodMode.custom,
+        anchor: custom.start,
+        custom: custom,
+      );
       expect(period.step(1).range, custom);
       expect(period.range.days, 5);
     });
@@ -42,18 +52,35 @@ void main() {
       final now = Period.thisWeek();
       expect(now.isLatest, isTrue);
       expect(now.step(-1).isLatest, isFalse);
-      expect(now.label, 'Tuần này');
-      expect(now.step(-1).label, 'Tuần trước');
+      // The wording is localized now and needs a BuildContext, so what the
+      // test pins is the thing the label was standing in for: which week the
+      // period covers.
+      final today = DateTime.now();
+      expect(
+        now.range.contains(DateTime(today.year, today.month, today.day)),
+        isTrue,
+      );
+      expect(
+        now
+            .step(-1)
+            .range
+            .contains(DateTime(today.year, today.month, today.day)),
+        isFalse,
+      );
     });
 
     test('a period ending in the future clamps onto the pickable window', () {
       // This week is Mon 7 – Sun 13 with today on Wed 9. showDateRangePicker
       // refuses an initial range ending after lastDate, so the preselection
       // folds its end onto today instead of crashing the picker.
-      final period =
-          Period(mode: PeriodMode.week, anchor: DateTime(2026, 9, 9));
-      final clamped =
-          period.range.clampedTo(DateTime(2023, 1, 1), DateTime(2026, 9, 9));
+      final period = Period(
+        mode: PeriodMode.week,
+        anchor: DateTime(2026, 9, 9),
+      );
+      final clamped = period.range.clampedTo(
+        DateTime(2023, 1, 1),
+        DateTime(2026, 9, 9),
+      );
       expect(DateRange.iso(clamped.start), '2026-09-07');
       expect(DateRange.iso(clamped.end), '2026-09-09');
     });
@@ -62,8 +89,7 @@ void main() {
       // Stepped back past firstDate, the whole range is unpickable: the
       // preselection collapses onto a single legal day.
       final old = DateRange(DateTime(2020, 1, 5), DateTime(2020, 1, 9));
-      final clamped =
-          old.clampedTo(DateTime(2023, 1, 1), DateTime(2026, 9, 9));
+      final clamped = old.clampedTo(DateTime(2023, 1, 1), DateTime(2026, 9, 9));
       expect(DateRange.iso(clamped.start), '2023-01-01');
       expect(DateRange.iso(clamped.end), '2023-01-01');
     });
@@ -106,24 +132,27 @@ void main() {
   });
 
   group('daily nutrition', () {
-    test('the day summary carries fibre, sugar, sodium and burned calories', () {
-      final daily = DailyNutrition.fromJson({
-        'date': '2026-09-09',
-        'summary': {
-          'caloriesConsumedKcal': 1800,
-          'proteinG': 90,
-          'carbsG': 200,
-          'fatG': 60,
-          'fiberG': 21,
-          'sugarG': 40,
-          'sodiumMg': 2400,
-          'caloriesBurnedWorkoutKcal': 320,
-        },
-      });
-      expect(daily.fiberG, 21);
-      expect(daily.sugarG, 40);
-      expect(daily.sodiumMg, 2400);
-      expect(daily.burnedKcal, 320);
-    });
+    test(
+      'the day summary carries fibre, sugar, sodium and burned calories',
+      () {
+        final daily = DailyNutrition.fromJson({
+          'date': '2026-09-09',
+          'summary': {
+            'caloriesConsumedKcal': 1800,
+            'proteinG': 90,
+            'carbsG': 200,
+            'fatG': 60,
+            'fiberG': 21,
+            'sugarG': 40,
+            'sodiumMg': 2400,
+            'caloriesBurnedWorkoutKcal': 320,
+          },
+        });
+        expect(daily.fiberG, 21);
+        expect(daily.sugarG, 40);
+        expect(daily.sodiumMg, 2400);
+        expect(daily.burnedKcal, 320);
+      },
+    );
   });
 }

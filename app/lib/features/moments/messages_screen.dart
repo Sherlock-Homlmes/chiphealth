@@ -8,6 +8,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'conversation_screen.dart';
 import 'moment_tile.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The messages list: one row per friend, newest activity first. Everything a
 /// friend sends — an answer to a photo, a reaction — arrives here.
@@ -22,7 +23,7 @@ class MessagesScreen extends ConsumerWidget {
     ref.listen(momentEventsProvider, (_, __) {});
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tin nhắn')),
+      appBar: AppBar(title: Text(AppL10n.of(context).tinNhan)),
       body: PhoneFrame(
         child: RefreshIndicator(
           onRefresh: () => ref.read(conversationsProvider.notifier).refresh(),
@@ -42,7 +43,9 @@ class MessagesScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(32),
         children: [
           Text(
-            state.error != null ? '${state.error}' : 'Chưa có tin nhắn nào.',
+            state.error != null
+                ? '${state.error}'
+                : AppL10n.of(context).chuaCoTinNhanNao,
             textAlign: TextAlign.center,
             style: const TextStyle(color: RetroTokens.inkSoft),
           ),
@@ -66,9 +69,11 @@ class _ConversationRow extends StatelessWidget {
 
   /// What the row says under the name. A reaction reads as an action rather
   /// than as a message whose text happens to be an emoji.
-  String get _preview {
+  String _preview(BuildContext context) {
     final last = conversation.lastMessage;
-    if (last.isReaction) return 'Đã thả ${last.body} vào khoảnh khắc';
+    if (last.isReaction) {
+      return AppL10n.of(context).reactedToMoment(last.body);
+    }
     return last.body;
   }
 
@@ -84,12 +89,16 @@ class _ConversationRow extends StatelessWidget {
         size: 40,
       ),
       title: Text(
-        conversation.label,
+        conversation.label(context),
         style: TextStyle(
           fontWeight: unread ? FontWeight.w700 : FontWeight.w500,
         ),
       ),
-      subtitle: Text(_preview, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        _preview(context),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -134,7 +143,7 @@ class _ConversationRow extends StatelessWidget {
         MaterialPageRoute<void>(
           builder: (_) => ConversationScreen(
             userId: conversation.userId,
-            title: conversation.label,
+            title: conversation.label(context),
           ),
         ),
       ),

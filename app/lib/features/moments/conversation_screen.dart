@@ -8,6 +8,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import 'moment_tile.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// One conversation, Instagram-shaped: a message that answers a photo carries
 /// the photo pinned above it, so a reply reads in the context of what it
@@ -101,9 +102,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   ),
                 ),
                 data: (items) => items.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
-                          'Chưa có tin nhắn nào.',
+                          AppL10n.of(context).chuaCoTinNhanNao,
                           style: TextStyle(color: RetroTokens.inkSoft),
                         ),
                       )
@@ -129,8 +130,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         textInputAction: TextInputAction.send,
                         maxLength: 500,
                         onSubmitted: (_) => _send(),
-                        decoration: const InputDecoration(
-                          hintText: 'Nhắn tin…',
+                        decoration: InputDecoration(
+                          hintText: AppL10n.of(context).nhanTin,
                           counterText: '',
                           isDense: true,
                         ),
@@ -178,8 +179,8 @@ class _Bubble extends StatelessWidget {
           if (photoAssetId != null) ...[
             Text(
               mine
-                  ? 'Đã trả lời khoảnh khắc'
-                  : 'Đã trả lời khoảnh khắc của bạn',
+                  ? AppL10n.of(context).daTraLoiKhoanhKhac
+                  : AppL10n.of(context).daTraLoiKhoanhKhacCua,
               style: const TextStyle(fontSize: 10, color: RetroTokens.inkFaint),
             ),
             const SizedBox(height: 4),

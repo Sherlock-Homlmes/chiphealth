@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/auth/auth_controller.dart';
+import 'core/l10n/gen/app_localizations.dart';
 import 'core/theme/retro_theme.dart';
 import 'router.dart';
 
@@ -40,6 +41,7 @@ class _ChipHealthAppState extends ConsumerState<ChipHealthApp> {
       locale: Locale(locale == 'en' ? 'en' : 'vi'),
       supportedLocales: const [Locale('vi'), Locale('en')],
       localizationsDelegates: const [
+        AppL10n.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,

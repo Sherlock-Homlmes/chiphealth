@@ -9,6 +9,7 @@ import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import 'moments_feed.dart';
 import 'save_image.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 enum _MomentAction { share, save, delete }
 
@@ -41,12 +42,12 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
           children: [
             ListTile(
               leading: const Icon(Icons.ios_share),
-              title: const Text('Chia sẻ'),
+              title: Text(AppL10n.of(context).chiaSe),
               onTap: () => Navigator.pop(sheetContext, _MomentAction.share),
             ),
             ListTile(
               leading: const Icon(Icons.download_outlined),
-              title: const Text('Lưu ảnh'),
+              title: Text(AppL10n.of(context).luuAnh),
               onTap: () => Navigator.pop(sheetContext, _MomentAction.save),
             ),
             ListTile(
@@ -54,8 +55,8 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
                 Icons.delete_outline,
                 color: RetroTokens.accent,
               ),
-              title: const Text(
-                'Xoá',
+              title: Text(
+                AppL10n.of(context).xoa,
                 style: TextStyle(color: RetroTokens.accent),
               ),
               onTap: () => Navigator.pop(sheetContext, _MomentAction.delete),
@@ -115,7 +116,9 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
-          ..showSnackBar(const SnackBar(content: Text('Đã lưu ảnh vào máy.')));
+          ..showSnackBar(
+            SnackBar(content: Text(AppL10n.of(context).daLuuAnhVaoMay)),
+          );
       }
     } catch (err) {
       _failed(err);
@@ -128,17 +131,17 @@ class _MomentMenuButtonState extends ConsumerState<MomentMenuButton> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Xoá khoảnh khắc?'),
-        content: const Text('Bạn bè sẽ không thấy ảnh này nữa.'),
+        title: Text(AppL10n.of(context).xoaKhoanhKhac),
+        content: Text(AppL10n.of(context).banBeSeKhongThayAnh),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Huỷ'),
+            child: Text(AppL10n.of(context).huy),
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text(
-              'Xoá',
+            child: Text(
+              AppL10n.of(context).xoa,
               style: TextStyle(color: RetroTokens.accent),
             ),
           ),

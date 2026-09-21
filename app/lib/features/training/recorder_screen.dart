@@ -18,6 +18,7 @@ import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
 import 'route_map.dart';
 import 'workout_form.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Strava-style recorder. Samples are buffered on device and uploaded as ONE
 /// file when the session ends — the server derives polyline, splits, time-in-zone
@@ -139,7 +140,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     if (activity.supportsGps && !await _ensureLocationPermission()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cần quyền vị trí để ghi lộ trình')),
+          SnackBar(content: Text(AppL10n.of(context).canQuyenViTriDeGhi)),
         );
       }
       return;
@@ -172,7 +173,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
 
     if (activity.supportsGps) {
       _gps = Geolocator.getPositionStream(
-        locationSettings: _backgroundLocationSettings(),
+        locationSettings: _backgroundLocationSettings(context),
       ).listen(_onPosition);
     }
   }
@@ -181,7 +182,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   /// a foreground service (with its ongoing notification) on Android, and
   /// background location updates on iOS (UIBackgroundModes: location).
   /// A browser tab cannot do either; the wall clock still keeps time there.
-  static LocationSettings _backgroundLocationSettings() {
+  static LocationSettings _backgroundLocationSettings(BuildContext context) {
     if (kIsWeb) {
       return const LocationSettings(
         accuracy: LocationAccuracy.best,
@@ -193,9 +194,9 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
         accuracy: LocationAccuracy.best,
         distanceFilter: 0,
         intervalDuration: const Duration(seconds: 1),
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'Đang ghi buổi tập',
-          notificationText: 'ChipHealth vẫn ghi lộ trình khi tắt màn hình.',
+        foregroundNotificationConfig: ForegroundNotificationConfig(
+          notificationTitle: AppL10n.of(context).dangGhiBuoiTap,
+          notificationText: AppL10n.of(context).chiphealthVanGhiLoTrinhKhi,
           enableWakeLock: true,
           setOngoing: true,
         ),
@@ -297,7 +298,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       _endedAt = DateTime.now().millisecondsSinceEpoch;
       _draft = WorkoutDraft(
         activity: _activity,
-        title: defaultTitleFor(_startedAt!, _activity),
+        title: defaultTitleFor(context, _startedAt!, _activity),
         notes: '',
       );
     });
@@ -307,17 +308,17 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Huỷ bài tập?'),
-        content: const Text('Toàn bộ dữ liệu vừa ghi sẽ bị bỏ, không lưu lại.'),
+        title: Text(AppL10n.of(context).huyBaiTap),
+        content: Text(AppL10n.of(context).toanBoDuLieuVuaGhi),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Giữ lại'),
+            child: Text(AppL10n.of(context).giuLai),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: RetroTokens.accent),
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Huỷ bài'),
+            child: Text(AppL10n.of(context).huyBai),
           ),
         ],
       ),
@@ -377,7 +378,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
           await showDialog<void>(
             context: context,
             builder: (_) => AlertDialog(
-              title: const Text('Kỷ lục mới!'),
+              title: Text(AppL10n.of(context).kyLucMoi),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -391,7 +392,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Tuyệt'),
+                  child: Text(AppL10n.of(context).tuyet),
                 ),
               ],
             ),
@@ -457,12 +458,12 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
         appBar: AppBar(
           title: Text(
             _reviewing
-                ? 'Lưu hoạt động'
+                ? AppL10n.of(context).luuHoatDong
                 : _stopped
-                ? 'Đã tạm dừng'
+                ? AppL10n.of(context).daTamDung
                 : _running
-                ? 'Đang ghi'
-                : 'Buổi tập mới',
+                ? AppL10n.of(context).dangGhi
+                : AppL10n.of(context).buoiTapMoi,
           ),
         ),
         body: SafeArea(
@@ -500,8 +501,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                       // seed is already applied when the field is created
                       // and initialValue is honored.
                       initialValue: _activity,
-                      hint: const Text('Chọn môn'),
-                      decoration: const InputDecoration(labelText: 'Môn'),
+                      hint: Text(AppL10n.of(context).chonMon),
+                      decoration: InputDecoration(
+                        labelText: AppL10n.of(context).mon,
+                      ),
                       items: [
                         for (final a in list)
                           DropdownMenuItem(
@@ -529,8 +532,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                         alignment: Alignment.center,
                         child: Text(
                           started
-                              ? 'Đang tìm tín hiệu GPS…'
-                              : 'Bản đồ hiện khi bắt đầu ghi',
+                              ? AppL10n.of(context).dangTimTinHieuGps
+                              : AppL10n.of(context).banDoHienKhiBatDau,
                           style: const TextStyle(color: RetroTokens.inkSoft),
                         ),
                       )
@@ -552,10 +555,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                 ),
                 Text(
                   _stopped
-                      ? 'đã tạm dừng'
+                      ? AppL10n.of(context).daTamDung2
                       : _paused
-                      ? 'tạm dừng tự động'
-                      : 'thời gian',
+                      ? AppL10n.of(context).tamDungTuDong
+                      : AppL10n.of(context).thoiGian2,
                   style: TextStyle(
                     color: _stopped || _paused
                         ? RetroTokens.warn
@@ -571,7 +574,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
           if (!started)
             FilledButton(
               onPressed: _activity == null ? null : _start,
-              child: const Text('Bắt đầu'),
+              child: Text(AppL10n.of(context).batDau),
             )
           else if (!_stopped)
             FilledButton.icon(
@@ -581,7 +584,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                 minimumSize: const Size.fromHeight(52),
               ),
               icon: const Icon(Icons.pause),
-              label: const Text('Tạm dừng'),
+              label: Text(AppL10n.of(context).tamDung),
             )
           else
             Row(
@@ -593,7 +596,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                       minimumSize: const Size.fromHeight(52),
                     ),
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Tiếp tục'),
+                    label: Text(AppL10n.of(context).tiepTuc),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -605,7 +608,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                       minimumSize: const Size.fromHeight(52),
                     ),
                     icon: const Icon(Icons.flag),
-                    label: const Text('Hoàn thành'),
+                    label: Text(AppL10n.of(context).hoanThanh),
                   ),
                 ),
               ],
@@ -618,7 +621,11 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   Widget _metricsRow(BuildContext context, Units units) => Row(
     children: [
       Expanded(
-        child: _metric(context, units.distance(_distanceM), 'quãng đường'),
+        child: _metric(
+          context,
+          units.distance(_distanceM),
+          AppL10n.of(context).quangDuong2,
+        ),
       ),
       Expanded(
         child: _metric(
@@ -630,7 +637,11 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
         ),
       ),
       Expanded(
-        child: _metric(context, '${_elevationGainM.round()} m', 'độ cao'),
+        child: _metric(
+          context,
+          '${_elevationGainM.round()} m',
+          AppL10n.of(context).doCao,
+        ),
       ),
     ],
   );
@@ -653,14 +664,14 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
               child: _metric(
                 context,
                 Units.duration(_activeSeconds),
-                'thời gian',
+                AppL10n.of(context).thoiGian2,
               ),
             ),
             Expanded(
               child: _metric(
                 context,
                 units.distance(_distanceM),
-                'quãng đường',
+                AppL10n.of(context).quangDuong2,
               ),
             ),
             Expanded(
@@ -697,7 +708,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                     color: Colors.white,
                   ),
                 )
-              : const Text('Lưu hoạt động'),
+              : Text(AppL10n.of(context).luuHoatDong),
         ),
         const SizedBox(height: 8),
         Row(
@@ -712,7 +723,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                         _resumeAfterReview();
                       }),
                 icon: const Icon(Icons.arrow_back),
-                label: const Text('Ghi tiếp'),
+                label: Text(AppL10n.of(context).ghiTiep),
               ),
             ),
             Expanded(
@@ -722,7 +733,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
                   foregroundColor: RetroTokens.accent,
                 ),
                 icon: const Icon(Icons.delete_outline),
-                label: const Text('Huỷ bài'),
+                label: Text(AppL10n.of(context).huyBai),
               ),
             ),
           ],

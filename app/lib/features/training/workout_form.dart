@@ -4,6 +4,7 @@ import '../../core/models/models.dart';
 import '../../core/theme/tokens.dart';
 import 'activity_format.dart';
 import 'workout_photos.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// What the athlete fills in after a recording, or edits later.
 class WorkoutDraft {
@@ -54,7 +55,8 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
 
   /// True while the title is still the generated one for the current sport.
   late bool _titleIsDefault =
-      widget.initial.title == defaultTitleFor(widget.startedAt, _activity);
+      widget.initial.title ==
+      defaultTitleFor(context, widget.startedAt, _activity);
 
   @override
   void dispose() {
@@ -88,7 +90,7 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
         const SizedBox(height: 16),
         TextField(
           controller: _title,
-          decoration: const InputDecoration(labelText: 'Tiêu đề'),
+          decoration: InputDecoration(labelText: AppL10n.of(context).tieuDe),
           textCapitalization: TextCapitalization.sentences,
           maxLength: 200,
           onChanged: (_) {
@@ -99,7 +101,7 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
         const SizedBox(height: 8),
         DropdownButtonFormField<ActivityType>(
           initialValue: _activity,
-          decoration: const InputDecoration(labelText: 'Môn'),
+          decoration: InputDecoration(labelText: AppL10n.of(context).mon),
           items: [
             for (final a in widget.activities)
               DropdownMenuItem(
@@ -117,7 +119,7 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
             setState(() {
               _activity = value;
               if (_titleIsDefault) {
-                _title.text = defaultTitleFor(widget.startedAt, value);
+                _title.text = defaultTitleFor(context, widget.startedAt, value);
               }
             });
             _emit();
@@ -126,9 +128,9 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
         const SizedBox(height: 16),
         TextField(
           controller: _notes,
-          decoration: const InputDecoration(
-            labelText: 'Ghi chú',
-            hintText: 'Buổi này thế nào? Chia sẻ thêm…',
+          decoration: InputDecoration(
+            labelText: AppL10n.of(context).ghiChu,
+            hintText: AppL10n.of(context).buoiNayTheNaoChiaSe,
             alignLabelWithHint: true,
           ),
           minLines: 3,
@@ -139,13 +141,15 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text(
-              'Cảm nhận nỗ lực',
+            Text(
+              AppL10n.of(context).camNhanNoLuc,
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const Spacer(),
             Text(
-              _rpe == null ? 'Chưa chọn' : '$_rpe/10 · ${_rpeLabel(_rpe!)}',
+              _rpe == null
+                  ? AppL10n.of(context).chuaChon
+                  : '$_rpe/10 · ${_rpeLabel(context, _rpe!)}',
               style: const TextStyle(color: RetroTokens.inkSoft),
             ),
           ],
@@ -166,10 +170,10 @@ class _WorkoutFormFieldsState extends State<WorkoutFormFields> {
   }
 }
 
-String _rpeLabel(int rpe) => switch (rpe) {
-  <= 2 => 'Rất nhẹ',
-  <= 4 => 'Nhẹ',
-  <= 6 => 'Vừa',
-  <= 8 => 'Nặng',
-  _ => 'Tối đa',
+String _rpeLabel(BuildContext context, int rpe) => switch (rpe) {
+  <= 2 => AppL10n.of(context).ratNhe,
+  <= 4 => AppL10n.of(context).nhe,
+  <= 6 => AppL10n.of(context).vua,
+  <= 8 => AppL10n.of(context).nang,
+  _ => AppL10n.of(context).toiDa,
 };

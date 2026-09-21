@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/auth/auth_controller.dart';
+import 'core/l10n/gen/app_localizations.dart';
 import 'features/auth/login_screen.dart';
 import 'features/coach/coach_screen.dart';
 import 'features/home/home_screen.dart';
@@ -88,7 +89,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
-    errorBuilder: (_, state) =>
-        Scaffold(body: Center(child: Text('Không có màn hình ${state.uri}'))),
+    errorBuilder: (context, state) => Scaffold(
+      body: Center(
+        child: Text(AppL10n.of(context).routeMissing('${state.uri}')),
+      ),
+    ),
   );
 });

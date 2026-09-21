@@ -8,6 +8,7 @@ import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Barcode data is entered by admins only. A miss is a normal state, not an
 /// error: the app says "chưa có dữ liệu" and the server records the scan so an
@@ -119,7 +120,7 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Quét mã vạch')),
+      appBar: AppBar(title: Text(AppL10n.of(context).quetMaVach)),
       body: Column(
         children: [
           Expanded(
@@ -166,11 +167,11 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: () => Navigator.of(context).pop(_found),
-                        child: const Text('Thêm vào bữa ăn'),
+                        child: Text(AppL10n.of(context).themVaoBuaAn),
                       ),
                     ] else if (_missing) ...[
-                      const Text(
-                        'Chưa có dữ liệu cho mã này',
+                      Text(
+                        AppL10n.of(context).chuaCoDuLieuChoMa,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           color: RetroTokens.warn,
@@ -178,14 +179,13 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                       ),
                       const SizedBox(height: 4),
                       if (_reported)
-                        const Text(
-                          'Cảm ơn — đã gửi thông tin cho quản trị viên.',
+                        Text(
+                          AppL10n.of(context).camOnDaGuiThongTin,
                           style: TextStyle(fontSize: 12, color: RetroTokens.ok),
                         )
                       else ...[
-                        const Text(
-                          'Đã ghi nhận lượt quét. Cho biết đây là sản phẩm gì để quản trị '
-                          'viên bổ sung nhanh hơn:',
+                        Text(
+                          AppL10n.of(context).daGhiNhanLuotQuetCho,
                           style: TextStyle(
                             fontSize: 12,
                             color: RetroTokens.inkSoft,
@@ -194,9 +194,9 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                         const SizedBox(height: 8),
                         TextField(
                           controller: _hint,
-                          decoration: const InputDecoration(
-                            labelText: 'Tên sản phẩm (tuỳ chọn)',
-                            hintText: 'Sữa tươi Vinamilk 180ml',
+                          decoration: InputDecoration(
+                            labelText: AppL10n.of(context).tenSanPhamTuyChon,
+                            hintText: AppL10n.of(context).suaTuoiVinamilk180ml,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -208,7 +208,7 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                                     ? null
                                     : () => _report(withPhoto: true),
                                 icon: const Icon(Icons.photo_camera, size: 18),
-                                label: const Text('Chụp bao bì'),
+                                label: Text(AppL10n.of(context).chupBaoBi),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -224,7 +224,7 @@ class _BarcodeScanScreenState extends ConsumerState<BarcodeScanScreen> {
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text('Gửi'),
+                                    : Text(AppL10n.of(context).gui),
                               ),
                             ),
                           ],

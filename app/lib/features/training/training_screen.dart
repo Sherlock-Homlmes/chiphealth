@@ -11,6 +11,7 @@ import '../../widgets/retro_widgets.dart';
 import 'activity_format.dart';
 import 'route_map.dart';
 import 'workout_photos.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 class TrainingScreen extends ConsumerWidget {
   const TrainingScreen({super.key});
@@ -26,14 +27,14 @@ class TrainingScreen extends ConsumerWidget {
           children: [
             ListTile(
               leading: const Icon(Icons.play_circle_outline),
-              title: const Text('Ghi trực tiếp'),
-              subtitle: const Text('Bấm giờ, theo dõi GPS'),
+              title: Text(AppL10n.of(context).ghiTrucTiep),
+              subtitle: Text(AppL10n.of(context).bamGioTheoDoiGps),
               onTap: () => Navigator.of(sheet).pop('/record'),
             ),
             ListTile(
               leading: const Icon(Icons.edit_note),
-              title: const Text('Nhập tay'),
-              subtitle: const Text('Buổi đã tập — tính kcal vào ngày'),
+              title: Text(AppL10n.of(context).nhapTay),
+              subtitle: Text(AppL10n.of(context).buoiDaTapTinhKcalVao),
               onTap: () => Navigator.of(sheet).pop('/workouts/manual'),
             ),
           ],
@@ -57,9 +58,9 @@ class TrainingScreen extends ConsumerWidget {
     };
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Hoạt động')),
+      appBar: AppBar(title: Text(AppL10n.of(context).hoatDong)),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Ghi hoạt động mới',
+        tooltip: AppL10n.of(context).ghiHoatDongMoi,
         onPressed: () => _chooseEntry(context),
         backgroundColor: RetroTokens.accent,
         foregroundColor: Colors.white,
@@ -73,15 +74,14 @@ class TrainingScreen extends ConsumerWidget {
         child: PhoneFrame(
           child: ListView(
             children: [
-              const SectionTitle('Kỷ lục cá nhân'),
+              SectionTitle(AppL10n.of(context).kyLucCaNhan),
               SizedBox(
                 // Tall enough for a two-word caption under the value; 96 clipped it.
                 height: 108,
                 child: asyncBody(
                   records,
                   emptyWhen: (list) => list.isEmpty,
-                  emptyText:
-                      'Chưa có PR nào — tập một buổi để hệ thống tự phát hiện.',
+                  emptyText: AppL10n.of(context).chuaCoPrNaoTapMot,
                   data: (list) => ListView.separated(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -93,19 +93,18 @@ class TrainingScreen extends ConsumerWidget {
                         width: 160,
                         child: StatTile(
                           value: _prValue(pr.metric, pr.value, units),
-                          label: _prLabel(pr.metric, pr.distanceM),
+                          label: _prLabel(context, pr.metric, pr.distanceM),
                         ),
                       );
                     },
                   ),
                 ),
               ),
-              const SectionTitle('Hoạt động'),
+              SectionTitle(AppL10n.of(context).hoatDong),
               asyncBody(
                 feed,
                 emptyWhen: (list) => list.isEmpty,
-                emptyText:
-                    'Chưa có hoạt động nào — bấm + để ghi buổi đầu tiên.',
+                emptyText: AppL10n.of(context).chuaCoHoatDongNaoBam,
                 onRetry: () => ref.invalidate(workoutFeedProvider),
                 data: (list) => Column(
                   // Without this the cards size to their text and the feed looks ragged.
@@ -152,8 +151,11 @@ class ActivityCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final route = decodePolyline(session.polyline);
-    final stats = workoutStats(session, type, units);
-    final name = user?.displayName ?? user?.email.split('@').first ?? 'Bạn';
+    final stats = workoutStats(context, session, type, units);
+    final name =
+        user?.displayName ??
+        user?.email.split('@').first ??
+        AppL10n.of(context).ban;
 
     return RetroBox(
       padding: EdgeInsets.zero,
@@ -190,7 +192,7 @@ class ActivityCard extends StatelessWidget {
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
-                                  workoutWhen(session.startedAt),
+                                  workoutWhen(context, session.startedAt),
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: RetroTokens.inkSoft,
@@ -207,7 +209,7 @@ class ActivityCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  session.title ?? defaultWorkoutTitle(session, type),
+                  session.title ?? defaultWorkoutTitle(context, session, type),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -306,14 +308,21 @@ String _prValue(String metric, double value, Units units) => switch (metric) {
   _ => value.toStringAsFixed(0),
 };
 
-String _prLabel(String metric, double? distanceM) => switch (metric) {
-  'fastest_distance' =>
-    'nhanh nhất ${((distanceM ?? 0) / 1000).toStringAsFixed(distanceM == 21097 || distanceM == 42195 ? 1 : 0)} km',
-  'longest_distance' => 'quãng đường dài nhất',
-  'longest_duration' => 'buổi dài nhất',
-  'max_weight' => 'tạ nặng nhất',
-  'max_reps' => 'số rep nhiều nhất',
-  'max_volume' => 'khối lượng lớn nhất',
-  'best_pace' => 'pace tốt nhất',
-  _ => metric,
-};
+String _prLabel(BuildContext context, String metric, double? distanceM) =>
+    switch (metric) {
+      'fastest_distance' => AppL10n.of(context).prFastestDistance(
+        ((distanceM ?? 0) / 1000).toStringAsFixed(
+          distanceM == 21097 || distanceM == 42195 ? 1 : 0,
+        ),
+      ),
+      'longest_distance' => AppL10n.of(context).quangDuongDaiNhat,
+      'longest_duration' => AppL10n.of(context).buoiDaiNhat,
+      'max_weight' => AppL10n.of(context).taNangNhat,
+      'max_reps' => AppL10n.of(context).soRepNhieuNhat,
+      'max_volume' => AppL10n.of(context).khoiLuongLonNhat,
+      'best_pace' => AppL10n.of(context).paceTotNhat,
+      // Every metric the server can send needs a case here: without one the raw
+      // column name ("max_elevation_gain") went straight onto the card.
+      'max_elevation_gain' => AppL10n.of(context).doCaoLonNhat,
+      _ => metric,
+    };

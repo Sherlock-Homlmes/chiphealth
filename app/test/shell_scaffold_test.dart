@@ -3,6 +3,7 @@ import 'package:chiphealth/features/home/shell_scaffold.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:chiphealth/core/l10n/gen/app_localizations.dart';
 
 /// The tab bar is a bottomNavigationBar, and a bottomNavigationBar takes
 /// whatever height its child asks for. A height-unconstrained child (a Center,
@@ -33,7 +34,14 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('vi'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+      ),
+    );
     await tester.pumpAndSettle();
 
     final body = tester.getSize(find.byType(ColoredBox).first);
@@ -65,7 +73,14 @@ void main() {
       ],
     );
 
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MaterialApp.router(
+        routerConfig: router,
+        locale: const Locale('vi'),
+        localizationsDelegates: AppL10n.localizationsDelegates,
+        supportedLocales: AppL10n.supportedLocales,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(AddButton), findsOneWidget);

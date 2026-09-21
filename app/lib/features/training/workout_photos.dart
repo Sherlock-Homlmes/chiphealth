@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Strava-style ceiling; the server rejects anything longer (max 5).
 const maxWorkoutPhotos = 5;
@@ -175,16 +176,16 @@ class _WorkoutPhotoPickerState extends ConsumerState<WorkoutPhotoPicker> {
           ),
           ListTile(
             leading: const Icon(Icons.photo_camera),
-            title: const Text(
-              'Chụp ảnh',
+            title: Text(
+              AppL10n.of(context).chupAnh,
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
             onTap: () => Navigator.pop(sheet, ImageSource.camera),
           ),
           ListTile(
             leading: const Icon(Icons.photo_library),
-            title: const Text(
-              'Chọn từ thư viện',
+            title: Text(
+              AppL10n.of(context).chonTuThuVien,
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
             onTap: () => Navigator.pop(sheet, ImageSource.gallery),
@@ -206,8 +207,8 @@ class _WorkoutPhotoPickerState extends ConsumerState<WorkoutPhotoPicker> {
     children: [
       Row(
         children: [
-          const Text(
-            'Ảnh hoạt động',
+          Text(
+            AppL10n.of(context).anhHoatDong,
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           const Spacer(),

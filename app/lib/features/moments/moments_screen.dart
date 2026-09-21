@@ -18,6 +18,7 @@ import 'moment_composer.dart';
 import 'moment_menu.dart';
 import 'moment_tile.dart';
 import 'moments_feed.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// Locket-style: a photo goes to friends and lands on their home-screen widget.
 class MomentsScreen extends ConsumerStatefulWidget {
@@ -81,7 +82,7 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
             // The photo is still in memory, so the failure is recoverable
             // without going back to the camera.
             action: SnackBarAction(
-              label: 'Thử lại',
+              label: AppL10n.of(context).thuLai,
               onPressed: () => _post(bytes, caption),
             ),
           ),
@@ -95,17 +96,17 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
   /// session that expired mid-post — so they get their own wording instead of
   /// the exception's `toString`.
   String _postError(Object err) {
-    if (err is! ApiException) return 'Không đăng được ảnh. Thử lại sau.';
+    if (err is! ApiException) return AppL10n.of(context).khongDangDuocAnhThuLai;
     switch (err.code) {
       case 'UPLOAD_TOO_LARGE':
-        return 'Ảnh quá nặng. Chụp lại với chất lượng thấp hơn.';
+        return AppL10n.of(context).anhQuaNangChupLaiVoi;
       case 'NETWORK_ERROR':
-        return 'Mất kết nối khi tải ảnh lên. Thử lại khi có mạng.';
+        return AppL10n.of(context).matKetNoiKhiTaiAnh;
       case 'BAD_MEDIA':
-        return 'Ảnh tải lên bị lỗi. Chụp lại giúp tao.';
+        return AppL10n.of(context).anhTaiLenBiLoiChup;
       default:
         return err.isUnauthenticated
-            ? 'Phiên đăng nhập hết hạn. Đăng nhập lại rồi đăng.'
+            ? AppL10n.of(context).phienDangNhapHetHanDang
             : err.message;
     }
   }
@@ -143,10 +144,12 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cộng đồng'),
+        title: Text(AppL10n.of(context).congDong),
         actions: [
           IconButton(
-            tooltip: _grid ? 'Xem từng ảnh' : 'Xem dạng lưới',
+            tooltip: _grid
+                ? AppL10n.of(context).xemTungAnh
+                : AppL10n.of(context).xemDangLuoi,
             icon: Icon(
               _grid ? Icons.crop_portrait_outlined : Icons.grid_view_outlined,
             ),
@@ -211,7 +214,7 @@ class _MomentsScreenState extends ConsumerState<MomentsScreen> {
           Text(
             feed.error != null
                 ? '${feed.error}'
-                : 'Chưa có khoảnh khắc nào. Chụp một tấm cho bạn bè.',
+                : AppL10n.of(context).chuaCoKhoanhKhacNaoChup,
             textAlign: TextAlign.center,
             style: const TextStyle(color: RetroTokens.inkSoft),
           ),
@@ -354,8 +357,8 @@ class _EmptyFilterText extends StatelessWidget {
   const _EmptyFilterText();
 
   @override
-  Widget build(BuildContext context) => const Text(
-    'Người này chưa có khoảnh khắc nào.',
+  Widget build(BuildContext context) => Text(
+    AppL10n.of(context).nguoiNayChuaCoKhoanhKhac,
     textAlign: TextAlign.center,
     style: TextStyle(color: RetroTokens.inkSoft),
   );
@@ -461,7 +464,10 @@ class _PersonPicker extends StatelessWidget {
     // Insertion order, so the picker does not reshuffle as pages arrive.
     final people = <String, String>{};
     for (final m in moments) {
-      people.putIfAbsent(m.userId, () => m.authorName ?? 'Bạn');
+      people.putIfAbsent(
+        m.userId,
+        () => m.authorName ?? AppL10n.of(context).ban,
+      );
     }
 
     return SizedBox(
@@ -470,7 +476,7 @@ class _PersonPicker extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         children: [
-          _chip(label: 'Tất cả', id: null),
+          _chip(label: AppL10n.of(context).tatCa, id: null),
           for (final entry in people.entries)
             _chip(label: entry.value, id: entry.key),
         ],
@@ -529,7 +535,7 @@ class _FeedFooter extends ConsumerWidget {
       return Center(
         child: TextButton(
           onPressed: () => ref.read(momentsFeedProvider.notifier).loadMore(),
-          child: const Text('Tải thêm'),
+          child: Text(AppL10n.of(context).taiThem),
         ),
       );
     }
@@ -553,7 +559,7 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
     final requests = ref.watch(friendRequestsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Bạn bè')),
+      appBar: AppBar(title: Text(AppL10n.of(context).banBe)),
       body: PhoneFrame(
         child: ListView(
           children: [
@@ -564,8 +570,8 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                   Expanded(
                     child: TextField(
                       controller: _email,
-                      decoration: const InputDecoration(
-                        labelText: 'Email của bạn bè',
+                      decoration: InputDecoration(
+                        labelText: AppL10n.of(context).emailCuaBanBe,
                       ),
                     ),
                   ),
@@ -587,16 +593,16 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                         }
                       }
                     },
-                    child: const Text('Mời'),
+                    child: Text(AppL10n.of(context).moi),
                   ),
                 ],
               ),
             ),
-            const SectionTitle('Lời mời đến'),
+            SectionTitle(AppL10n.of(context).loiMoiDen),
             asyncBody(
               requests,
               emptyWhen: (data) => (data['incoming'] as List?)?.isEmpty ?? true,
-              emptyText: 'Không có lời mời nào.',
+              emptyText: AppL10n.of(context).khongCoLoiMoiNao,
               data: (data) => Column(
                 children: [
                   for (final raw in (data['incoming'] as List? ?? const []))
@@ -616,7 +622,7 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                                 ref.invalidate(friendRequestsProvider);
                                 ref.invalidate(friendsProvider);
                               },
-                              child: const Text('Đồng ý'),
+                              child: Text(AppL10n.of(context).dongY),
                             ),
                           ],
                         ),
@@ -625,11 +631,11 @@ class _FriendsScreenState extends ConsumerState<_FriendsScreen> {
                 ],
               ),
             ),
-            const SectionTitle('Bạn bè'),
+            SectionTitle(AppL10n.of(context).banBe),
             asyncBody(
               friends,
               emptyWhen: (list) => list.isEmpty,
-              emptyText: 'Chưa có bạn nào.',
+              emptyText: AppL10n.of(context).chuaCoBanNao,
               data: (list) => Column(
                 children: [
                   for (final friend in list)

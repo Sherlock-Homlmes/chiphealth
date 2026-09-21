@@ -5,6 +5,7 @@ import '../../core/format/units.dart';
 import '../../core/models/models.dart';
 import '../../core/providers.dart';
 import '../../core/theme/tokens.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// One moment as a square-ish card: the photo, its caption, who posted it.
 /// Shared by the community screen and the section at the foot of home so the
@@ -104,7 +105,7 @@ class AuthorAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final url = avatarUrl;
-    final label = name ?? 'Bạn';
+    final label = name ?? AppL10n.of(context).ban;
 
     // The ring and shadow sit on an outer box; the picture is clipped by its
     // own ClipOval. A decoration's clip does not reach the <img> element the
@@ -191,7 +192,7 @@ class MomentPhoto extends ConsumerWidget {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         error: (_, __) => IconButton(
-          tooltip: 'Tải lại ảnh',
+          tooltip: AppL10n.of(context).taiLaiAnh,
           icon: const Icon(Icons.refresh, color: RetroTokens.inkFaint),
           onPressed: () => ref.invalidate(mediaBytesProvider(assetId)),
         ),

@@ -17,6 +17,7 @@ import 'add_water_sheet.dart';
 import 'home_widgets.dart';
 import 'water_controller.dart';
 import 'water_info.dart';
+import '../../core/l10n/gen/app_localizations.dart';
 
 /// The day the home screen is reading. Kept as a provider so the week strip and
 /// every card below it can never disagree about which date they are showing.
@@ -195,21 +196,21 @@ class _CommunityCard extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Cộng đồng',
+                  AppL10n.of(context).congDong,
                   style: TextStyle(fontSize: 12, color: RetroTokens.inkFaint),
                 ),
               ),
               GestureDetector(
                 onTap: () => context.go('/moments'),
                 behavior: HitTestBehavior.opaque,
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   child: Row(
                     children: [
                       Text(
-                        'Xem tất cả',
+                        AppL10n.of(context).xemTatCa,
                         style: TextStyle(
                           fontSize: 12,
                           color: RetroTokens.accent,
@@ -270,7 +271,7 @@ class _CommunityBody extends StatelessWidget {
       return Text(
         feed.error != null
             ? '${feed.error}'
-            : 'Chưa có khoảnh khắc nào. Chụp một tấm cho bạn bè.',
+            : AppL10n.of(context).chuaCoKhoanhKhacNaoChup,
         style: const TextStyle(fontSize: 12, color: RetroTokens.inkSoft),
       );
     }
@@ -335,7 +336,7 @@ class _Header extends StatelessWidget {
         ),
       ),
       IconButton(
-        tooltip: 'Cài đặt',
+        tooltip: AppL10n.of(context).caiDat,
         icon: const Icon(Icons.settings_outlined),
         onPressed: () => context.go('/profile'),
       ),
@@ -414,8 +415,8 @@ class _JumpToDay extends StatelessWidget {
       // than any card on this screen reads.
       firstDate: DateTime(today.year - 2, today.month, today.day),
       lastDate: today,
-      helpText: 'Chọn ngày',
-      cancelText: 'Huỷ',
+      helpText: AppL10n.of(context).chonNgay,
+      cancelText: AppL10n.of(context).huy,
       confirmText: 'Xem',
     );
     if (picked == null) return;
@@ -432,7 +433,7 @@ class _JumpToDay extends StatelessWidget {
       child: IconButton(
         padding: EdgeInsets.zero,
         visualDensity: VisualDensity.compact,
-        tooltip: 'Chọn ngày bất kỳ',
+        tooltip: AppL10n.of(context).chonNgayBatKy,
         iconSize: 20,
         color: RetroTokens.inkSoft,
         icon: const Icon(Icons.calendar_month_outlined),
@@ -489,19 +490,19 @@ class _OverviewCard extends StatelessWidget {
                   children: [
                     _EnergyLine(
                       icon: Icons.emoji_events_outlined,
-                      label: 'Mục tiêu',
+                      label: AppL10n.of(context).mucTieu,
                       value: Units.kcal(targets.kcal),
                     ),
                     const SizedBox(height: 6),
                     _EnergyLine(
                       icon: Icons.restaurant,
-                      label: 'Đã nạp',
+                      label: AppL10n.of(context).daNap,
                       value: Units.kcal(daily.consumedKcal),
                     ),
                     const SizedBox(height: 6),
                     _EnergyLine(
                       icon: Icons.local_fire_department_outlined,
-                      label: 'Tiêu hao',
+                      label: AppL10n.of(context).tieuHao,
                       value: Units.kcal(daily.burnedKcal),
                     ),
                   ],
@@ -521,21 +522,21 @@ class _OverviewCard extends StatelessWidget {
                 _MacroRow(
                   children: [
                     MacroBar(
-                      label: 'Tinh bột',
+                      label: AppL10n.of(context).tinhBot,
                       value: daily.carbsG,
                       target: targets.carbsG,
                       unit: 'g',
                       color: RetroTokens.carbs,
                     ),
                     MacroBar(
-                      label: 'Chất đạm',
+                      label: AppL10n.of(context).chatDam,
                       value: daily.proteinG,
                       target: targets.proteinG,
                       unit: 'g',
                       color: RetroTokens.protein,
                     ),
                     MacroBar(
-                      label: 'Chất béo',
+                      label: AppL10n.of(context).chatBeo,
                       value: daily.fatG,
                       target: targets.fatG,
                       unit: 'g',
@@ -546,7 +547,7 @@ class _OverviewCard extends StatelessWidget {
                 _MacroRow(
                   children: [
                     MacroBar(
-                      label: 'Đường',
+                      label: AppL10n.of(context).duong,
                       value: daily.sugarG,
                       target: targets.sugarG,
                       unit: 'g',
@@ -560,7 +561,7 @@ class _OverviewCard extends StatelessWidget {
                       color: RetroTokens.sodium,
                     ),
                     MacroBar(
-                      label: 'Chất xơ',
+                      label: AppL10n.of(context).chatXo,
                       value: daily.fiberG,
                       target: targets.fiberG,
                       unit: 'g',
@@ -672,8 +673,8 @@ class _WaterCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Nước',
+                    Text(
+                      AppL10n.of(context).nuoc,
                       style: TextStyle(
                         fontSize: 12,
                         color: RetroTokens.inkFaint,
@@ -735,7 +736,7 @@ class _WaterCard extends ConsumerWidget {
           Row(
             children: [
               Text(
-                'Mục tiêu ${_ml.format(target)} ml',
+                AppL10n.of(context).targetMl(_ml.format(target)),
                 style: const TextStyle(
                   fontSize: 12,
                   color: RetroTokens.inkSoft,
@@ -745,7 +746,7 @@ class _WaterCard extends ConsumerWidget {
               WaterInfoButton(drunk: drunk, fromMeals: fromMeals),
               const Spacer(),
               PopupMenuButton<int>(
-                tooltip: 'Tuỳ chọn nước',
+                tooltip: AppL10n.of(context).tuyChonNuoc,
                 icon: const Icon(Icons.more_horiz, color: RetroTokens.inkSoft),
                 onSelected: (value) {
                   if (value == 0) {
@@ -754,12 +755,27 @@ class _WaterCard extends ConsumerWidget {
                     ref.read(waterTargetProvider.notifier).set(value);
                   }
                 },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 1500, child: Text('Mục tiêu 1500 ml')),
-                  PopupMenuItem(value: 2000, child: Text('Mục tiêu 2000 ml')),
-                  PopupMenuItem(value: 2500, child: Text('Mục tiêu 2500 ml')),
-                  PopupMenuItem(value: 3000, child: Text('Mục tiêu 3000 ml')),
-                  PopupMenuItem(value: 0, child: Text('Đặt lại hôm nay')),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 1500,
+                    child: Text(AppL10n.of(context).mucTieu1500Ml),
+                  ),
+                  PopupMenuItem(
+                    value: 2000,
+                    child: Text(AppL10n.of(context).mucTieu2000Ml),
+                  ),
+                  PopupMenuItem(
+                    value: 2500,
+                    child: Text(AppL10n.of(context).mucTieu2500Ml),
+                  ),
+                  PopupMenuItem(
+                    value: 3000,
+                    child: Text(AppL10n.of(context).mucTieu3000Ml),
+                  ),
+                  PopupMenuItem(
+                    value: 0,
+                    child: Text(AppL10n.of(context).datLaiHomNay),
+                  ),
                 ],
               ),
             ],
@@ -857,14 +873,14 @@ class _MealsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHead(
-            label: 'Các bữa ăn',
+            label: AppL10n.of(context).cacBuaAn,
             value: '$consumed/$budget',
             valueColor: tone,
             unit: 'kcal',
             onAdd: () => context.go('/nutrition'),
           ),
           if (meals.isEmpty)
-            const EmptyHint(text: 'Ghi lại bữa đầu tiên!')
+            EmptyHint(text: AppL10n.of(context).ghiLaiBuaDauTien)
           else ...[
             const SizedBox(height: 12),
             for (final meal in meals)
@@ -888,12 +904,14 @@ class _MealRow extends StatelessWidget {
   final MealLog meal;
   final VoidCallback onTap;
 
-  static const _types = {
-    'breakfast': 'Bữa sáng',
-    'lunch': 'Bữa trưa',
-    'dinner': 'Bữa tối',
-    'snack': 'Bữa phụ',
-  };
+  static String? _typeLabel(BuildContext context, String type) =>
+      switch (type) {
+        'breakfast' => AppL10n.of(context).buaSang,
+        'lunch' => AppL10n.of(context).buaTrua,
+        'dinner' => AppL10n.of(context).buaToi,
+        'snack' => AppL10n.of(context).buaPhu,
+        _ => null,
+      };
 
   @override
   Widget build(BuildContext context) => InkWell(
@@ -904,7 +922,9 @@ class _MealRow extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              meal.dishName ?? _types[meal.mealType] ?? meal.mealType,
+              meal.dishName ??
+                  _typeLabel(context, meal.mealType) ??
+                  meal.mealType,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600),
@@ -946,7 +966,7 @@ class _ActivityCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHead(
-            label: 'Hoạt động',
+            label: AppL10n.of(context).hoatDong,
             value: '${burned.round()}',
             unit: 'kcal',
             // Full-screen route, not a tab: push so the recorder can be backed
@@ -957,7 +977,7 @@ class _ActivityCard extends ConsumerWidget {
             // The header can already show calories from a source with no
             // session behind it (a watch import), so the hint speaks to the
             // list, not to the day.
-            const EmptyHint(text: 'Ghi lại hoạt động đầu tiên!')
+            EmptyHint(text: AppL10n.of(context).ghiLaiHoatDongDauTien)
           else ...[
             const SizedBox(height: 12),
             for (final s in sessions)
@@ -1015,7 +1035,7 @@ class _WorkoutRow extends StatelessWidget {
                   Text(
                     session.title?.trim().isNotEmpty == true
                         ? session.title!.trim()
-                        : defaultWorkoutTitle(session, type),
+                        : defaultWorkoutTitle(context, session, type),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.w600),
