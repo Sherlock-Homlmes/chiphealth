@@ -71,6 +71,19 @@ class Units {
     return '${s}s';
   }
 
+  /// A stopwatch reading: "1:22:16", or "23:34" under an hour. [duration] is
+  /// the friendly form for a feed card; this is the form a runner compares
+  /// against a target time.
+  static String clock(num? seconds) {
+    if (seconds == null) return '—';
+    final total = seconds.round();
+    final h = total ~/ 3600;
+    final m = (total % 3600) ~/ 60;
+    final s = total % 60;
+    final ss = s.toString().padLeft(2, '0');
+    return h > 0 ? '$h:${m.toString().padLeft(2, '0')}:$ss' : '$m:$ss';
+  }
+
   static String hoursMinutes(int? seconds) {
     if (seconds == null) return '—';
     final h = seconds ~/ 3600;

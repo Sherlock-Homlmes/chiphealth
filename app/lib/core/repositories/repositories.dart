@@ -535,10 +535,31 @@ class TrainingRepository {
   /// and any personal record it set.
   Future<void> delete(String id) => _api.delete<dynamic>('/v1/workouts/$id');
 
-  /// Timed GPS points for replay and crop.
-  Future<List<TrackPoint>> track(String id) async => _items(
-    await _api.get<dynamic>('/v1/workouts/$id/track'),
+  /// Timed GPS points, with pace and grade adjusted pace, for the map replay,
+  /// the crop screen and the detail charts. [points] trades resolution for
+  /// payload: crop wants everything, a chart is smooth at a few hundred.
+  Future<List<TrackPoint>> track(String id, {int? points}) async => _items(
+    await _api.get<dynamic>(
+      '/v1/workouts/$id/track',
+      query: points == null ? null : {'points': '$points'},
+    ),
   ).map(TrackPoint.fromJson).toList();
+
+  /// Saves or unsaves a run. Returns the state the server settled on.
+  Future<bool> setBookmark(String id, bool bookmarked) async {
+    final data = await _api.post<dynamic>(
+      '/v1/workouts/$id/bookmark',
+      body: {'bookmarked': bookmarked},
+    );
+    return (data as Map)['bookmarked'] as bool? ?? bookmarked;
+  }
+
+  /// One coached sentence about the run, or null when the model had nothing
+  /// usable — the card is hidden rather than showing an error in its place.
+  Future<String?> insight(String id, String kind) async {
+    final data = await _api.get<dynamic>('/v1/workouts/$id/insight/$kind');
+    return (data as Map)['body'] as String?;
+  }
 
   /// Keeps [fromS]..[toS] seconds of the recording and re-derives the rest.
   Future<void> crop(String id, double fromS, double toS) => _api.post<dynamic>(

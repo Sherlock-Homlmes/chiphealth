@@ -649,6 +649,12 @@ class WorkoutSession {
     this.notes,
     this.perceivedExertion,
     this.photoAssetIds = const [],
+    this.movingSeconds,
+    this.elevationMaxM,
+    this.gapSecPerKm,
+    this.steps,
+    this.avgCadence,
+    this.isBookmarked = false,
   });
 
   final String id;
@@ -676,6 +682,22 @@ class WorkoutSession {
   /// Attached photos, in the order the athlete arranged them (max 5).
   final List<String> photoAssetIds;
 
+  /// Time actually moving, which is what pace is measured over.
+  final int? movingSeconds;
+
+  /// Highest point on the route, as opposed to [elevationGainM]'s total climb.
+  final double? elevationMaxM;
+
+  /// Average pace with the hills taken out of it.
+  final double? gapSecPerKm;
+
+  /// Cadence x moving minutes; null when the recorder gave no cadence.
+  final int? steps;
+  final int? avgCadence;
+
+  /// Saved from the detail screen's bookmark button.
+  final bool isBookmarked;
+
   double get distanceKm => (distanceM ?? 0) / 1000;
 
   factory WorkoutSession.fromJson(Map<String, dynamic> json) => WorkoutSession(
@@ -699,6 +721,12 @@ class WorkoutSession {
     photoAssetIds: (json['photoAssetIds'] as List? ?? const [])
         .whereType<String>()
         .toList(),
+    movingSeconds: _intOrNull(json['movingSeconds']),
+    elevationMaxM: _dbl(json['elevationMaxM']),
+    gapSecPerKm: _dbl(json['gapSecPerKm']),
+    steps: _intOrNull(json['steps']),
+    avgCadence: _intOrNull(json['avgCadence']),
+    isBookmarked: _bool(json['isBookmarked']),
   );
 }
 
@@ -711,6 +739,8 @@ class TrackPoint {
     required this.d,
     this.ele,
     this.hr,
+    this.pace,
+    this.gap,
   });
 
   /// Seconds from the first sample.
@@ -723,6 +753,12 @@ class TrackPoint {
   final double? ele;
   final int? hr;
 
+  /// sec/km over the stretch from the previous point; null where it was noise.
+  final double? pace;
+
+  /// The same stretch with its gradient taken out.
+  final double? gap;
+
   factory TrackPoint.fromJson(Map<String, dynamic> json) => TrackPoint(
     t: _dblOr(json['t']),
     lat: _dblOr(json['lat']),
@@ -730,6 +766,8 @@ class TrackPoint {
     d: _dblOr(json['d']),
     ele: _dbl(json['ele']),
     hr: _intOrNull(json['hr']),
+    pace: _dbl(json['pace']),
+    gap: _dbl(json['gap']),
   );
 }
 
@@ -773,6 +811,158 @@ class ZoneSummary {
     secondsInZone: _int(json['secondsInZone']),
     percentOfSession: _dbl(json['percentOfSession']),
   );
+}
+
+/// What one run did over a standard distance, and the place it took on the
+/// all-time board the day it was run (`bestEfforts` of the detail response).
+class RunEffort {
+  const RunEffort({
+    required this.distanceM,
+    required this.elapsedSeconds,
+    required this.startDistanceM,
+    required this.endDistanceM,
+    required this.rank,
+  });
+
+  final double distanceM;
+  final double elapsedSeconds;
+
+  /// Where along the route the effort was, in cumulative metres — how the map
+  /// knows where to pin the medal.
+  final double startDistanceM;
+  final double endDistanceM;
+
+  /// 1 = fastest ever at this distance.
+  final int rank;
+
+  /// Average pace over the effort, derived rather than stored.
+  double get paceSecPerKm =>
+      distanceM <= 0 ? 0 : (elapsedSeconds / distanceM) * 1000;
+
+  factory RunEffort.fromJson(Map<String, dynamic> json) => RunEffort(
+    distanceM: _dblOr(json['distanceM']),
+    elapsedSeconds: _dblOr(json['elapsedSeconds']),
+    startDistanceM: _dblOr(json['startDistanceM']),
+    endDistanceM: _dblOr(json['endDistanceM']),
+    rank: _int(json['rank']),
+  );
+}
+
+/// A predicted finishing time over a standard distance.
+class RunPrediction {
+  const RunPrediction({
+    required this.distanceM,
+    required this.seconds,
+    this.improvedBySeconds,
+  });
+
+  final double distanceM;
+  final int seconds;
+
+  /// How much this run took off the prediction; null outside the "improved" list.
+  final int? improvedBySeconds;
+
+  factory RunPrediction.fromJson(Map<String, dynamic> json) => RunPrediction(
+    distanceM: _dblOr(json['distanceM']),
+    seconds: _int(json['seconds']),
+    improvedBySeconds: _intOrNull(json['improvedBySeconds']),
+  );
+}
+
+/// The pace band of one zone, in sec/km. Open at one end for Z6 and Z1.
+class PaceZoneRange {
+  const PaceZoneRange({
+    required this.zoneNumber,
+    this.minSecPerKm,
+    this.maxSecPerKm,
+  });
+
+  final int zoneNumber;
+  final double? minSecPerKm;
+  final double? maxSecPerKm;
+
+  factory PaceZoneRange.fromJson(Map<String, dynamic> json) => PaceZoneRange(
+    zoneNumber: _int(json['zoneNumber']),
+    minSecPerKm: _dbl(json['minSecPerKm']),
+    maxSecPerKm: _dbl(json['maxSecPerKm']),
+  );
+}
+
+/// Everything `GET /v1/workouts/:id` carries about a run, in one object.
+class RunDetail {
+  const RunDetail({
+    required this.session,
+    required this.splits,
+    required this.zones,
+    required this.paceZones,
+    required this.paceZoneRanges,
+    required this.bestEfforts,
+    required this.predictions,
+    required this.predictionImproved,
+    required this.bestEverCount,
+    required this.achievementCount,
+    this.paceZoneBasisSeconds,
+  });
+
+  final WorkoutSession session;
+  final List<WorkoutSplit> splits;
+
+  /// Heart-rate zones; empty when the recording carried no heart rate.
+  final List<ZoneSummary> zones;
+  final List<ZoneSummary> paceZones;
+  final List<PaceZoneRange> paceZoneRanges;
+
+  /// The predicted 5 km time the pace zones are anchored on.
+  final double? paceZoneBasisSeconds;
+  final List<RunEffort> bestEfforts;
+  final List<RunPrediction> predictions;
+
+  /// Only the predictions this run improved, best improvement first.
+  final List<RunPrediction> predictionImproved;
+  final int bestEverCount;
+  final int achievementCount;
+
+  /// The personal best this run set, if it set one — the banner's subject.
+  RunEffort? get headlineEffort {
+    final firsts = bestEfforts.where((e) => e.rank == 1).toList();
+    if (firsts.isEmpty) return null;
+    // The longest one: a 10 km best says more than the 400 m inside it.
+    firsts.sort((a, b) => b.distanceM.compareTo(a.distanceM));
+    return firsts.first;
+  }
+
+  static List<T> _list<T>(
+    dynamic raw,
+    T Function(Map<String, dynamic>) fromJson,
+  ) => (raw as List? ?? const [])
+      .whereType<Map>()
+      .map((e) => fromJson(e.cast<String, dynamic>()))
+      .toList();
+
+  factory RunDetail.fromJson(Map<String, dynamic> json) {
+    final stream = json['stream'];
+    final counters = (json['effortCounters'] as Map?)?.cast<String, dynamic>();
+    return RunDetail(
+      session: WorkoutSession.fromJson({
+        ...json,
+        // The polyline lives on the stream row, not on the session.
+        'polyline': stream is Map ? stream['encodedPolyline'] : null,
+      }),
+      splits: _list(json['splits'], WorkoutSplit.fromJson),
+      zones: _list(json['zones'], ZoneSummary.fromJson),
+      paceZones: _list(json['paceZones'], ZoneSummary.fromJson),
+      paceZoneRanges: _list(json['paceZoneRanges'], PaceZoneRange.fromJson),
+      paceZoneBasisSeconds: _dbl(json['paceZoneBasisSeconds']),
+      bestEfforts: _list(json['bestEfforts'], RunEffort.fromJson),
+      predictions: _list(json['predictions'], RunPrediction.fromJson),
+      predictionImproved: _list(
+        json['predictionImproved'],
+        RunPrediction.fromJson,
+      ),
+      bestEverCount: _int(counters?['bestEver']),
+      achievementCount: _int(counters?['achievements']),
+    );
+  }
 }
 
 class PersonalRecord {

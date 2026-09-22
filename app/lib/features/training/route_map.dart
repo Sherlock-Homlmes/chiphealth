@@ -297,3 +297,42 @@ class _LiveRouteMapState extends State<LiveRouteMap> {
     );
   }
 }
+
+/// Index of the last point at or before cumulative distance [d].
+int trackIndexAtDistance(List<TrackPoint> track, double d) {
+  var lo = 0;
+  var hi = track.length - 1;
+  while (lo < hi) {
+    final mid = (lo + hi + 1) >> 1;
+    if (track[mid].d <= d) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return lo;
+}
+
+/// Where the athlete was [d] metres into the run, interpolated between samples.
+/// This is what puts the map marker under the finger on a chart, which reads in
+/// distance rather than in time.
+LatLng trackPositionAtDistance(List<TrackPoint> track, double d) {
+  final i = trackIndexAtDistance(track, d);
+  final a = track[i];
+  if (i >= track.length - 1 || d <= a.d) return LatLng(a.lat, a.lng);
+  final b = track[i + 1];
+  final f = ((d - a.d) / (b.d - a.d)).clamp(0.0, 1.0);
+  return LatLng(a.lat + (b.lat - a.lat) * f, a.lng + (b.lng - a.lng) * f);
+}
+
+/// The stretch of route between two cumulative distances, with both ends
+/// interpolated — how a split or a best effort is highlighted on the map.
+List<LatLng> trackSlice(List<TrackPoint> track, double fromM, double toM) {
+  if (track.length < 2 || toM <= fromM) return const [];
+  final out = <LatLng>[trackPositionAtDistance(track, fromM)];
+  for (final p in track) {
+    if (p.d > fromM && p.d < toM) out.add(LatLng(p.lat, p.lng));
+  }
+  out.add(trackPositionAtDistance(track, toM));
+  return out;
+}

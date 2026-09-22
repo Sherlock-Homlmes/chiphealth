@@ -43,6 +43,7 @@
   "banBeSeKhongThayAnh": "Bạn bè sẽ không thấy ảnh này nữa.",
   "banBeTrongChiphealthNhinThay": "Bạn bè trong ChipHealth nhìn thấy",
   "banDoHienKhiBatDau": "Bản đồ hiện khi bắt đầu ghi",
+  "banMarathon": "Bán marathon",
   "batDau": "Bắt đầu",
   "batDauGhi": "Bắt đầu ghi",
   "batDauLuc": "Bắt đầu lúc",
@@ -76,6 +77,7 @@
     }
   },
   "boAnh": "Bỏ ảnh",
+  "boLuuHoatDong": "Bỏ lưu hoạt động",
   "buaAn": "Bữa ăn",
   "buaAnCuaBan": "Bữa ăn của bạn",
   "buaAnNayChuaDuocPhan": "Bữa ăn này chưa được phân tích và không chạy lại được — hãy ghi lại.",
@@ -97,6 +99,7 @@
   "caNhan": "Cá nhân",
   "cacBuaAn": "Các bữa ăn",
   "cacGiacGanDay": "Các giấc gần đây",
+  "cachThemDuLieuNhipTim": "Cách thêm dữ liệu nhịp tim",
   "cachTinh": "Cách tính",
   "caiDat": "Cài đặt",
   "caloCuaCacBuoiTapBan": "Calo của các buổi tập bạn ghi lại được cộng thêm vào đúng ngày đó, nên không cần tính buổi tập vào mức vận động.",
@@ -118,6 +121,8 @@
   "cat": "Cắt",
   "catHoatDong": "Cắt hoạt động",
   "catHoatDong2": "Cắt hoạt động?",
+  "chang": "Chặng",
+  "changNhanhNhat": "Chặng nhanh nhất",
   "chatBeo": "Chất béo",
   "chatDam": "Chất đạm",
   "chatXo": "Chất xơ",
@@ -209,6 +214,12 @@
   },
   "congDong": "Cộng đồng",
   "congThucChiLaUocTinh": "Công thức chỉ là ước tính (lệch khoảng ±10%). Nếu bạn biết số chính xác hơn, hãy bật \"Tự nhập số calo\" — app sẽ dùng số đó thay cho công thức. Mục tiêu calo, đạm, tinh bột và chất béo trên trang chủ đều tính từ con số này.",
+  "cuLyNhanhNhat": "{distance} nhanh nhất",
+  "@cuLyNhanhNhat": {
+    "placeholders": {
+      "distance": {}
+    }
+  },
   "cuaQuay": "Cựa quậy",
   "cuocTroChuyen": "Cuộc trò chuyện",
   "cuocTroChuyenMoi": "Cuộc trò chuyện mới",
@@ -267,6 +278,8 @@
   "dinhDuongLuyenTapGiacNgu": "Dinh dưỡng, luyện tập, giấc ngủ — một chỗ, một huấn luyện viên.",
   "doCao": "độ cao",
   "doCaoTang": "Độ cao tăng",
+  "doCaoTieuDe": "Độ cao",
+  "doCaoToiDa": "Độ cao tối đa",
   "doanGhiQuaNganBamMic": "Đoạn ghi quá ngắn — bấm mic để nói rồi bấm lại khi hết.",
   "dobWithAge": "{date} · {age} tuổi",
   "@dobWithAge": {
@@ -283,8 +296,16 @@
   "doiCamera": "Đổi camera",
   "doiChieuMucTieuVaBenh": "Đối chiếu mục tiêu và bệnh nền…",
   "dong": "Đóng",
+  "dongBoTuUngDungSucKhoe": "Đồng bộ từ ứng dụng sức khoẻ",
   "dongY": "Đồng ý",
+  "duDoanDaCaiThien": "Dự đoán đã cải thiện",
   "duDoanHieuSuat": "Dự đoán hiệu suất",
+  "duaTrenDuDoan5Km": "Dựa trên dự đoán thời gian hoàn thành cự ly 5 km là {time}",
+  "@duaTrenDuDoan5Km": {
+    "placeholders": {
+      "time": {}
+    }
+  },
   "dung": "Dừng",
   "dungChoGiaoDienChoNhan": "Dùng cho giao diện, cho nhận dạng giọng nói và cho câu trả lời của Trợ lý AI.",
   "dungKhiBanBietSoCua": "Dùng khi bạn biết số của mình, ví dụ từ đồng hồ thông minh hoặc chuyên gia dinh dưỡng.",
@@ -348,6 +369,8 @@
   "focusStayActive": "Duy trì vận động",
   "focusStayActiveNote": "Giữ vững thói quen tập luyện đều đặn hằng tuần.",
   "friendFallbackName": "Bạn bè",
+  "gapTb": "GAP TB",
+  "ghiBangChipHealth": "Ghi bằng ChipHealth",
   "ghiBuaAn": "Ghi bữa ăn",
   "ghiCanNang": "Ghi cân nặng",
   "ghiChu": "Ghi chú",
@@ -361,10 +384,26 @@
   "giacNgu": "Giấc ngủ",
   "giacNguCacGiaiDoanVa": "Giấc ngủ, các giai đoạn và clip ngáy / nói mớ sẽ bị xoá hẳn.",
   "giacNguNay": "Giấc ngủ này",
+  "giaiThich": "Giải thích",
+  "giaiThichDoCao": "Độ cao dọc theo quãng đường, lấy từ GPS của buổi chạy. \"Độ cao tăng\" cộng tất cả các đoạn lên dốc; \"độ cao tối đa\" là điểm cao nhất trên tuyến.",
+  "giaiThichNhipDo": "Nhịp độ là số phút cần để chạy một km — số nhỏ là chạy nhanh, nên trục dọc đảo chiều: càng lên cao càng nhanh. Vùng xám phía sau là hồ sơ độ cao của tuyến.",
   "giamCan": "Giảm cân",
   "giamMo": "Giảm mỡ",
+  "giayNgan": "{seconds}giây",
+  "@giayNgan": {
+    "placeholders": {
+      "seconds": {}
+    }
+  },
   "gio": "Giờ",
   "gioAn": "Giờ ăn",
+  "gioPhutNgan": "{hours}giờ{minutes}phút",
+  "@gioPhutNgan": {
+    "placeholders": {
+      "hours": {},
+      "minutes": {}
+    }
+  },
   "gioThucDayPhaiSauGio": "Giờ thức dậy phải sau giờ đi ngủ.",
   "gioiTinh": "Giới tính",
   "giuLai": "Giữ lại",
@@ -412,6 +451,7 @@
   "guiChoBanBe": "Gửi cho bạn bè",
   "guiKemAnh": "Gửi kèm ảnh",
   "guiTinNhan": "Gửi tin nhắn…",
+  "haiDam": "2 dặm",
   "hanHoanThanh": "Hạn hoàn thành",
   "hanHoanThanhKhongBatBuoc": "Hạn hoàn thành (không bắt buộc)",
   "healthScoreOutOfTen": "Sức Khỏe: {score}/10",
@@ -445,6 +485,8 @@
   "itDam": "Ít đạm",
   "itVanDong": "Ít vận động",
   "keoHaiDauDeBoPhan": "Kéo hai đầu để bỏ phần đầu hoặc cuối của bài tập.",
+  "ketNoiMayDoNhipTim": "Kết nối máy đo nhịp tim để xem phân tích nhịp tim của buổi chạy này.",
+  "ketQua": "Kết quả",
   "khac": "Khác",
   "khoanhKhac": "Khoảnh khắc",
   "khoeManh": "Khỏe mạnh",
@@ -464,9 +506,16 @@
   "khongThucHienDuoc": "Không thực hiện được",
   "khongTimThayCamera": "Không tìm thấy camera.",
   "kiemSoatBenhNen": "Kiểm soát bệnh nền",
+  "kmSo": "Km {index}",
+  "@kmSo": {
+    "placeholders": {
+      "index": {}
+    }
+  },
   "kyLucMoi": "Kỷ lục mới!",
   "kySau": "Kỳ sau",
   "kyTruoc": "Kỳ trước",
+  "lanChayNay": "Lần chạy này",
   "laoDongNangKhuanVacCa": "Lao động nặng, khuân vác cả ngày",
   "lenThucDon3BuaGiup": "Lên thực đơn 3 bữa giúp mình giảm cân",
   "loaiMucTieu": "Loại mục tiêu",
@@ -479,6 +528,7 @@
   "luuCanNangCuaBanTai": "Lưu cân nặng của bạn tại thời điểm này.",
   "luuHoatDong": "Lưu hoạt động",
   "luuVaoMay": "Lưu vào máy",
+  "marathon": "Marathon",
   "matBaoLauDeNguPhut": "Mất bao lâu để ngủ (phút)",
   "matKetNoiKhiTaiAnh": "Mất kết nối khi tải ảnh lên. Thử lại khi có mạng.",
   "mealShareText": "{name} · {kcal}\nĐạm {protein} · Tinh bột {carbs} · Béo {fat}",
@@ -529,6 +579,7 @@
   "moiGiacDuocLuuRieng": "Ngủ đêm, ngủ trưa hay chợp mắt — mỗi giấc được lưu riêng.",
   "mon": "Môn",
   "monKhac": "Môn khác",
+  "motDam": "1 dặm",
   "mucTieu": "Mục tiêu",
   "mucTieu1500Ml": "Mục tiêu 1500 ml",
   "mucTieu2000Ml": "Mục tiêu 2000 ml",
@@ -554,6 +605,13 @@
   "nangDong": "Năng động",
   "ngay": "Ngáy",
   "ngayAn": "Ngày ăn",
+  "ngayLucGio": "{date} lúc {time}",
+  "@ngayLucGio": {
+    "placeholders": {
+      "date": {},
+      "time": {}
+    }
+  },
   "ngayNoiMo": "Ngáy / nói mớ",
   "ngaySinh": "Ngày sinh",
   "nghiNgungTho": "Nghi ngưng thở",
@@ -576,6 +634,10 @@
   "nhieuDuong": "Nhiều đường",
   "nhieuMuoi": "Nhiều muối",
   "nhieuTinhBot": "Nhiều tinh bột",
+  "nhipDo": "Nhịp độ",
+  "nhipDoDieuChinhTheoDoDoc": "Nhịp độ điều chỉnh theo độ dốc",
+  "nhipDoTb": "Nhịp độ TB",
+  "nhipDoTbTheoThoiGianThucTe": "Nhịp độ TB theo thời gian thực tế",
   "nhipTimTb": "Nhịp tim TB",
   "nightCounts": "Ngáy {snore} · Nói mớ {talk} · Ho {cough}",
   "@nightCounts": {
@@ -593,9 +655,11 @@
   },
   "noNgu": "Nợ ngủ",
   "noi": "Nói",
+  "noiChiTietHon": "Nói chi tiết hơn",
   "noiMo": "Nói mớ",
   "nong": "Nông",
   "nu": "Nữ",
+  "nuaDam": "Nửa dặm",
   "nuoc": "Nước",
   "nuocHomNay": "Nước hôm nay",
   "nuocMl": "Nước (ml)",
@@ -611,6 +675,7 @@
   "phanGiacNguGiaiDoanVa": "Phần giấc ngủ, giai đoạn và clip nằm ngoài khoảng giờ mới sẽ bị cắt bỏ.",
   "phanTich": "Phân tích",
   "phanTichKeoDaiQua5": "Phân tích kéo dài quá 5 phút. Hãy thử lại nhé.",
+  "phanTichNhipDo": "Phân tích nhịp độ",
   "phanTramOVung": "{percent}% ở Z{zone}",
   "@phanTramOVung": {
     "placeholders": {
@@ -622,9 +687,11 @@
   "phienDangNhapHetHanDang": "Phiên đăng nhập hết hạn. Đăng nhập lại rồi đăng.",
   "phut2": "Phút",
   "phut3": "phút",
+  "phutNgan": "{minutes}phút",
   "quangDuong": "Quãng đường",
   "quangDuong2": "quãng đường",
   "quangDuongKmTuyChon": "Quãng đường (km) — tuỳ chọn",
+  "quayLai": "Quay lại",
   "quetMaVach": "Quét mã vạch",
   "ratNangDong": "Rất năng động",
   "ratNhe": "Rất nhẹ",
@@ -680,6 +747,7 @@
       }
     }
   },
+  "soBuoc": "Số bước",
   "soGioNgu": "Số giờ ngủ",
   "stepOneBmr": "1. BMR — năng lượng đốt khi nằm nghỉ hoàn toàn",
   "stepTwoActivityFactor": "2. Nhân với hệ số vận động hằng ngày",
@@ -752,6 +820,27 @@
     }
   },
   "thanhPhan2": "Thành phần",
+  "thanhTich": "Thành tích",
+  "thanhTichCuLyThu": "Thành tích {distance} thứ {rank}",
+  "@thanhTichCuLyThu": {
+    "placeholders": {
+      "distance": {},
+      "rank": {}
+    }
+  },
+  "thanhTichMoiTotNhat": "Thành tích mới tốt nhất từ trước đến nay!",
+  "thanhTichMoiTotThu": "Thành tích mới tốt thứ {rank} từ trước đến nay!",
+  "@thanhTichMoiTotThu": {
+    "placeholders": {
+      "rank": {}
+    }
+  },
+  "thanhTichNhanhNhatTuTruoc": "Thành tích chạy {distance} nhanh nhất của bạn từ trước đến nay!",
+  "@thanhTichNhanhNhatTuTruoc": {
+    "placeholders": {
+      "distance": {}
+    }
+  },
   "thanhTichTotNhat": "Thành tích tốt nhất",
   "thayDoi": "THAY ĐỔI",
   "them": "Thêm",
@@ -773,10 +862,13 @@
   "thoi": "Thôi",
   "thoiGian": "Thời gian",
   "thoiGian2": "thời gian",
+  "thoiGianDiChuyen": "Thời gian di chuyển",
   "thoiGianNgu": "thời gian ngủ",
   "thoiGianNhieuNhat": "Thời gian nhiều nhất",
+  "thoiGianThucTe": "Thời gian thực tế",
   "thongBaoGiuChoViecGhi": "Thông báo giữ cho việc ghi âm tiếng ngáy / nói mớ chạy suốt đêm.",
   "thongTinCaNhan": "Thông tin cá nhân",
+  "thongTinChiTietVeNhipTim": "Thông tin chi tiết về nhịp tim",
   "thuLai": "Thử lại",
   "thuVien": "Thư viện",
   "thuaCan": "Thừa cân",
@@ -792,6 +884,7 @@
   "tinNhan": "Tin nhắn",
   "tinhBot": "Tinh bột",
   "tinhBotG": "Tinh bột (g)",
+  "tinhNangSapCo": "Tính năng này sắp có.",
   "tinhTheoSinhHoatThuongNgay": "Tính theo sinh hoạt thường ngày (công việc, đi lại), không tính buổi tập — calo tập được cộng riêng vào ngày tập.",
   "toanBoDuLieuVuaGhi": "Toàn bộ dữ liệu vừa ghi sẽ bị bỏ, không lưu lại.",
   "tocDoTb": "Tốc độ TB",
@@ -834,6 +927,7 @@
   "vietVaiDongVeBuaAn": "Viết vài dòng về bữa ăn…",
   "voiSoLieuCuaBan": "Với số liệu của bạn",
   "vua": "Vừa",
+  "vungNhipDo": "Vùng nhịp độ",
   "vungNhipTim": "Vùng nhịp tim",
   "vungTapLuyen": "Vùng tập luyện",
   "vuotMucTieu": "Vượt mục tiêu",
@@ -879,12 +973,16 @@
     }
   },
   "xacNhan": "Xác nhận",
+  "xemChiTietVeNhipDo": "Xem chi tiết về nhịp độ",
   "xemDangLuoi": "Xem dạng lưới",
   "xemLaiBuaAnVaBuoi": "Xem lại bữa ăn và buổi tập gần đây…",
   "xemLaiQuaTrinh": "Xem lại quá trình",
   "xemTatCa": "Xem tất cả",
+  "xemTatCaKetQua": "Xem tất cả kết quả",
   "xemThemTienTrinhCuaBan": "Xem thêm tiến trình của bạn",
+  "xemTongThoiGianTheoVungNhipDo": "Xem tổng thời gian tích luỹ theo Vùng nhịp độ",
   "xemTungAnh": "Xem từng ảnh",
+  "xemXuHuongDuDoan": "Xem xu hướng dự đoán",
   "xoG": "Xơ (g)",
   "xoa": "Xoá",
   "xoaCuocTroChuyen": "Xoá cuộc trò chuyện?",

@@ -380,7 +380,13 @@ app.get('/workouts/:id', async (c) => {
         improvedBySeconds: Math.round(p.previousSeconds! - p.predictedSeconds),
       }))
       .filter((p) => p.improvedBySeconds > 0)
-      .sort((a, b) => b.improvedBySeconds - a.improvedBySeconds),
+      // Closest to what was actually run first: a 10 km run moved the
+      // half-marathon number too, but the 10 km one is the claim it earned.
+      .sort((a, b) => {
+        const near = (d: number) => Math.abs(Math.log(d / (session.distanceM || d)));
+        const byDistance = near(a.distanceM) - near(b.distanceM);
+        return byDistance !== 0 ? byDistance : b.improvedBySeconds - a.improvedBySeconds;
+      }),
   });
 });
 

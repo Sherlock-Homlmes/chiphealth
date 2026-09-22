@@ -147,6 +147,31 @@ final workoutTrackProvider = FutureProvider.family<List<TrackPoint>, String>(
   (ref, id) => ref.watch(trainingRepositoryProvider).track(id),
 );
 
+/// The run detail screen's typed view of a session. It layers over
+/// [workoutDetailProvider] rather than fetching again, so the screen that
+/// chooses between the two detail layouts costs one request either way.
+final runDetailProvider = FutureProvider.family<RunDetail, String>(
+  (ref, id) async =>
+      RunDetail.fromJson(await ref.watch(workoutDetailProvider(id).future)),
+);
+
+/// Points for the detail screen's charts, kept deliberately coarser than the
+/// crop screen's: a few hundred draw a smooth line over a fraction of the bytes.
+const runChartPoints = 400;
+
+final runTrackProvider = FutureProvider.family<List<TrackPoint>, String>(
+  (ref, id) =>
+      ref.watch(trainingRepositoryProvider).track(id, points: runChartPoints),
+);
+
+/// One Athlete Intelligence line, by (session id, kind). Null means the model
+/// had nothing usable and the card stays hidden.
+final workoutInsightProvider =
+    FutureProvider.family<String?, ({String id, String kind})>(
+      (ref, arg) =>
+          ref.watch(trainingRepositoryProvider).insight(arg.id, arg.kind),
+    );
+
 final insightsProvider = FutureProvider<List<CoachInsight>>(
   (ref) => ref.watch(coachRepositoryProvider).insights(),
 );

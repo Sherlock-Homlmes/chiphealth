@@ -19,7 +19,7 @@ import 'features/training/manual_workout_screen.dart';
 import 'features/training/recorder_screen.dart';
 import 'features/training/training_screen.dart';
 import 'features/training/workout_crop_screen.dart';
-import 'features/training/workout_detail_screen.dart';
+import 'features/training/run_detail_screen.dart';
 import 'features/training/workout_edit_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -57,7 +57,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/workouts/:id',
         builder: (_, state) =>
-            WorkoutDetailScreen(sessionId: state.pathParameters['id']!),
+            WorkoutRoute(sessionId: state.pathParameters['id']!),
       ),
       GoRoute(path: '/meals/new', builder: (_, __) => const LogMealScreen()),
       GoRoute(

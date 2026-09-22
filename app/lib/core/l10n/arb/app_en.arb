@@ -43,6 +43,7 @@
   "banBeSeKhongThayAnh": "Your friends will no longer see this photo.",
   "banBeTrongChiphealthNhinThay": "Visible to your ChipHealth friends",
   "banDoHienKhiBatDau": "The map appears once recording starts",
+  "banMarathon": "Half marathon",
   "batDau": "Start",
   "batDauGhi": "Start recording",
   "batDauLuc": "Started at",
@@ -76,6 +77,7 @@
     }
   },
   "boAnh": "Remove photo",
+  "boLuuHoatDong": "Remove from saved",
   "buaAn": "Meals",
   "buaAnCuaBan": "Your meal",
   "buaAnNayChuaDuocPhan": "This meal was never analysed and cannot be retried — log it again.",
@@ -97,6 +99,7 @@
   "caNhan": "Profile",
   "cacBuaAn": "Meals",
   "cacGiacGanDay": "Recent sleeps",
+  "cachThemDuLieuNhipTim": "How to add heart-rate data",
   "cachTinh": "How this is worked out",
   "caiDat": "Settings",
   "caloCuaCacBuoiTapBan": "Calories from the workouts you log are added to that day, so there is no need to count training in your activity level.",
@@ -118,6 +121,8 @@
   "cat": "Trim",
   "catHoatDong": "Trim activity",
   "catHoatDong2": "Trim this activity?",
+  "chang": "Splits",
+  "changNhanhNhat": "Fastest split",
   "chatBeo": "Fat",
   "chatDam": "Protein",
   "chatXo": "Fibre",
@@ -209,6 +214,12 @@
   },
   "congDong": "Community",
   "congThucChiLaUocTinh": "The formula is only an estimate (roughly ±10%). If you know a better figure, turn on \"Enter calories myself\" and the app will use it instead. Your calorie, protein, carb and fat targets on the home screen all come from this number.",
+  "cuLyNhanhNhat": "Fastest {distance}",
+  "@cuLyNhanhNhat": {
+    "placeholders": {
+      "distance": {}
+    }
+  },
   "cuaQuay": "Restless",
   "cuocTroChuyen": "Conversations",
   "cuocTroChuyenMoi": "New conversation",
@@ -267,6 +278,8 @@
   "dinhDuongLuyenTapGiacNgu": "Food, training and sleep — one place, one coach.",
   "doCao": "elevation",
   "doCaoTang": "Elevation gain",
+  "doCaoTieuDe": "Elevation",
+  "doCaoToiDa": "Max elevation",
   "doanGhiQuaNganBamMic": "That clip was too short — tap the mic, speak, then tap again when you are done.",
   "dobWithAge": "{date} · {age} years old",
   "@dobWithAge": {
@@ -283,8 +296,16 @@
   "doiCamera": "Flip camera",
   "doiChieuMucTieuVaBenh": "Checking your goals and conditions…",
   "dong": "Close",
+  "dongBoTuUngDungSucKhoe": "Synced from a health app",
   "dongY": "OK",
+  "duDoanDaCaiThien": "Prediction improved",
   "duDoanHieuSuat": "Performance prediction",
+  "duaTrenDuDoan5Km": "Based on a predicted 5 km time of {time}",
+  "@duaTrenDuDoan5Km": {
+    "placeholders": {
+      "time": {}
+    }
+  },
   "dung": "Stop",
   "dungChoGiaoDienChoNhan": "Used for the interface, for speech recognition and for the AI assistant's replies.",
   "dungKhiBanBietSoCua": "Use this when you know your own figure — from a smartwatch, say, or a dietitian.",
@@ -348,6 +369,8 @@
   "focusStayActive": "Stay active",
   "focusStayActiveNote": "Keep the weekly training habit going.",
   "friendFallbackName": "Friend",
+  "gapTb": "Avg GAP",
+  "ghiBangChipHealth": "Recorded with ChipHealth",
   "ghiBuaAn": "Log a meal",
   "ghiCanNang": "Log weight",
   "ghiChu": "Note",
@@ -361,10 +384,26 @@
   "giacNgu": "Sleep",
   "giacNguCacGiaiDoanVa": "The night, its stages and any snoring or sleep-talk clips will be deleted for good.",
   "giacNguNay": "This sleep",
+  "giaiThich": "Explain",
+  "giaiThichDoCao": "Elevation along the route, from the run’s GPS. \"Elevation gain\" adds up every climb; \"max elevation\" is the highest point on the route.",
+  "giaiThichNhipDo": "Pace is the minutes it takes to cover a kilometre — a smaller number is faster, so the axis is flipped and faster sits higher. The grey shape behind is the elevation profile.",
   "giamCan": "Lose weight",
   "giamMo": "Lose fat",
+  "giayNgan": "{seconds}s",
+  "@giayNgan": {
+    "placeholders": {
+      "seconds": {}
+    }
+  },
   "gio": "Hours",
   "gioAn": "Time eaten",
+  "gioPhutNgan": "{hours}h{minutes}m",
+  "@gioPhutNgan": {
+    "placeholders": {
+      "hours": {},
+      "minutes": {}
+    }
+  },
   "gioThucDayPhaiSauGio": "Wake-up time must be after bedtime.",
   "gioiTinh": "Sex",
   "giuLai": "Keep",
@@ -412,6 +451,7 @@
   "guiChoBanBe": "Send to a friend",
   "guiKemAnh": "Attach a photo",
   "guiTinNhan": "Send a message…",
+  "haiDam": "2 miles",
   "hanHoanThanh": "Target date",
   "hanHoanThanhKhongBatBuoc": "Target date (optional)",
   "healthScoreOutOfTen": "Health: {score}/10",
@@ -445,6 +485,8 @@
   "itDam": "Low in protein",
   "itVanDong": "Sedentary",
   "keoHaiDauDeBoPhan": "Drag either end to cut the start or the finish off the session.",
+  "ketNoiMayDoNhipTim": "Connect a heart-rate monitor to see the heart-rate analysis for this run.",
+  "ketQua": "Achievements",
   "khac": "Other",
   "khoanhKhac": "Moments",
   "khoeManh": "Healthy",
@@ -464,9 +506,16 @@
   "khongThucHienDuoc": "Could not be done",
   "khongTimThayCamera": "No camera found.",
   "kiemSoatBenhNen": "Manage a condition",
+  "kmSo": "Km {index}",
+  "@kmSo": {
+    "placeholders": {
+      "index": {}
+    }
+  },
   "kyLucMoi": "New record!",
   "kySau": "Next",
   "kyTruoc": "Previous",
+  "lanChayNay": "This run",
   "laoDongNangKhuanVacCa": "Heavy labour, lifting all day",
   "lenThucDon3BuaGiup": "Plan three meals to help me lose weight",
   "loaiMucTieu": "Goal type",
@@ -479,6 +528,7 @@
   "luuCanNangCuaBanTai": "Records your weight as of this moment.",
   "luuHoatDong": "Save activity",
   "luuVaoMay": "Save to device",
+  "marathon": "Marathon",
   "matBaoLauDeNguPhut": "How long to fall asleep (minutes)",
   "matKetNoiKhiTaiAnh": "The connection dropped while uploading. Try again when you are online.",
   "mealShareText": "{name} · {kcal}\nProtein {protein} · Carbs {carbs} · Fat {fat}",
@@ -529,6 +579,7 @@
   "moiGiacDuocLuuRieng": "A night, an afternoon nap or a doze — each sleep is saved on its own.",
   "mon": "Sport",
   "monKhac": "Other sports",
+  "motDam": "1 mile",
   "mucTieu": "Goals",
   "mucTieu1500Ml": "Target 1500 ml",
   "mucTieu2000Ml": "Target 2000 ml",
@@ -554,6 +605,13 @@
   "nangDong": "Active",
   "ngay": "Snoring",
   "ngayAn": "Date eaten",
+  "ngayLucGio": "{date} at {time}",
+  "@ngayLucGio": {
+    "placeholders": {
+      "date": {},
+      "time": {}
+    }
+  },
   "ngayNoiMo": "Snoring / sleep talk",
   "ngaySinh": "Date of birth",
   "nghiNgungTho": "Possible apnoea",
@@ -576,6 +634,10 @@
   "nhieuDuong": "High in sugar",
   "nhieuMuoi": "High in salt",
   "nhieuTinhBot": "High in carbs",
+  "nhipDo": "Pace",
+  "nhipDoDieuChinhTheoDoDoc": "Grade adjusted pace",
+  "nhipDoTb": "Avg pace",
+  "nhipDoTbTheoThoiGianThucTe": "Avg pace over elapsed time",
   "nhipTimTb": "Avg heart rate",
   "nightCounts": "Snoring {snore} · Sleep talk {talk} · Coughing {cough}",
   "@nightCounts": {
@@ -593,9 +655,11 @@
   },
   "noNgu": "Sleep debt",
   "noi": "Speak",
+  "noiChiTietHon": "Tell me more",
   "noiMo": "Sleep talk",
   "nong": "Light",
   "nu": "Female",
+  "nuaDam": "Half mile",
   "nuoc": "Water",
   "nuocHomNay": "Water today",
   "nuocMl": "Water (ml)",
@@ -611,6 +675,7 @@
   "phanGiacNguGiaiDoanVa": "Sleep, stages and clips outside the new times are cut away.",
   "phanTich": "Analyse",
   "phanTichKeoDaiQua5": "The analysis took longer than 5 minutes. Please try again.",
+  "phanTichNhipDo": "Pace analysis",
   "phanTramOVung": "{percent}% in Z{zone}",
   "@phanTramOVung": {
     "placeholders": {
@@ -622,9 +687,11 @@
   "phienDangNhapHetHanDang": "Your session expired. Sign in again, then post.",
   "phut2": "Minutes",
   "phut3": "min",
+  "phutNgan": "{minutes}m",
   "quangDuong": "Distance",
   "quangDuong2": "distance",
   "quangDuongKmTuyChon": "Distance (km) — optional",
+  "quayLai": "Back",
   "quetMaVach": "Scan a barcode",
   "ratNangDong": "Very active",
   "ratNhe": "Very light",
@@ -680,6 +747,7 @@
       }
     }
   },
+  "soBuoc": "Steps",
   "soGioNgu": "Hours slept",
   "stepOneBmr": "1. BMR — the energy burned lying completely still",
   "stepTwoActivityFactor": "2. Multiplied by your daily activity factor",
@@ -752,6 +820,27 @@
     }
   },
   "thanhPhan2": "Components",
+  "thanhTich": "Achievements",
+  "thanhTichCuLyThu": "No. {rank} {distance}",
+  "@thanhTichCuLyThu": {
+    "placeholders": {
+      "distance": {},
+      "rank": {}
+    }
+  },
+  "thanhTichMoiTotNhat": "A new all-time best!",
+  "thanhTichMoiTotThu": "Your {rank}nd best ever!",
+  "@thanhTichMoiTotThu": {
+    "placeholders": {
+      "rank": {}
+    }
+  },
+  "thanhTichNhanhNhatTuTruoc": "Your fastest {distance} ever!",
+  "@thanhTichNhanhNhatTuTruoc": {
+    "placeholders": {
+      "distance": {}
+    }
+  },
   "thanhTichTotNhat": "Best efforts",
   "thayDoi": "CHANGE",
   "them": "Add",
@@ -773,10 +862,13 @@
   "thoi": "Not now",
   "thoiGian": "Time",
   "thoiGian2": "time",
+  "thoiGianDiChuyen": "Moving time",
   "thoiGianNgu": "time asleep",
   "thoiGianNhieuNhat": "Most time",
+  "thoiGianThucTe": "Elapsed time",
   "thongBaoGiuChoViecGhi": "This notification keeps snoring and sleep-talk recording running all night.",
   "thongTinCaNhan": "About you",
+  "thongTinChiTietVeNhipTim": "Heart-rate insights",
   "thuLai": "Try again",
   "thuVien": "Library",
   "thuaCan": "Overweight",
@@ -792,6 +884,7 @@
   "tinNhan": "Messages",
   "tinhBot": "Carbs",
   "tinhBotG": "Carbs (g)",
+  "tinhNangSapCo": "This is coming soon.",
   "tinhTheoSinhHoatThuongNgay": "Based on your ordinary day (work, getting around), not your workouts — training calories are added to the day you train.",
   "toanBoDuLieuVuaGhi": "Everything recorded so far is thrown away, not saved.",
   "tocDoTb": "Avg speed",
@@ -834,6 +927,7 @@
   "vietVaiDongVeBuaAn": "Write a line or two about the meal…",
   "voiSoLieuCuaBan": "With your figures",
   "vua": "Moderate",
+  "vungNhipDo": "Pace zones",
   "vungNhipTim": "Heart-rate zones",
   "vungTapLuyen": "Training zones",
   "vuotMucTieu": "Over target",
@@ -879,12 +973,16 @@
     }
   },
   "xacNhan": "Confirm",
+  "xemChiTietVeNhipDo": "See pace in detail",
   "xemDangLuoi": "Grid view",
   "xemLaiBuaAnVaBuoi": "Looking over your recent meals and workouts…",
   "xemLaiQuaTrinh": "Replay",
   "xemTatCa": "See all",
+  "xemTatCaKetQua": "See all achievements",
   "xemThemTienTrinhCuaBan": "See more of your progress",
+  "xemTongThoiGianTheoVungNhipDo": "See cumulative time by pace zone",
   "xemTungAnh": "View photos",
+  "xemXuHuongDuDoan": "See prediction trend",
   "xoG": "Fibre (g)",
   "xoa": "Delete",
   "xoaCuocTroChuyen": "Delete this conversation?",
