@@ -307,6 +307,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen>
     final user = ref.watch(authControllerProvider).user;
     final session = run.session;
     final elevation = _elevationSeries(track);
+    final pace = _paceSeries(track);
 
     return [
       _Identity(session: session, user: user, run: run),
@@ -333,6 +334,7 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen>
           run: run,
           units: units,
           elevation: elevation,
+          pace: pace,
           onCursor: (bar) => setState(() => _cursorSplit = bar),
           onDetail: _jumpToPace,
         ),
@@ -376,23 +378,6 @@ class _RunDetailScreenState extends ConsumerState<RunDetailScreen>
   }
 }
 
-/// The metres past the last whole kilometre, and the pace they were run at.
-///
-/// Its pace is what is left of the clock after the whole splits, not the
-/// session average: the last 600 m of a run are often its fastest, and saying
-/// otherwise would be inventing a number the athlete can check.
-({double distanceM, double paceSecPerKm})? tailSplit(RunDetail run) {
-  final covered = run.splits.length * 1000.0;
-  final remainder = (run.session.distanceM ?? covered) - covered;
-  if (remainder <= 50) return null;
-  final elapsed = run.session.movingSeconds ?? run.session.durationSeconds;
-  if (elapsed == null) return null;
-  final whole = run.splits.fold<int>(0, (sum, s) => sum + s.elapsedSeconds);
-  final left = elapsed - whole;
-  if (left <= 0) return null;
-  return (distanceM: remainder, paceSecPerKm: (left / remainder) * 1000);
-}
-
 /// The elevation profile as a chart series, or empty when nothing recorded it.
 List<ChartPoint> _elevationSeries(List<TrackPoint>? track) => track == null
     ? const []
@@ -400,6 +385,107 @@ List<ChartPoint> _elevationSeries(List<TrackPoint>? track) => track == null
         for (final p in track)
           if (p.ele != null) ChartPoint(p.d, p.ele!),
       ];
+
+/// Instantaneous pace from the track, as a chart series.
+List<ChartPoint> _paceSeries(List<TrackPoint>? track) => track == null
+    ? const []
+    : [
+        for (final p in track)
+          if (p.pace != null) ChartPoint(p.d, p.pace!),
+      ];
+
+/// Grade adjusted pace from the track, as a chart series.
+List<ChartPoint> _gapSeries(List<TrackPoint>? track) => track == null
+    ? const []
+    : [
+        for (final p in track)
+          if (p.gap != null) ChartPoint(p.d, p.gap!),
+      ];
+
+/// How far either side of a point the smoothing average reaches.
+///
+/// Instantaneous pace between two GPS fixes a few seconds apart is mostly
+/// noise, and a chart of it is a hedge rather than a line. Averaging over a
+/// couple of hundred metres leaves the shape of the run — the climb, the fade,
+/// the surge at the end — and drops everything shorter than a stride pattern.
+/// The unsmoothed series is still drawn behind it, so nothing is hidden, only
+/// ranked.
+const _paceSmoothWindowM = 150.0;
+
+/// A distance-windowed moving average. Both ends taper rather than run off, so
+/// the line starts and finishes on the data instead of drifting to the middle.
+List<ChartPoint> smoothSeries(
+  List<ChartPoint> points, {
+  double windowM = _paceSmoothWindowM,
+}) {
+  if (points.length < 3) return points;
+  final out = <ChartPoint>[];
+  var lo = 0;
+  var hi = 0;
+  var sum = 0.0;
+  var count = 0;
+  for (var i = 0; i < points.length; i++) {
+    final d = points[i].d;
+    while (hi < points.length && points[hi].d <= d + windowM / 2) {
+      sum += points[hi].v;
+      count++;
+      hi++;
+    }
+    while (lo < hi && points[lo].d < d - windowM / 2) {
+      sum -= points[lo].v;
+      count--;
+      lo++;
+    }
+    out.add(ChartPoint(d, count > 0 ? sum / count : points[i].v));
+  }
+  return out;
+}
+
+/// A fixed, generous band for a pace axis, in seconds per kilometre.
+///
+/// The split chart fits its axis tightly to the splits, because comparing one
+/// kilometre with the next is the whole point of it. A continuous pace chart
+/// cannot: it contains every second of the run, including the ones spent
+/// standing at a crossing, where pace runs away to infinity. An axis stretched
+/// to reach those is an axis on which the running is a flat line.
+///
+/// So the band is pinned wide and the outliers are clipped to its edges — a
+/// stop becomes a stretch pressed against the bottom, which reads as what it
+/// was. The bounds come from the run rather than from constants so that a
+/// four-minute runner and a nine-minute runner both get a readable chart, but
+/// they are deliberately loose: whole minutes, a wide percentile, and a floor
+/// under how narrow the band may become.
+({double lo, double hi}) paceBand(
+  List<ChartPoint> series, {
+  double lowPercentile = 0.05,
+  double highPercentile = 0.85,
+  double minSpan = 180,
+}) {
+  const fallback = (lo: 360.0, hi: 660.0);
+  if (series.length < 2) return fallback;
+  final values = series.map((p) => p.v).toList()..sort();
+  final last = values.length - 1;
+  final low = values[(last * lowPercentile).round()];
+  final high = values[(last * highPercentile).round()];
+  var lo = (low / 60).floorToDouble() * 60;
+  var hi = (high / 60).ceilToDouble() * 60;
+  if (hi - lo < minSpan) hi = lo + minSpan;
+  return (lo: lo, hi: hi);
+}
+
+/// The fastest continuous kilometre of the run, in seconds.
+///
+/// Not the fastest row of the split table. A split is pinned to the whole
+/// kilometre marks, so a runner who started their surge 300 m into the third
+/// kilometre has their best kilometre cut in half by a boundary that means
+/// nothing to them. The backend already scores every standard distance with a
+/// rolling window over the raw stream; this reads the 1 km one off it.
+double? fastestKilometreSeconds(RunDetail run) {
+  for (final effort in run.bestEfforts) {
+    if (effort.distanceM == 1000) return effort.elapsedSeconds;
+  }
+  return null;
+}
 
 /* ------------------------------------------------------------------ */
 /* Map, header, sheet chrome                                           */
@@ -1596,6 +1682,7 @@ class _PaceAnalysis extends StatelessWidget {
     required this.run,
     required this.units,
     required this.elevation,
+    required this.pace,
     required this.onCursor,
     required this.onDetail,
   });
@@ -1603,34 +1690,29 @@ class _PaceAnalysis extends StatelessWidget {
   final RunDetail run;
   final Units units;
   final List<ChartPoint> elevation;
+
+  /// Instantaneous pace, drawn over the bars — see [SplitPaceChart.overlay].
+  final List<ChartPoint> pace;
   final ValueChanged<SplitBar?> onCursor;
   final VoidCallback onDetail;
 
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
+    // Including the part-kilometre at the end, which the backend now sends as
+    // a split of its own with its real length and a pace converted per
+    // kilometre. The screen used to work that row out for itself, which meant
+    // two places deciding what the last bar meant.
     final bars = [
       for (final split in run.splits)
         if (split.avgPaceSecPerKm != null)
           SplitBar(
             index: split.splitIndex,
-            distanceM: 1000,
+            distanceM: split.splitDistanceM,
             paceSecPerKm: split.avgPaceSecPerKm!,
           ),
     ];
     if (bars.isEmpty) return const SizedBox.shrink();
-
-    // The leftover metres past the last whole kilometre, drawn narrower.
-    final tail = tailSplit(run);
-    if (tail != null) {
-      bars.add(
-        SplitBar(
-          index: bars.length + 1,
-          distanceM: tail.distanceM,
-          paceSecPerKm: tail.paceSecPerKm,
-        ),
-      );
-    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1644,6 +1726,7 @@ class _PaceAnalysis extends StatelessWidget {
               bars: bars,
               avgPaceSecPerKm: run.session.avgPaceSecPerKm!,
               ghost: elevation,
+              overlay: pace,
               labelY: units.pace,
               tooltip: (bar) =>
                   '${l.kmSo('${bar.index}')} · ${units.pace(bar.paceSecPerKm)}',
@@ -1675,10 +1758,6 @@ class _SplitTable extends StatelessWidget {
     final fastest = paces.reduce((a, b) => a < b ? a : b);
     final slowest = paces.reduce((a, b) => a > b ? a : b);
 
-    // Leftover metres past the last whole kilometre get their own row, labelled
-    // with the distance rather than a split number.
-    final tail = tailSplit(run);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1705,24 +1784,22 @@ class _SplitTable extends StatelessWidget {
                   ],
                 ),
                 const Divider(height: 12),
+                // The leftover metres past the last whole kilometre are a
+                // split like any other now, sent by the backend with their real
+                // length. They are labelled with that length rather than a
+                // split number, so the row is not read as a whole kilometre run
+                // uncommonly fast.
                 for (final split in rows)
                   _row(
                     context,
-                    label: '${split.splitIndex}',
+                    label: split.splitDistanceM >= 1000
+                        ? '${split.splitIndex}'
+                        : NumberFormat(
+                            '0.0',
+                            language,
+                          ).format(split.splitDistanceM / 1000),
                     pace: split.avgPaceSecPerKm!,
                     elevation: split.elevationGainM,
-                    fastest: fastest,
-                    slowest: slowest,
-                  ),
-                if (tail != null)
-                  _row(
-                    context,
-                    label: NumberFormat(
-                      '0.0',
-                      language,
-                    ).format(tail.distanceM / 1000),
-                    pace: tail.paceSecPerKm,
-                    elevation: null,
                     fastest: fastest,
                     slowest: slowest,
                   ),
@@ -1835,14 +1912,21 @@ class _PaceSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
     final s = run.session;
-    final series = [
-      for (final p in track ?? const <TrackPoint>[])
-        if (p.pace != null) ChartPoint(p.d, p.pace!),
-    ];
-    final fastestSplit = run.splits
-        .map((sp) => sp.avgPaceSecPerKm)
-        .whereType<double>()
-        .fold<double?>(null, (best, v) => best == null || v < best ? v : best);
+    final raw = _paceSeries(track);
+    final series = smoothSeries(raw);
+    // The fastest continuous kilometre, not the fastest row of the split table
+    // — see `fastestKilometreSeconds`. It falls back to the table when the run
+    // never covered a kilometre.
+    final fastestKm = fastestKilometreSeconds(run);
+    final fastestSplit =
+        fastestKm ??
+        run.splits
+            .map((sp) => sp.avgPaceSecPerKm)
+            .whereType<double>()
+            .fold<double?>(
+              null,
+              (best, v) => best == null || v < best ? v : best,
+            );
 
     // Elapsed pace: the whole clock over the distance, including the stops.
     final elapsedPace = (s.durationSeconds != null && (s.distanceM ?? 0) > 0)
@@ -1860,9 +1944,15 @@ class _PaceSection extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(4, 12, 8, 4),
               child: RunAreaChart(
                 series: series,
+                raw: raw,
                 ghost: elevation,
                 valueStep: 60,
                 invertY: true,
+                // A band wide enough to hold a walk without being given to it:
+                // the stretches spent standing still pin to the bottom edge
+                // instead of stretching the axis until the running is a line.
+                minY: paceBand(series).lo,
+                maxY: paceBand(series).hi,
                 labelY: (v) => units.pace(v).replaceAll(RegExp(r'/\w+'), ''),
                 unitY: units.isImperial ? '/mi' : '/km',
                 tooltip: (d, v) => '${units.distance(d)} · ${units.pace(v)}',
@@ -1885,6 +1975,8 @@ class _PaceSection extends StatelessWidget {
                 ),
                 _Reading(l.nhipDoTbTheoThoiGianThucTe, units.pace(elapsedPace)),
                 _Reading(l.thoiGianThucTe, Units.clock(s.durationSeconds)),
+                if ((s.stoppedSeconds ?? 0) > 0)
+                  _Reading(l.thoiGianDung, Units.clock(s.stoppedSeconds)),
                 _Reading(l.changNhanhNhat, units.pace(fastestSplit)),
               ],
             ),
@@ -1914,11 +2006,13 @@ class _GapSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppL10n.of(context);
-    final series = [
-      for (final p in track)
-        if (p.gap != null) ChartPoint(p.d, p.gap!),
-    ];
+    final raw = _gapSeries(track);
+    final series = smoothSeries(raw);
     if (series.length < 2) return const SizedBox.shrink();
+    // Wider at the fast end than the plain pace chart: taking a climb out of a
+    // pace is what makes the fastest stretches of the run fast, and those are
+    // the ones the chart exists to show.
+    final band = paceBand(series, lowPercentile: 0.02, minSpan: 240);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1932,9 +2026,12 @@ class _GapSection extends StatelessWidget {
               children: [
                 RunAreaChart(
                   series: series,
+                  raw: raw,
                   ghost: elevation,
                   valueStep: 60,
                   invertY: true,
+                  minY: band.lo,
+                  maxY: band.hi,
                   color: RetroTokens.info,
                   labelY: (v) => units.pace(v).replaceAll(RegExp(r'/\w+'), ''),
                   unitY: units.isImperial ? '/mi' : '/km',

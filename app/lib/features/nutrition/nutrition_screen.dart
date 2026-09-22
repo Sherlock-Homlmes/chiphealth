@@ -7,6 +7,7 @@ import '../../core/format/units.dart';
 import '../../core/models/models.dart';
 import '../../core/nutrition/daily_targets.dart';
 import '../../core/providers.dart';
+import '../../core/repositories/repositories.dart';
 import '../../core/theme/tokens.dart';
 import '../../widgets/retro_widgets.dart';
 import '../home/add_water_sheet.dart';
@@ -194,7 +195,11 @@ class _NutritionScreenState extends ConsumerState<NutritionScreen> {
       for (final day in days) ...[
         _DayHeading(day: day),
         for (final meal in day.meals)
-          _MealTile(meal: meal, onTap: () => _openMeal(meal.id)),
+          _MealTile(
+            meal: meal,
+            onTap: () => _openMeal(meal.id),
+            onRetried: _reload,
+          ),
       ],
       if (timeline.loadingMore)
         const Padding(
@@ -425,10 +430,18 @@ class _DayHeading extends StatelessWidget {
 }
 
 class _MealTile extends StatelessWidget {
-  const _MealTile({required this.meal, required this.onTap});
+  const _MealTile({
+    required this.meal,
+    required this.onTap,
+    required this.onRetried,
+  });
 
   final MealLog meal;
   final VoidCallback onTap;
+
+  /// A retry started from the row itself changes the day card as much as the
+  /// diary, so the screen reloads both.
+  final VoidCallback onRetried;
 
   @override
   Widget build(BuildContext context) {
@@ -471,35 +484,110 @@ class _MealTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (meal.isAnalysing)
+            // Still going — unless it has been going for longer than an
+            // analysis is allowed to take, which the row can now tell because
+            // the list carries when the attempt started.
+            if (meal.isAnalysing && !meal.timedOutAt(_now()))
               const SizedBox(
                 height: 16,
                 width: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            // A failed photo analysis stays listed; the detail screen it opens
-            // carries the retry.
-            else if (meal.isFailedDraft)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.refresh, size: 16, color: RetroTokens.accent),
-                  SizedBox(width: 4),
-                  Text(
-                    AppL10n.of(context).loiThuLai,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      color: RetroTokens.accent,
-                    ),
-                  ),
-                ],
-              )
+            // Every failed meal stays listed, and the badge is the retry — not
+            // a label pointing at one two taps away.
+            else if (meal.isFailedDraft || meal.isAnalysing)
+              _RetryBadge(mealId: meal.id, onRetried: onRetried)
             else
               Text(
                 Units.kcal(meal.totalCaloriesKcal),
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The clock the row's own timeout backstop reads. The list now carries the
+/// analysis' start time, so a run the server never closed out reads as failed
+/// here exactly as it does on the detail screen instead of spinning forever.
+int _now() => DateTime.now().millisecondsSinceEpoch;
+
+/// The retry on a failed meal's row.
+///
+/// It used to be decoration: the badge said "lỗi · thử lại" and tapping the row
+/// opened the detail screen, where the real retry was. That made the one thing
+/// anybody wants from a failed meal the longest way round. Tapping the badge
+/// now starts the analysis where it stands; the rest of the row still opens the
+/// meal.
+class _RetryBadge extends ConsumerStatefulWidget {
+  const _RetryBadge({required this.mealId, required this.onRetried});
+
+  final String mealId;
+  final VoidCallback onRetried;
+
+  @override
+  ConsumerState<_RetryBadge> createState() => _RetryBadgeState();
+}
+
+class _RetryBadgeState extends ConsumerState<_RetryBadge> {
+  bool _busy = false;
+
+  Future<void> _retry() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(nutritionRepositoryProvider).analyze(widget.mealId);
+      // The run is only queued: the reload puts the row back to "đang phân
+      // tích", and the badge goes with it until that attempt lands.
+      widget.onRetried();
+    } catch (err) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            // The rare meal with neither a photo nor stored words: it cannot be
+            // re-run at all, and saying so beats a raw error.
+            isNothingToAnalyze(err)
+                ? AppL10n.of(context).buaAnNoiKhongPhanTich
+                : '$err',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_busy) {
+      return const SizedBox(
+        height: 16,
+        width: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+    // Opaque and padded: the tap has to beat the row's own, and a 12-point
+    // label is too small a target on its own.
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _retry,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.refresh, size: 16, color: RetroTokens.accent),
+            const SizedBox(width: 4),
+            Text(
+              AppL10n.of(context).loiThuLai,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+                color: RetroTokens.accent,
+              ),
+            ),
           ],
         ),
       ),

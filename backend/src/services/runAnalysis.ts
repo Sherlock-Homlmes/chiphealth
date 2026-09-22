@@ -12,11 +12,23 @@ import type { NormalisedSample } from './workoutStream';
 /* ------------------------------------------------------------------ */
 
 /**
- * Minetti's measured cost of running on a gradient, in J/kg/m, for gradients
- * between -45% and +45%. On the flat it is 3.6; at +10% it is roughly double.
+ * The steepest gradient the cost curve is allowed to see. Minetti's polynomial
+ * is fitted to -45%..+45%, but a road run does not contain a 45% grade: what
+ * produces one is bad altitude data, and the curve is steep enough out there
+ * that a single bad segment would dominate the average. Clamping at a quarter
+ * keeps every real hill and throws away only the impossible ones. It is a
+ * constant rather than a literal because this is an approximation that may want
+ * tuning against real runs.
+ */
+export const MAX_GRADE = 0.25;
+
+/**
+ * Minetti's measured cost of running on a gradient, in J/kg/m. On the flat it
+ * is 3.6; at +10% it is roughly double. Downhill it dips below 3.6 — free speed
+ * — and then climbs again as braking starts to cost more than it saves.
  */
 export function runningCost(grade: number): number {
-  const i = Math.max(-0.45, Math.min(0.45, grade));
+  const i = Math.max(-MAX_GRADE, Math.min(MAX_GRADE, grade));
   return 155.4 * i ** 5 - 30.4 * i ** 4 - 43.3 * i ** 3 + 46.3 * i ** 2 + 19.5 * i + 3.6;
 }
 
@@ -35,7 +47,7 @@ export const gradeAdjustedPace = (paceSecPerKm: number, grade: number): number =
 export interface Segment {
   /** Cumulative metres at the END of the segment. */
   d: number;
-  /** Seconds the segment took. */
+  /** Seconds the segment took, standing still excluded. */
   dt: number;
   /** Metres covered. */
   dd: number;
@@ -47,7 +59,10 @@ export interface Segment {
  * Segments long enough to carry a believable gradient AND a believable pace.
  *
  * GPS elevation wobbles by a metre or two between consecutive samples, which
- * over 5 m of road reads as a 40% climb. Time is just as coarse: a sample clock
+ * over 5 m of road reads as a 40% climb. The altitude reaching this point has
+ * already been smoothed (`smoothElevations`), but a gradient divides by the
+ * distance and so stays sensitive to whatever is left. Time is just as coarse:
+ * a sample clock
  * ticking in whole seconds puts a 10% error on any stretch covered in ten of
  * them. At 100 m both settle down — roughly half a minute of running per
  * segment — which is fine enough for the charts and for time-in-zone without
@@ -67,7 +82,11 @@ export function segmentsFromSamples(samples: readonly NormalisedSample[]): Segme
     const cur = samples[i]!;
     if (anchorEle === null) anchorEle = prev.ele;
     dd += Math.max(0, cur.d - prev.d);
-    dt += Math.max(0, cur.t - prev.t);
+    // Moving time, not wall clock: a light the runner waited at did not make
+    // the hill harder, and GAP is a statement about effort. It also keeps the
+    // average honest — GAP over the run is moving time divided by the
+    // flat-equivalent distance, which is what the screen calls "GAP TB".
+    if (cur.moving) dt += Math.max(0, cur.t - prev.t);
     if (dd < MIN_SEGMENT_M) continue;
 
     dEle = anchorEle !== null && cur.ele !== null ? cur.ele - anchorEle : null;

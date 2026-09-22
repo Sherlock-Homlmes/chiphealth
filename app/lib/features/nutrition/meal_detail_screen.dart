@@ -20,11 +20,13 @@ import '../../core/l10n/gen/app_localizations.dart';
 
 /// The correction surface, and the last step of logging a meal.
 ///
-/// Until the analysis lands the meal is a draft: if it fails there is nothing
-/// worth keeping, so the user is offered a retry, and walking away throws the
-/// row out rather than leaving a 0 kcal ghost in the day. A run that is still
-/// going after 5 minutes counts as failed — the server reports it as such, and
-/// the local clock ends the wait if that verdict never arrives.
+/// Until the analysis lands the meal is a draft: if it fails the user is
+/// offered a retry — for a spoken or typed meal as much as a photo one, since
+/// the transcript is kept on the attempt — with "xóa" next to it for when the
+/// meal is not worth keeping. Walking away keeps the meal either way: the user
+/// deletes a meal deliberately, not by pressing back. A run that is still going
+/// after 5 minutes counts as failed — the server reports it as such, and the
+/// local clock ends the wait if that verdict never arrives.
 class MealDetailScreen extends ConsumerStatefulWidget {
   const MealDetailScreen({super.key, required this.mealId});
 
@@ -38,8 +40,6 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   MealLog? _meal;
   Object? _error;
   Timer? _poll;
-  bool _discarded = false;
-  bool _kept = false;
 
   /// The local half of the 5-minute analysis timeout: set when the deadline
   /// passed but the server still says `running`, so the wait ends here rather
@@ -51,8 +51,8 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   final Set<int> _removed = <int>{};
   bool _saving = false;
 
-  /// Held rather than read on demand: the discard-on-leave path runs from
-  /// dispose(), where reading a provider is no longer allowed.
+  /// Held rather than read at each call site: every write this screen makes
+  /// goes through it, and most of them resume after an await.
   late final NutritionRepository _repo = ref.read(nutritionRepositoryProvider);
 
   @override
@@ -64,17 +64,10 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
   @override
   void dispose() {
     _poll?.cancel();
-    // Leaving a failed draft that cannot be re-run (a spoken meal, whose clip
-    // is gone) discards it. A photo meal is kept: it stays in the list so the
-    // user can come back and retry. Fire-and-forget: the screen is already gone.
-    final meal = _meal;
-    if (!_kept &&
-        !_discarded &&
-        meal != null &&
-        meal.isFailedDraft &&
-        meal.photoAssetId == null) {
-      unawaited(_repo.deleteMeal(widget.mealId).catchError((_) {}));
-    }
+    // Nothing is deleted on the way out. Leaving used to throw away a failed
+    // meal that could not be re-run, which meant a meal disappearing because
+    // the user pressed back — now every failed meal is retryable, and the only
+    // way one leaves the diary is the user choosing "xóa".
     super.dispose();
   }
 
@@ -104,17 +97,11 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     }
   }
 
+  /// Runs the analysis again, whatever the meal was logged with: the server
+  /// re-runs the photo, or the transcript it kept from the last attempt.
   Future<void> _retry() async {
     final meal = _meal;
     if (meal == null) return;
-    // Re-running needs the photo: a spoken meal's clip is transcribed and thrown
-    // away, so there is nothing left to analyse a second time.
-    if (meal.photoAssetId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppL10n.of(context).buaAnNoiKhongPhanTich)),
-      );
-      return;
-    }
     setState(() {
       _meal = null;
       _localTimeout = false;
@@ -123,6 +110,18 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
       await _repo.analyze(widget.mealId);
       await _load();
     } catch (err) {
+      // The one meal that genuinely cannot be re-run: no photo, and its only
+      // attempt is older than the column that keeps the words. Say so and put
+      // the meal back, rather than leaving an error screen over it.
+      if (isNothingToAnalyze(err)) {
+        await _load();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(AppL10n.of(context).buaAnNoiKhongPhanTich)),
+          );
+        }
+        return;
+      }
       if (mounted) setState(() => _error = err);
     }
   }
@@ -147,13 +146,11 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
     );
     if (ok != true) return;
 
-    _discarded = true;
     try {
       await _repo.deleteMeal(widget.mealId);
       ref.invalidate(dailyNutritionProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (err) {
-      _discarded = false;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -421,7 +418,6 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
         await _repo.deleteItem(widget.mealId, id);
         _removed.remove(id);
       }
-      _kept = true;
       ref.invalidate(dailyNutritionProvider);
       await _load();
     } catch (err) {
@@ -546,27 +542,25 @@ class _MealDetailScreenState extends ConsumerState<MealDetailScreen> {
       // Nothing was ever recorded: the call that starts the analysis never
       // landed, which is a connection problem and says so.
       final never = meal.analysisNeverRan;
-      // A spoken meal's clip is transcribed and thrown away, so there is
-      // nothing left to run a second time: that draft can only be discarded.
-      final canRetry = meal.photoAssetId != null;
+      // Every failed meal is offered a retry now — a photo re-runs the photo, a
+      // spoken or typed one the transcript its attempt kept. Whether anything
+      // was actually kept is the server's to answer: the rare meal with neither
+      // comes back with NOTHING_TO_ANALYZE and _retry() explains it there,
+      // which beats hiding the button from everybody to cover that one case.
       return Column(
         children: [
           _Header(onDiscard: _discard),
           Expanded(
             child: _CenteredMessage(
-              text: !canRetry
-                  ? AppL10n.of(context).buaAnNayChuaDuocPhan
-                  : timedOut
+              text: timedOut
                   ? AppL10n.of(context).phanTichKeoDaiQua5
                   : never
                   ? AppL10n.of(context).chuaPhanTichDuocBuaAn
                   : AppL10n.of(context).khongPhanTichDuocBuaAn,
-              actionLabel: canRetry
-                  ? AppL10n.of(context).thuLai
-                  : AppL10n.of(context).huyBo,
-              onAction: canRetry ? _retry : _discard,
-              secondaryLabel: canRetry ? AppL10n.of(context).huyBo : null,
-              onSecondary: canRetry ? _discard : null,
+              actionLabel: AppL10n.of(context).thuLai,
+              onAction: _retry,
+              secondaryLabel: AppL10n.of(context).huyBo,
+              onSecondary: _discard,
             ),
           ),
         ],

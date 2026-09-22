@@ -196,6 +196,14 @@ export const mealAiAnalyses = sqliteTable('meal_ai_analyses', {
   status: text('status', { enum: AI_JOB_STATUSES }).notNull().default('pending'),
   model: text('model').notNull(),
   promptVersion: text('prompt_version').notNull(),
+  /**
+   * The words this attempt was given: the transcript of a spoken meal, or what
+   * the user typed. The clip itself is never stored, so without this a failed
+   * voice meal had nothing left to run a second time — the retry had to be
+   * refused and the meal thrown away. Null on a photo run, whose input is the
+   * photo the meal already points at.
+   */
+  inputText: text('input_text'),
   rawResponseJson: text('raw_response_json'),
   /** {bm25:[...], vector:[...], fused:[...]} with ids and RRF scores. */
   retrievalJson: text('retrieval_json'),

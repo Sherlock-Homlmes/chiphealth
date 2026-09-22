@@ -248,10 +248,18 @@ Widget _cardBody<T>(
 /// A big number with its caption above it, the layout every figure on the tab
 /// shares.
 class _Figure extends StatelessWidget {
-  const _Figure({required this.label, required this.value});
+  const _Figure({
+    required this.label,
+    required this.value,
+    this.fontSize = _figureMaxFontSize,
+  });
 
   final String label;
   final String value;
+
+  /// Set by [_FigureRow] so every figure in a row is the same size. On its own
+  /// a figure takes the full size and shrinks to fit if it has to.
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -271,11 +279,82 @@ class _Figure extends StatelessWidget {
           value,
           maxLines: 1,
           softWrap: false,
-          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w800),
         ),
       ),
     ],
   );
+}
+
+const _figureMaxFontSize = 20.0;
+const _figureMinFontSize = 13.0;
+
+/// Three figures across a card, all at the same size.
+///
+/// Each figure used to shrink itself to fit its own column, which on a phone
+/// meant "12,34 km" and "412 m" stayed at full size while a week holding
+/// "10giờ 55phút" — twelve characters, because Vietnamese spends four on what
+/// English spends one — was scaled to about two thirds and read as the runt of
+/// the row. Three columns pressed together with no gutter made it worse.
+///
+/// So the row picks ONE size: the largest at which every value still fits its
+/// column, measured rather than guessed, with a floor under how small it will
+/// go (past that the [FittedBox] inside each figure takes over, which at least
+/// keeps the number on screen). Equal size is the point — the eye reads the
+/// three as one row of facts, and nothing looks demoted.
+class _FigureRow extends StatelessWidget {
+  const _FigureRow({required this.figures});
+
+  /// Label and value, in the order they are shown.
+  final List<({String label, String value})> figures;
+
+  static const _gutter = 10.0;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columnWidth =
+          (constraints.maxWidth - _gutter * (figures.length - 1)) /
+          figures.length;
+      final scale = MediaQuery.textScalerOf(context);
+      var size = _figureMaxFontSize;
+      while (size > _figureMinFontSize) {
+        final fits = figures.every(
+          (f) => _widthOf(f.value, size, scale) <= columnWidth,
+        );
+        if (fits) break;
+        size -= 1;
+      }
+
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < figures.length; i++) ...[
+            if (i > 0) const SizedBox(width: _gutter),
+            Expanded(
+              child: _Figure(
+                label: figures[i].label,
+                value: figures[i].value,
+                fontSize: size,
+              ),
+            ),
+          ],
+        ],
+      );
+    },
+  );
+
+  static double _widthOf(String value, double size, TextScaler scale) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: value,
+        style: TextStyle(fontSize: size, fontWeight: FontWeight.w800),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: scale,
+    )..layout();
+    return painter.width;
+  }
 }
 
 /// The "▼ 2:50" / "▲ 19%" badge next to a headline figure.
@@ -720,28 +799,18 @@ class _MainProgressCardState extends ConsumerState<_MainProgressCard> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: _Figure(
-                label: l.quangDuong,
-                value: units.distanceExact(week.distanceM, language),
-              ),
+        _FigureRow(
+          figures: [
+            (
+              label: l.quangDuong,
+              value: units.distanceExact(week.distanceM, language),
             ),
-            Expanded(
-              child: _Figure(
-                label: l.thoiGian,
-                value: _duration(context, week.movingSeconds),
-              ),
-            ),
-            Expanded(
-              child: _Figure(
-                label: l.doCaoTang,
-                value: units.isImperial
-                    ? '${(week.elevationGainM * 3.28084).round()} ft'
-                    : '${week.elevationGainM.round()} m',
-              ),
+            (label: l.thoiGian, value: _duration(context, week.movingSeconds)),
+            (
+              label: l.doCaoTang,
+              value: units.isImperial
+                  ? '${(week.elevationGainM * 3.28084).round()} ft'
+                  : '${week.elevationGainM.round()} m',
             ),
           ],
         ),

@@ -56,19 +56,19 @@ MealLog _failed(String id, {String? photo}) => MealLog(
 );
 
 void main() {
-  test(
-    'a failed photo meal stays in the diary; a failed spoken one does not',
-    () async {
-      final timeline = MealTimeline(
-        _FakeNutrition([_failed('photo', photo: 'asset-1'), _failed('spoken')]),
-      );
-      await Future<void>.delayed(Duration.zero);
+  test('every failed meal stays in the diary, however it was logged', () async {
+    final timeline = MealTimeline(
+      _FakeNutrition([_failed('photo', photo: 'asset-1'), _failed('spoken')]),
+    );
+    await Future<void>.delayed(Duration.zero);
 
-      expect(timeline.state.meals.map((m) => m.id), ['photo']);
-      expect(timeline.state.meals.single.isFailedDraft, true);
-      timeline.dispose();
-    },
-  );
+    // What this replaces: the spoken one was dropped here, so a meal the user
+    // had logged disappeared from the diary and could never be tried again.
+    // Both are listed now, and the row carries the retry.
+    expect(timeline.state.meals.map((m) => m.id), ['photo', 'spoken']);
+    expect(timeline.state.meals.every((m) => m.isFailedDraft), true);
+    timeline.dispose();
+  });
 
   testWidgets('the meal photo is fetched once, not on every poll rebuild', (
     tester,

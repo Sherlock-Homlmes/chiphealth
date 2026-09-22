@@ -1,0 +1,14 @@
+-- Standing still is a number of its own now.
+--
+-- Moving time used to be whatever the recorder claimed, and the recorder never
+-- claimed anything: the app uploads no `paused` flag, so every session came
+-- back with moving time equal to elapsed time and the two paces on the detail
+-- screen were the same number printed twice. The backend now re-derives the
+-- stops from the raw stream — smoothed speed under 0.6 m/s held for four
+-- seconds — which also makes a phone that auto-pauses and a phone that does not
+-- produce comparable runs.
+--
+-- The total is stored rather than derived on read because it is the one figure
+-- that explains an abnormally slow split, and the split table is read far more
+-- often than the stream is opened.
+ALTER TABLE workout_sessions ADD COLUMN stopped_seconds INTEGER;

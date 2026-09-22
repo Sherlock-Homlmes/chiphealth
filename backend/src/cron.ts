@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import { createDb } from './db/client';
 import {
-  users, mediaAssets, sleepReminders, foodKbDocuments, foods, mealLogs, mealAiAnalyses,
+  users, mediaAssets, sleepReminders, foodKbDocuments, foods, mealAiAnalyses,
 } from './db/schema';
 import { localDate, localTime, localWeekday, addDays } from './lib/time';
 import { recomputeSleepDebt } from './services/sleepDebt';
@@ -107,6 +107,14 @@ async function sweepOrphanMedia(db: Db, env: Bindings): Promise<number> {
  * the platform killed. Reads already fold the timeout in (effectiveAnalysis),
  * so this exists to persist the verdict: without it the row would sit
  * `running` forever, and a late answer could still write items.
+ *
+ * The attempt is what gets closed; the meal is never touched. Nothing here
+ * deletes a meal whose analysis failed — it stays in the diary, failed and
+ * retryable, until the user says otherwise. (There used to be a sweeper that
+ * threw away failed spoken and typed drafts after a few hours, on the grounds
+ * that their clip was gone and nothing could be re-run. The transcript is kept
+ * on the attempt now, so they can be re-run — and a meal vanishing on its own
+ * was never what the user wanted anyway.)
  */
 async function sweepStaleMealAnalyses(db: Db): Promise<number> {
   const swept = await db.update(mealAiAnalyses).set({
@@ -118,49 +126,6 @@ async function sweepStaleMealAnalyses(db: Db): Promise<number> {
     lt(mealAiAnalyses.createdAt, Date.now() - MEAL_ANALYSIS_TIMEOUT_MS),
   )).returning({ id: mealAiAnalyses.id });
   return swept.length;
-}
-
-/**
- * Throws away spoken or typed meals whose analysis failed and that never got
- * any components: their clip is gone, so there is nothing left to retry.
- *
- * A photo meal is never swept — the photo can be analysed again, and the user
- * retries it from the list, where it stays until they discard it themselves.
- * Only meals with no items are eligible: a failed re-analysis over real
- * components is not a draft.
- */
-async function sweepFailedMealDrafts(db: Db, env: Bindings): Promise<number> {
-  const ttlHours = Number(env.FAILED_MEAL_TTL_HOURS ?? 6);
-  const cutoff = Date.now() - ttlHours * 3600_000;
-
-  const rows = await db.select({
-      id: mealLogs.id, userId: mealLogs.userId, localDate: mealLogs.localDate,
-    })
-    .from(mealLogs)
-    .innerJoin(mealAiAnalyses, eq(mealAiAnalyses.mealLogId, mealLogs.id))
-    .where(and(
-      eq(mealAiAnalyses.status, 'failed'),
-      isNull(mealLogs.photoAssetId),
-      lt(mealLogs.createdAt, cutoff),
-      sql`not exists (select 1 from meal_items where meal_items.meal_log_id = ${mealLogs.id})`,
-      sql`not exists (
-        select 1 from meal_ai_analyses a2
-        where a2.meal_log_id = ${mealLogs.id} and a2.status = 'completed'
-      )`,
-    ))
-    .limit(200);
-
-  let deleted = 0;
-  for (const row of rows) {
-    await safely(`failed meal ${row.id}`, async () => {
-      await db.delete(mealLogs).where(eq(mealLogs.id, row.id));
-      // A draft carries no calories, but it does count towards the day's meal
-      // count, so the rollup has to be refreshed like any other deletion.
-      await recomputeDailyNutritionSummary(db, env, row.userId, row.localDate);
-      deleted++;
-    });
-  }
-  return deleted;
 }
 
 /** Drains rows whose embedding failed or was never produced. */
@@ -238,16 +203,15 @@ export async function runScheduled(
       return;
     }
 
-    const [reminders, orphans, embeddings, drafts, stale] = await Promise.all([
+    const [reminders, orphans, embeddings, stale] = await Promise.all([
       fireDueReminders(db, env).catch(() => 0),
       sweepOrphanMedia(db, env).catch(() => 0),
       drainEmbeddingQueue(db, env).catch(() => 0),
-      sweepFailedMealDrafts(db, env).catch(() => 0),
       sweepStaleMealAnalyses(db).catch(() => 0),
     ]);
     console.log(
       `cron 15m: ${reminders} reminders, ${orphans} orphans, `
-      + `${embeddings} embeddings, ${drafts} failed drafts, ${stale} timed-out analyses`,
+      + `${embeddings} embeddings, ${stale} timed-out analyses`,
     );
   };
 

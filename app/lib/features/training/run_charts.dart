@@ -50,8 +50,19 @@ const _padRight = 8.0;
   return (lo: lo, hi: hi, ticks: ticks);
 }
 
-/// Pace and elevation read in opposite directions: for pace a SMALLER number is
-/// better and belongs at the top, so its axis is flipped.
+/// Where a value sits on the plot, as a fraction measured DOWN from the top:
+/// 0 is the top edge, 1 the bottom. Callers multiply it by the plot height and
+/// add the top, and nothing negates it on the way.
+///
+/// Pace and height read in opposite directions. A smaller pace is a better one
+/// and belongs at the top, so a pace axis is inverted; a higher altitude also
+/// belongs at the top, which for an ordinary axis is the low fraction. Hence
+/// the flip.
+///
+/// The clamp is the whole clipping story for the charts with a fixed band: a
+/// runner standing at a light has a pace approaching infinity, and pinning that
+/// to the bottom edge is what keeps the other ten kilometres readable instead
+/// of squashed into a strip.
 double _fraction(double v, double lo, double hi, bool invert) {
   if (hi <= lo) return 0.5;
   final f = ((v - lo) / (hi - lo)).clamp(0.0, 1.0);
@@ -88,12 +99,22 @@ class RunAreaChart extends StatefulWidget {
     required this.tooltip,
     required this.onCursor,
     this.ghost = const [],
+    this.raw = const [],
     this.invertY = false,
+    this.minY,
+    this.maxY,
     this.height = 180,
     this.color = RetroTokens.accent,
   });
 
+  /// The line the reader follows: smoothed, so it shows the shape of the run.
   final List<ChartPoint> series;
+
+  /// The same measurement barely smoothed at all, drawn as a dark sawtooth
+  /// behind [series]. It is what makes the difference between a runner holding
+  /// a pace and a runner averaging one, and it is the only place the real
+  /// second-to-second variation is visible.
+  final List<ChartPoint> raw;
 
   /// Elevation, drawn behind on its own scale. Empty on the elevation chart
   /// itself, which would otherwise draw its own series twice.
@@ -102,6 +123,12 @@ class RunAreaChart extends StatefulWidget {
   /// Rounding for the value axis: 60 s for pace, 5 m for height.
   final double valueStep;
   final bool invertY;
+
+  /// A fixed band, when the chart needs one. The pace and GAP charts pin their
+  /// axis rather than fitting it to the data: an axis that stretched to reach
+  /// the two minutes spent at a crossing would flatten the running into a line.
+  final double? minY;
+  final double? maxY;
   final String Function(double value) labelY;
   final String unitY;
   final String Function(double distanceM, double value) tooltip;
@@ -159,7 +186,12 @@ class _RunAreaChartState extends State<RunAreaChart> {
   @override
   Widget build(BuildContext context) {
     if (widget.series.length < 2) return const SizedBox.shrink();
-    final axis = axisFor(widget.series.map((p) => p.v), widget.valueStep);
+    final axis = axisFor(
+      widget.series.map((p) => p.v),
+      widget.valueStep,
+      forceLo: widget.minY,
+      forceHi: widget.maxY,
+    );
     final cursorValue = _cursorD == null ? null : _valueAt(_cursorD!);
 
     return SizedBox(
@@ -182,6 +214,7 @@ class _RunAreaChartState extends State<RunAreaChart> {
                   child: CustomPaint(
                     painter: _AreaPainter(
                       series: widget.series,
+                      raw: widget.raw,
                       ghost: widget.ghost,
                       lo: axis.lo,
                       hi: axis.hi,
@@ -248,6 +281,7 @@ class _Tooltip extends StatelessWidget {
 class _AreaPainter extends CustomPainter {
   _AreaPainter({
     required this.series,
+    required this.raw,
     required this.ghost,
     required this.lo,
     required this.hi,
@@ -261,6 +295,7 @@ class _AreaPainter extends CustomPainter {
   });
 
   final List<ChartPoint> series;
+  final List<ChartPoint> raw;
   final List<ChartPoint> ghost;
   final double lo;
   final double hi;
@@ -288,9 +323,11 @@ class _AreaPainter extends CustomPainter {
       ..color = _gridColor
       ..strokeWidth = 1;
 
-    // Horizontal grid and the value labels.
+    // Horizontal grid and the value labels. `_fraction` already measures down
+    // from the top; negating it again is what used to print the pace axis the
+    // wrong way up and stand the elevation profile on its head.
     for (final tick in ticks) {
-      final y = plot.top + plot.height * (1 - _fraction(tick, lo, hi, invert));
+      final y = plot.top + plot.height * _fraction(tick, lo, hi, invert);
       canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
       _text(canvas, labelY(tick), Offset(_padLeft - 6, y), alignRight: true);
     }
@@ -323,7 +360,8 @@ class _AreaPainter extends CustomPainter {
       final path = Path()..moveTo(plot.left, plot.bottom);
       for (final p in ghost) {
         final x = plot.left + plot.width * (p.d / totalM).clamp(0.0, 1.0);
-        // Squashed into the bottom two thirds so it stays scenery.
+        // Squashed into the bottom two thirds so it stays scenery. High ground
+        // sits high, which is the one thing a reader assumes without checking.
         final y =
             plot.bottom - plot.height * 0.66 * _fraction(p.v, gLo, gHi, true);
         path.lineTo(x, y);
@@ -334,18 +372,43 @@ class _AreaPainter extends CustomPainter {
       canvas.drawPath(path, Paint()..color = _ghostColor);
     }
 
-    // The series itself: filled area under a solid line.
-    final line = Path();
-    for (var i = 0; i < series.length; i++) {
-      final p = series[i];
-      final x = plot.left + plot.width * (p.d / totalM).clamp(0.0, 1.0);
-      final y = plot.top + plot.height * (1 - _fraction(p.v, lo, hi, invert));
-      if (i == 0) {
-        line.moveTo(x, y);
-      } else {
-        line.lineTo(x, y);
+    // Everything from here reads off the value axis, and a fixed band means
+    // there are values outside it. `_fraction` clamps them to the edge, and the
+    // clip keeps the stroke width from spilling past it: a stretch spent
+    // standing still becomes a flat run along the bottom of the plot, which is
+    // what it was.
+    canvas.save();
+    canvas.clipRect(plot);
+
+    Path pathOf(List<ChartPoint> points) {
+      final path = Path();
+      for (var i = 0; i < points.length; i++) {
+        final p = points[i];
+        final x = plot.left + plot.width * (p.d / totalM).clamp(0.0, 1.0);
+        final y = plot.top + plot.height * _fraction(p.v, lo, hi, invert);
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
       }
+      return path;
     }
+
+    // The unsmoothed measurement first, as a dark sawtooth behind the line the
+    // reader follows: how steady the pace actually was, under the shape of it.
+    if (raw.length > 1) {
+      canvas.drawPath(
+        pathOf(raw),
+        Paint()
+          ..color = RetroTokens.ink.withValues(alpha: 0.28)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+
+    // The series itself: filled area under a solid line.
+    final line = pathOf(series);
     final area = Path.from(line)
       ..lineTo(plot.right, plot.bottom)
       ..lineTo(plot.left, plot.bottom)
@@ -358,12 +421,12 @@ class _AreaPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2,
     );
+    canvas.restore();
 
     // The cursor, last, so it sits over the line it is reading.
     if (cursorD != null && cursorV != null) {
       final x = plot.left + plot.width * (cursorD! / totalM).clamp(0.0, 1.0);
-      final y =
-          plot.top + plot.height * (1 - _fraction(cursorV!, lo, hi, invert));
+      final y = plot.top + plot.height * _fraction(cursorV!, lo, hi, invert);
       canvas.drawLine(
         Offset(x, plot.top),
         Offset(x, plot.bottom),
@@ -404,6 +467,7 @@ class _AreaPainter extends CustomPainter {
   @override
   bool shouldRepaint(_AreaPainter old) =>
       old.series != series ||
+      old.raw != raw ||
       old.cursorD != cursorD ||
       old.lo != lo ||
       old.hi != hi;
@@ -427,7 +491,8 @@ class SplitBar {
 
 /// Pace per kilometre as bars: each bar as wide as its split is long (so the
 /// leftover 600 m at the end is visibly a part-kilometre) and as tall as it was
-/// fast, with the average marked by a dashed rule and the elevation behind.
+/// fast, with the instantaneous pace drawn over the top, the average marked by
+/// a dashed rule, and the elevation profile behind.
 class SplitPaceChart extends StatefulWidget {
   const SplitPaceChart({
     super.key,
@@ -437,12 +502,19 @@ class SplitPaceChart extends StatefulWidget {
     required this.tooltip,
     required this.onCursor,
     this.ghost = const [],
+    this.overlay = const [],
     this.height = 190,
   });
 
   final List<SplitBar> bars;
   final double avgPaceSecPerKm;
   final List<ChartPoint> ghost;
+
+  /// Pace sampled far finer than a kilometre, drawn as a dark sawtooth ON the
+  /// bars. A split is one number for a kilometre, and one number cannot tell a
+  /// kilometre held at an even pace from a kilometre run hard and then waited
+  /// out at a crossing. This can.
+  final List<ChartPoint> overlay;
   final String Function(double pace) labelY;
   final String Function(SplitBar bar) tooltip;
 
@@ -483,19 +555,22 @@ class _SplitPaceChartState extends State<SplitPaceChart> {
     widget.onCursor(null);
   }
 
-  /// The band the bars are drawn against. The fastest split sets the top; the
-  /// bottom follows the bulk of the run rather than its slowest moment, so one
-  /// walked kilometre flattens the other ten into a strip. Splits below the
-  /// band bottom out at a stub that is still visibly there.
+  /// The band the bars are drawn against, in quarter-minutes.
+  ///
+  /// Not the full range of the splits. A single kilometre spent walking, or
+  /// waiting at a level crossing, is four minutes slower than the rest and an
+  /// axis stretched to hold it flattens the other ten into a strip — which is
+  /// exactly the comparison the chart exists to make. So the band follows the
+  /// bulk of the run: the tenth and ninetieth percentiles, widened to take in
+  /// the average, and never narrower than three quarters of a minute. Splits
+  /// outside it are clipped at the edge rather than given the axis.
   ({double lo, double hi}) get _band {
     final paces = widget.bars.map((b) => b.paceSecPerKm).toList()..sort();
-    final fastest = paces.first;
-    final upper = paces[((paces.length - 1) * 0.75).round()];
-    final lo = (fastest / 15).floorToDouble() * 15;
-    final hi = math.max(
-      (math.max(upper, widget.avgPaceSecPerKm) / 15).ceilToDouble() * 15,
-      lo + 45,
-    );
+    final last = paces.length - 1;
+    final lower = math.min(paces[(last * 0.1).round()], widget.avgPaceSecPerKm);
+    final upper = math.max(paces[(last * 0.9).round()], widget.avgPaceSecPerKm);
+    final lo = (lower / 15).floorToDouble() * 15;
+    final hi = math.max((upper / 15).ceilToDouble() * 15, lo + 45);
     return (lo: lo, hi: hi);
   }
 
@@ -525,6 +600,7 @@ class _SplitPaceChartState extends State<SplitPaceChart> {
                     painter: _BarPainter(
                       bars: widget.bars,
                       ghost: widget.ghost,
+                      overlay: widget.overlay,
                       lo: band.lo,
                       hi: band.hi,
                       avg: widget.avgPaceSecPerKm,
@@ -553,6 +629,7 @@ class _BarPainter extends CustomPainter {
   _BarPainter({
     required this.bars,
     required this.ghost,
+    required this.overlay,
     required this.lo,
     required this.hi,
     required this.avg,
@@ -562,6 +639,7 @@ class _BarPainter extends CustomPainter {
 
   final List<SplitBar> bars;
   final List<ChartPoint> ghost;
+  final List<ChartPoint> overlay;
   final double lo;
   final double hi;
   final double avg;
@@ -582,8 +660,10 @@ class _BarPainter extends CustomPainter {
     final grid = Paint()
       ..color = _gridColor
       ..strokeWidth = 1;
+    // A pace axis: the fast end at the top, like every other pace chart on the
+    // screen, and like the bars themselves, where fast is tall.
     for (var tick = lo; tick <= hi + 0.001; tick += (hi - lo) / 3) {
-      final y = plot.top + plot.height * _fraction(tick, lo, hi, false);
+      final y = plot.top + plot.height * _fraction(tick, lo, hi, true);
       canvas.drawLine(Offset(plot.left, y), Offset(plot.right, y), grid);
       _label(canvas, labelY(tick), Offset(_padLeft - 6, y));
     }
@@ -605,19 +685,22 @@ class _BarPainter extends CustomPainter {
       canvas.drawPath(path, Paint()..color = _ghostColor);
     }
 
-    // The bars. Height is how fast, so a pace at the top of the band is a full
-    // bar; anything past the bottom keeps a stub rather than vanishing.
+    // The bars. A bar is as WIDE as its split is long — so the part-kilometre
+    // at the end is visibly a part — and as TALL as it was fast. The fastest
+    // split of the run reaches the top of the band; a split slower than the
+    // band keeps a stub rather than disappearing, and the stub is the signal
+    // that something happened there worth opening the split table for.
     var run = 0.0;
     for (var i = 0; i < bars.length; i++) {
       final bar = bars[i];
       final x0 = plot.left + plot.width * (run / totalM);
       run += bar.distanceM;
       final x1 = plot.left + plot.width * (run / totalM);
-      final f = 1 - _fraction(bar.paceSecPerKm, lo, hi, false);
-      final height = math.max(plot.height * f, 4.0);
+      final top =
+          plot.top + plot.height * _fraction(bar.paceSecPerKm, lo, hi, true);
       final rect = Rect.fromLTRB(
         x0 + 1,
-        plot.bottom - height,
+        math.min(top, plot.bottom - 4),
         math.max(x1 - 1, x0 + 2),
         plot.bottom,
       );
@@ -634,8 +717,35 @@ class _BarPainter extends CustomPainter {
       );
     }
 
+    // Instantaneous pace over the top of the bars, on the same axis and clipped
+    // the same way. Inside one bar it shows whether the kilometre was held or
+    // fought for; a stop mid-split leaves a spike straight down to the floor.
+    if (overlay.length > 1) {
+      canvas.save();
+      canvas.clipRect(plot);
+      final path = Path();
+      for (var i = 0; i < overlay.length; i++) {
+        final p = overlay[i];
+        final x = plot.left + plot.width * (p.d / totalM).clamp(0.0, 1.0);
+        final y = plot.top + plot.height * _fraction(p.v, lo, hi, true);
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = RetroTokens.ink.withValues(alpha: 0.35)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+      canvas.restore();
+    }
+
     // The average, as a dashed rule across the whole plot.
-    final avgY = plot.top + plot.height * _fraction(avg, lo, hi, false);
+    final avgY = plot.top + plot.height * _fraction(avg, lo, hi, true);
     final dash = Paint()
       ..color = RetroTokens.inkSoft
       ..strokeWidth = 1;
@@ -661,5 +771,9 @@ class _BarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BarPainter old) =>
-      old.bars != bars || old.cursor != cursor || old.lo != lo || old.hi != hi;
+      old.bars != bars ||
+      old.overlay != overlay ||
+      old.cursor != cursor ||
+      old.lo != lo ||
+      old.hi != hi;
 }

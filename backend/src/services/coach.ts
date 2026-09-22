@@ -2,19 +2,38 @@ import { and, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import {
   userProfiles, goals, chronicConditions, bodyMetricsLogs, workoutSessions,
   activityTypes, dailyNutritionSummaries, coachInsights,
-  mealLogs, mealItems, mealAiAnalyses,
+  mealLogs, mealItems, mealAiAnalyses, sleepSessions,
 } from '../db/schema';
 import { modelConfig } from '../config/models';
 import { sleepDebtFor } from './sleepDebt';
 import { effectiveAnalysis } from './mealAnalysis';
 import { languageName } from '../lib/language';
-import { localDate, localTime, ageFromDob } from '../lib/time';
+import { localDate, localTime, addDays, ageFromDob } from '../lib/time';
 import { newId } from '../lib/ids';
 import { insertMany } from '../db/client';
 import type { Db } from '../db/client';
 import type { Bindings } from '../env';
 import { aiText } from '../lib/aiText';
 import { PROMPTS, renderPrompt } from '../prompts';
+
+/**
+ * One sleep as the snapshot shows it. A wake day holds as many of these as the
+ * person recorded — a night plus any naps — so this is a list, never a single
+ * row: the assistant was telling someone who had slept twice that they had "một
+ * giấc ngủ đêm trước", reading the two aggregate numbers below as the whole
+ * story.
+ */
+export interface CoachContextSleep {
+  /** YYYY-MM-DD of the WAKE-UP day, the same key the debt accounting uses. */
+  wakeDate: string;
+  /** Local wall-clock HH:mm. */
+  from: string;
+  to: string;
+  /** Hours actually asleep, falling back to time in bed when stages are missing. */
+  hours: number | null;
+  /** health_sync | phone_mic | manual — a nap typed by hand reads differently. */
+  source: string;
+}
 
 /** One meal of the day as the snapshot shows it: enough to answer "trưa nay ăn gì" without a tool call. */
 export interface CoachContextMeal {
@@ -67,7 +86,16 @@ export interface CoachContext {
     waterFromMealsMl: number;
   };
   training7d: { sessions: number; totalMinutes: number; totalKcal: number; types: string[] };
-  sleep: { targetHours: number; debtHours: number };
+  sleep: {
+    targetHours: number;
+    debtHours: number;
+    /**
+     * Every sleep that woke up today or yesterday, oldest first — naps
+     * included. Two numbers (target, debt) could not answer "đêm qua mình ngủ
+     * thế nào"; a model that calls no tool now has the actual sessions.
+     */
+    recent: CoachContextSleep[];
+  };
 }
 
 /** Plain-language gloss for each focus code, in the app's source language. */
@@ -88,7 +116,9 @@ export async function buildCoachContext(
   const today = localDate(Date.now(), timezone);
   const weekAgoMs = Date.now() - 7 * 86_400_000;
 
-  const [profileRows, goalRows, conditionRows, metricRows, summaryRows, sessionRows, debt, mealRows] =
+  const yesterday = addDays(today, -1);
+
+  const [profileRows, goalRows, conditionRows, metricRows, summaryRows, sessionRows, debt, mealRows, sleepRows] =
     await Promise.all([
       db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1),
       db.select().from(goals)
@@ -116,6 +146,21 @@ export async function buildCoachContext(
         eq(mealLogs.userId, userId),
         eq(mealLogs.localDate, today),
       )).orderBy(mealLogs.loggedAt),
+      // Yesterday as well as today: "đêm qua" is a sleep whose wake day is
+      // today, but a nap the person is asking about may still sit on
+      // yesterday's page, and one row per sleep means naps are never folded
+      // into the night.
+      db.select({
+        localDate: sleepSessions.localDate,
+        startedAt: sleepSessions.startedAt,
+        endedAt: sleepSessions.endedAt,
+        totalSleepSeconds: sleepSessions.totalSleepSeconds,
+        inBedSeconds: sleepSessions.inBedSeconds,
+        source: sleepSessions.source,
+      }).from(sleepSessions).where(and(
+        eq(sleepSessions.userId, userId),
+        inArray(sleepSessions.localDate, [yesterday, today]),
+      )).orderBy(sleepSessions.startedAt),
     ]);
 
   const profile = profileRows[0];
@@ -199,6 +244,17 @@ export async function buildCoachContext(
     sleep: {
       targetHours: Math.round((debt.targetSeconds / 3600) * 10) / 10,
       debtHours: Math.round((debt.rollingDebtSeconds / 3600) * 10) / 10,
+      recent: sleepRows.slice(0, 10).map((s) => {
+        const seconds = s.totalSleepSeconds ?? s.inBedSeconds
+          ?? (s.endedAt === null ? null : Math.round((s.endedAt - s.startedAt) / 1000));
+        return {
+          wakeDate: s.localDate,
+          from: localTime(s.startedAt, timezone),
+          to: s.endedAt === null ? '' : localTime(s.endedAt, timezone),
+          hours: seconds === null ? null : Math.round((seconds / 3600) * 10) / 10,
+          source: s.source,
+        };
+      }),
     },
   };
 }

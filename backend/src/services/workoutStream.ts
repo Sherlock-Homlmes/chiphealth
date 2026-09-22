@@ -98,14 +98,26 @@ export interface RawSample {
   speed?: number | null;
   /** 1 while auto-paused. */
   paused?: number | boolean | null;
+  /** Vertical accuracy of the fix in metres, when the platform reports one. */
+  ea?: number | null;
 }
 
-/** A sample after normalisation: `t` is seconds from the session start. */
+/**
+ * A sample after normalisation: `t` is seconds from the session start.
+ *
+ * Two fields are re-derived rather than taken as given. `ele` is the SMOOTHED
+ * altitude, not the raw fix (see `smoothElevations`), and `moving` is this
+ * backend's own auto-pause verdict (see `applyDerivedMovement`) rather than
+ * whatever the recording device happened to believe. Both are done here so that
+ * every reader — the totals, the splits, the charts, GAP, a re-derive after a
+ * crop — sees the same numbers.
+ */
 export interface NormalisedSample {
   t: number;
   lat: number | null;
   lng: number | null;
   hr: number | null;
+  /** Smoothed altitude in metres. */
   ele: number | null;
   /** Cumulative distance in metres. */
   d: number;
@@ -166,6 +178,157 @@ export function parseSampleStream(text: string): RawSample[] {
   return out;
 }
 
+/* ------------------------------------------------------------------ */
+/* Altitude and movement, re-derived from the raw stream               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Altitude is the noisiest thing in the stream. A phone reports it to the
+ * centimetre and is wrong by metres, and the error wanders: over an hour at
+ * 1 Hz that is thousands of little rises and falls that never happened. Adding
+ * up the positive ones — which is all a naive total ascent does — turns pure
+ * noise into a mountain, and the noise scales with the sample count rather than
+ * with the terrain. A flat 7.3 km run recorded by this app read 534.5 m of
+ * climb on a route whose highest point was 7.9 m above sea level.
+ *
+ * Two defences, in this order. The track is first averaged over a window of
+ * seconds, which kills the sample-to-sample jitter and leaves a real hill —
+ * tens of seconds long — where it is. Then the ascent is accumulated with
+ * hysteresis: a rise is only banked once it stands `ELEVATION_MIN_RISE_M` above
+ * the last low, so what survives is climbs rather than wobble. The cost is up
+ * to one threshold's worth of climb lost at the top of each hill, which is
+ * nothing next to the error it removes.
+ */
+export const ELEVATION_SMOOTH_WINDOW_S = 15;
+export const ELEVATION_MIN_RISE_M = 3;
+/** A step larger than this between two fixes is a bad fix, not a cliff. */
+export const ELEVATION_MAX_STEP_M = 15;
+/** Fixes whose reported vertical accuracy is worse than this carry no altitude. */
+export const ELEVATION_MAX_UNCERTAINTY_M = 30;
+
+/**
+ * Centred moving average of altitude over `ELEVATION_SMOOTH_WINDOW_S`, with
+ * single-sample spikes pulled back to their neighbours first — one bad fix
+ * dragged through the window would otherwise smear across every point it
+ * touches. Samples with no altitude stay null and take no part in the average.
+ */
+export function smoothElevations(
+  samples: readonly { t: number; ele: number | null }[],
+): (number | null)[] {
+  const n = samples.length;
+  const out: (number | null)[] = new Array(n).fill(null);
+  if (n === 0) return out;
+
+  const cleaned: (number | null)[] = samples.map((s) => s.ele);
+  for (let i = 1; i < n - 1; i++) {
+    const prev = cleaned[i - 1];
+    const cur = cleaned[i];
+    const next = cleaned[i + 1];
+    if (prev == null || cur == null || next == null) continue;
+    if (Math.abs(cur - prev) > ELEVATION_MAX_STEP_M
+      && Math.abs(next - prev) <= ELEVATION_MAX_STEP_M) {
+      cleaned[i] = (prev + next) / 2;
+    }
+  }
+
+  const half = ELEVATION_SMOOTH_WINDOW_S / 2;
+  let lo = 0;
+  let hi = 0;
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    const t = samples[i]!.t;
+    while (hi < n && samples[hi]!.t <= t + half) {
+      const e = cleaned[hi];
+      if (e != null) { sum += e; count++; }
+      hi++;
+    }
+    while (lo < hi && samples[lo]!.t < t - half) {
+      const e = cleaned[lo];
+      if (e != null) { sum -= e; count--; }
+      lo++;
+    }
+    out[i] = count > 0 ? sum / count : null;
+  }
+  return out;
+}
+
+/**
+ * Total ascent with hysteresis: `ref` is the last altitude the climb was banked
+ * at, it follows the track down freely, and it only moves up — banking the
+ * difference — once the track stands a threshold above it. On flat ground with
+ * a metre of wander the threshold is never crossed and the total stays at zero,
+ * which is the right answer.
+ */
+export function ascentFrom(elevations: readonly (number | null)[]): number {
+  let gain = 0;
+  let ref: number | null = null;
+  for (const e of elevations) {
+    if (e == null) continue;
+    if (ref === null) { ref = e; continue; }
+    if (e >= ref + ELEVATION_MIN_RISE_M) {
+      gain += e - ref;
+      ref = e;
+    } else if (e < ref) {
+      ref = e;
+    }
+  }
+  return gain;
+}
+
+/**
+ * Auto-pause, decided here rather than taken from the device.
+ *
+ * The recorder has its own idea of when the runner stopped, but it does not put
+ * it in the stream — every sample arrives with no `paused` flag at all, so the
+ * moving time the server stored was always the full elapsed time. Re-deriving
+ * it from the samples fixes that and, more importantly, makes every session
+ * comparable: the same rule applied to a phone that auto-pauses and to one that
+ * does not.
+ *
+ * A stop is smoothed speed under `STOP_SPEED_MS` — slower than a dawdling walk
+ * — that HOLDS for at least `STOP_MIN_SECONDS`. The hold is what keeps a single
+ * noisy fix, or a genuine pause at the top of a hill, from being counted as a
+ * stop. A `paused` flag from the device is still honoured when one is present;
+ * this only ever adds stops, never removes them.
+ */
+export const STOP_SPEED_MS = 0.6;
+export const STOP_MIN_SECONDS = 4;
+export const SPEED_SMOOTH_WINDOW_S = 5;
+
+export function applyDerivedMovement(samples: NormalisedSample[]): void {
+  const n = samples.length;
+  if (n < 2) return;
+
+  const half = SPEED_SMOOTH_WINDOW_S / 2;
+  const stopped: boolean[] = new Array(n).fill(false);
+  let lo = 0;
+  let hi = 0;
+  for (let i = 0; i < n; i++) {
+    const t = samples[i]!.t;
+    while (hi < n - 1 && samples[hi]!.t <= t + half) hi++;
+    while (lo < hi && samples[lo]!.t < t - half) lo++;
+    const dt = samples[hi]!.t - samples[lo]!.t;
+    if (dt <= 0) continue;
+    stopped[i] = (samples[hi]!.d - samples[lo]!.d) / dt < STOP_SPEED_MS;
+  }
+
+  // Only a stop that holds counts: a run of flagged samples shorter than the
+  // minimum is a wobble in the fix, not the runner standing still.
+  let i = 0;
+  while (i < n) {
+    if (!stopped[i]) { i++; continue; }
+    let j = i;
+    while (j < n && stopped[j]) j++;
+    if (samples[j - 1]!.t - samples[i]!.t < STOP_MIN_SECONDS) {
+      for (let k = i; k < j; k++) stopped[k] = false;
+    }
+    i = j;
+  }
+
+  for (let k = 0; k < n; k++) if (stopped[k]) samples[k]!.moving = false;
+}
+
 /**
  * Sorts, converts `t` to seconds-from-start and fills cumulative distance from
  * GPS (or from a device-provided `d` / `speed`) when it is missing.
@@ -206,7 +369,8 @@ export function normaliseSamples(raw: readonly RawSample[]): NormalisedSample[] 
       lat,
       lng,
       hr: numOrNull(s.hr),
-      ele: numOrNull(s.ele),
+      // A fix that admits it does not know its altitude is not evidence of one.
+      ele: (numOrNull(s.ea) ?? 0) > ELEVATION_MAX_UNCERTAINTY_M ? null : numOrNull(s.ele),
       d: cumulative,
       moving: !(s.paused === 1 || s.paused === true),
     });
@@ -217,6 +381,14 @@ export function normaliseSamples(raw: readonly RawSample[]): NormalisedSample[] 
     }
     prevT = t;
   }
+
+  // Both are corrections to what the device sent, so they belong here rather
+  // than in any one reader: the totals, the splits, GAP, the charts and a
+  // re-derive after a crop all go through this function.
+  const smoothed = smoothElevations(out);
+  for (let i = 0; i < out.length; i++) out[i]!.ele = smoothed[i] ?? null;
+  applyDerivedMovement(out);
+
   return out;
 }
 
@@ -268,6 +440,8 @@ export interface StreamDerivation {
     distanceM: number;
     durationSeconds: number;
     movingSeconds: number;
+    /** Elapsed minus moving: the time the runner spent standing still. */
+    stoppedSeconds: number;
     avgHeartRate: number | null;
     maxHeartRate: number | null;
     avgPaceSecPerKm: number | null;
@@ -279,7 +453,12 @@ export interface StreamDerivation {
 }
 
 export const SPLIT_DISTANCE_M = 1000;
+/** Shorter than this and the leftover at the end is rounding, not a split. */
+export const SPLIT_TAIL_MIN_M = 50;
 export const DOWNSAMPLE_TARGET_POINTS = 200;
+/** Rolling-window resolution, and the cap that keeps the search bounded. */
+export const CUMULATIVE_NODE_MIN_M = 25;
+export const CUMULATIVE_NODE_BUDGET = 800;
 
 /** Linear interpolation of elapsed time at an exact cumulative distance. */
 function timeAtDistance(samples: readonly NormalisedSample[], target: number): number | null {
@@ -307,7 +486,7 @@ export function deriveFromSamples(samples: readonly NormalisedSample[]): StreamD
     splits: [],
     cumulative: [],
     totals: {
-      distanceM: 0, durationSeconds: 0, movingSeconds: 0,
+      distanceM: 0, durationSeconds: 0, movingSeconds: 0, stoppedSeconds: 0,
       avgHeartRate: null, maxHeartRate: null,
       avgPaceSecPerKm: null, bestPaceSecPerKm: null, elevationGainM: 0,
     },
@@ -352,8 +531,7 @@ export function deriveFromSamples(samples: readonly NormalisedSample[]): StreamD
   let hrSum = 0;
   let hrCount = 0;
   let maxHr: number | null = null;
-  let elevationGainM = 0;
-  let movingSeconds = 0;
+  let stoppedSeconds = 0;
   let bestPace: number | null = null;
 
   for (let i = 0; i < samples.length; i++) {
@@ -366,10 +544,7 @@ export function deriveFromSamples(samples: readonly NormalisedSample[]): StreamD
     if (i > 0) {
       const prev = samples[i - 1]!;
       const dt = s.t - prev.t;
-      if (dt > 0 && s.moving) movingSeconds += dt;
-      if (s.ele !== null && prev.ele !== null && s.ele > prev.ele) {
-        elevationGainM += s.ele - prev.ele;
-      }
+      if (dt > 0 && !s.moving) stoppedSeconds += dt;
       const dd = s.d - prev.d;
       if (dt > 0 && dd > 1) {
         const pace = (dt / dd) * 1000;
@@ -378,6 +553,10 @@ export function deriveFromSamples(samples: readonly NormalisedSample[]): StreamD
       }
     }
   }
+  // Ascent is the one total that cannot be accumulated sample by sample: see
+  // `ascentFrom`, which needs the whole track to tell a climb from a wobble.
+  const elevationGainM = ascentFrom(samples.map((x) => x.ele));
+  const movingSeconds = Math.max(0, durationSeconds - stoppedSeconds);
 
   /* --- Downsample to ~200 chart points ---------------------------- */
   const stride = Math.max(1, Math.ceil(samples.length / DOWNSAMPLE_TARGET_POINTS));
@@ -398,51 +577,86 @@ export function deriveFromSamples(samples: readonly NormalisedSample[]): StreamD
     });
   }
 
-  /* --- Per-kilometre splits --------------------------------------- */
+  /* --- Splits ------------------------------------------------------ */
+  /*
+   * A split's clock is wall clock, stops included. That is deliberate: a split
+   * is "how long did that kilometre take me", and a kilometre the runner spent
+   * four minutes of standing at a red light in DID take longer. It is also what
+   * makes one split stand out as abnormally slow, which is the only visible
+   * trace a stop leaves on the pace chart.
+   *
+   * The trailing part-kilometre is a split like any other, carrying its real
+   * length. The app used to synthesise it client-side, which meant two places
+   * deciding what the last bar of the chart meant.
+   */
   const splits: DerivedSplit[] = [];
-  const cumulative: { d: number; t: number }[] = [{ d: 0, t: samples[0]!.t }];
-  const splitCount = Math.floor(distanceM / SPLIT_DISTANCE_M);
-  let splitStartT = samples[0]!.t;
-  let cursor = 0;
+  const boundaries: number[] = [];
+  for (let k = 1; k * SPLIT_DISTANCE_M <= distanceM; k++) boundaries.push(k * SPLIT_DISTANCE_M);
+  if (distanceM - (boundaries[boundaries.length - 1] ?? 0) >= SPLIT_TAIL_MIN_M) {
+    boundaries.push(distanceM);
+  }
 
-  for (let k = 1; k <= splitCount; k++) {
-    const targetD = k * SPLIT_DISTANCE_M;
-    const endT = timeAtDistance(samples, targetD);
+  let splitStartT = samples[0]!.t;
+  let splitStartD = 0;
+  let cursor = 1;
+  for (let k = 0; k < boundaries.length; k++) {
+    const targetD = boundaries[k]!;
+    const endT = k === boundaries.length - 1 && targetD >= distanceM
+      ? last.t
+      : timeAtDistance(samples, targetD);
     if (endT === null) break;
-    cumulative.push({ d: targetD, t: endT });
 
     let hrSumSplit = 0;
     let hrCountSplit = 0;
-    let gain = 0;
-    let moving = 0;
+    let movingSplit = 0;
+    const eles: (number | null)[] = [];
     let j = cursor;
-    for (; j < samples.length && samples[j]!.d <= targetD; j++) {
-      const s = samples[j]!;
-      if (s.hr !== null) { hrSumSplit += s.hr; hrCountSplit++; }
-      if (j > 0) {
-        const prev = samples[j - 1]!;
-        if (s.ele !== null && prev.ele !== null && s.ele > prev.ele) gain += s.ele - prev.ele;
-        const dt = s.t - prev.t;
-        if (dt > 0 && s.moving && prev.d >= targetD - SPLIT_DISTANCE_M) moving += dt;
-      }
+    for (; j < samples.length && samples[j - 1]!.d <= targetD; j++) {
+      const cur = samples[j]!;
+      const prev = samples[j - 1]!;
+      if (cur.hr !== null) { hrSumSplit += cur.hr; hrCountSplit++; }
+      eles.push(cur.ele);
+      const dt = cur.t - prev.t;
+      if (dt > 0 && cur.moving) movingSplit += dt;
     }
     cursor = Math.max(cursor, j - 1);
 
+    const splitDistanceM = targetD - splitStartD;
     const elapsed = Math.max(0, endT - splitStartT);
     splits.push({
-      splitIndex: k,
-      splitDistanceM: SPLIT_DISTANCE_M,
+      splitIndex: k + 1,
+      splitDistanceM: Math.round(splitDistanceM * 10) / 10,
       elapsedSeconds: Math.round(elapsed),
-      movingSeconds: Math.round(moving > 0 ? moving : elapsed),
+      movingSeconds: Math.round(Math.min(movingSplit, elapsed)),
       avgHeartRate: hrCountSplit ? Math.round(hrSumSplit / hrCountSplit) : null,
-      elevationGainM: Math.round(gain * 10) / 10,
-      avgPaceSecPerKm: Math.round(elapsed * 10) / 10,
+      elevationGainM: Math.round(ascentFrom(eles) * 10) / 10,
+      // Per kilometre, so the part-kilometre at the end is comparable with the
+      // whole ones rather than looking like the fastest split of the run.
+      avgPaceSecPerKm: splitDistanceM > 0
+        ? Math.round((elapsed / splitDistanceM) * 1000 * 10) / 10
+        : 0,
     });
     splitStartT = endT;
+    splitStartD = targetD;
   }
 
-  // Trailing partial kilometre, so cumulative reaches the real end of the run.
-  if (distanceM > splitCount * SPLIT_DISTANCE_M) {
+  /* --- Cumulative (distance, elapsed) nodes ------------------------ */
+  /*
+   * The input to every rolling-window effort — the fastest kilometre, the
+   * fastest 5 km, the medals on the map. It used to hold one node per whole
+   * kilometre, which made a "fastest 400 m" a straight-line interpolation
+   * inside a kilometre it never looked at. Nodes every few tens of metres cost
+   * little and make the window mean something; the spacing widens on a long run
+   * so the O(n^2) window search stays bounded.
+   */
+  const nodeStep = Math.max(CUMULATIVE_NODE_MIN_M, distanceM / CUMULATIVE_NODE_BUDGET);
+  const cumulative: { d: number; t: number }[] = [{ d: 0, t: samples[0]!.t }];
+  for (const s of samples) {
+    const prev = cumulative[cumulative.length - 1]!;
+    if (s.d - prev.d >= nodeStep && s.t > prev.t) cumulative.push({ d: s.d, t: s.t });
+  }
+  const tailNode = cumulative[cumulative.length - 1]!;
+  if (distanceM > tailNode.d && last.t > tailNode.t) {
     cumulative.push({ d: distanceM, t: last.t });
   }
 
@@ -465,10 +679,13 @@ export function deriveFromSamples(samples: readonly NormalisedSample[]): StreamD
     totals: {
       distanceM: Math.round(distanceM * 10) / 10,
       durationSeconds,
-      movingSeconds: Math.round(movingSeconds > 0 ? movingSeconds : durationSeconds),
+      movingSeconds: Math.round(movingSeconds),
+      stoppedSeconds: Math.round(stoppedSeconds),
       avgHeartRate: hrCount ? Math.round(hrSum / hrCount) : null,
       maxHeartRate: maxHr,
-      avgPaceSecPerKm: distanceM > 0 ? Math.round((durationSeconds / distanceM) * 1000) : null,
+      // Average pace runs on moving time; the elapsed-time pace is the second
+      // figure on the detail screen and is derived from the two stored totals.
+      avgPaceSecPerKm: distanceM > 0 ? Math.round((movingSeconds / distanceM) * 1000) : null,
       bestPaceSecPerKm: bestPace === null ? null : Math.round(bestPace),
       elevationGainM: Math.round(elevationGainM * 10) / 10,
     },

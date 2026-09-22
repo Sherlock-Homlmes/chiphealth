@@ -650,6 +650,7 @@ class WorkoutSession {
     this.perceivedExertion,
     this.photoAssetIds = const [],
     this.movingSeconds,
+    this.stoppedSeconds,
     this.elevationMaxM,
     this.gapSecPerKm,
     this.steps,
@@ -684,6 +685,12 @@ class WorkoutSession {
 
   /// Time actually moving, which is what pace is measured over.
   final int? movingSeconds;
+
+  /// Elapsed minus moving. The backend re-derives it from the raw stream, so it
+  /// is the same rule for a phone that auto-pauses and one that does not, and
+  /// it is what explains a split that reads four minutes slower than its
+  /// neighbours.
+  final int? stoppedSeconds;
 
   /// Highest point on the route, as opposed to [elevationGainM]'s total climb.
   final double? elevationMaxM;
@@ -722,6 +729,7 @@ class WorkoutSession {
         .whereType<String>()
         .toList(),
     movingSeconds: _intOrNull(json['movingSeconds']),
+    stoppedSeconds: _intOrNull(json['stoppedSeconds']),
     elevationMaxM: _dbl(json['elevationMaxM']),
     gapSecPerKm: _dbl(json['gapSecPerKm']),
     steps: _intOrNull(json['steps']),
@@ -741,6 +749,7 @@ class TrackPoint {
     this.hr,
     this.pace,
     this.gap,
+    this.moving = true,
   });
 
   /// Seconds from the first sample.
@@ -759,6 +768,9 @@ class TrackPoint {
   /// The same stretch with its gradient taken out.
   final double? gap;
 
+  /// False where the backend judged the runner to be standing still.
+  final bool moving;
+
   factory TrackPoint.fromJson(Map<String, dynamic> json) => TrackPoint(
     t: _dblOr(json['t']),
     lat: _dblOr(json['lat']),
@@ -768,6 +780,7 @@ class TrackPoint {
     hr: _intOrNull(json['hr']),
     pace: _dbl(json['pace']),
     gap: _dbl(json['gap']),
+    moving: json['moving'] as bool? ?? true,
   );
 }
 
@@ -775,12 +788,19 @@ class WorkoutSplit {
   const WorkoutSplit({
     required this.splitIndex,
     required this.elapsedSeconds,
+    this.splitDistanceM = 1000,
     this.avgPaceSecPerKm,
     this.avgHeartRate,
     this.elevationGainM,
   });
 
   final int splitIndex;
+
+  /// How long this split actually is. The last one is usually not a kilometre,
+  /// and a chart that drew it as though it were would be lying about the shape
+  /// of the run. The default is there for rows written before the backend sent
+  /// the field.
+  final double splitDistanceM;
   final int elapsedSeconds;
   final double? avgPaceSecPerKm;
   final int? avgHeartRate;
@@ -788,6 +808,7 @@ class WorkoutSplit {
 
   factory WorkoutSplit.fromJson(Map<String, dynamic> json) => WorkoutSplit(
     splitIndex: _int(json['splitIndex']),
+    splitDistanceM: _dbl(json['splitDistanceM']) ?? 1000,
     elapsedSeconds: _int(json['elapsedSeconds']),
     avgPaceSecPerKm: _dbl(json['avgPaceSecPerKm']),
     avgHeartRate: _intOrNull(json['avgHeartRate']),

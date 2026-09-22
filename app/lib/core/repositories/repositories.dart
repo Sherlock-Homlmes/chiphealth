@@ -231,6 +231,15 @@ class MediaRepository {
 
 /* ---------------------------------------------------------------- nutrition */
 
+/// The one refusal [NutritionRepository.analyze] can come back with: the meal
+/// has no photo, and no attempt of it ever kept the words it was given (they
+/// predate the column that stores them), so there is nothing left to run.
+///
+/// The server says `details.reason = NOTHING_TO_ANALYZE`, but the envelope the
+/// client parses keeps only the code and the zod issues — and a validation
+/// error is the only 400 that endpoint raises — so that is what it is read by.
+bool isNothingToAnalyze(Object err) => err is ApiException && err.isValidation;
+
 class NutritionRepository {
   NutritionRepository(this._api);
   final ApiClient _api;
@@ -259,11 +268,16 @@ class NutritionRepository {
     return MealLog.fromJson((data as Map).cast<String, dynamic>());
   }
 
+  /// Runs the analysis again, whichever way the meal was logged: the server
+  /// re-runs the photo, or the transcript it kept from the last attempt. Throws
+  /// when the meal has neither — see [isNothingToAnalyze].
   Future<void> analyze(String mealId) =>
       _api.post<dynamic>('/v1/meals/$mealId/analyze');
 
   /// Spoken or typed meal. The clip is not stored anywhere: the server
-  /// transcribes it, extracts the components and throws the audio away.
+  /// transcribes it, extracts the components and throws the audio away — but it
+  /// does keep the transcript on the attempt, which is what makes a failed
+  /// spoken meal retryable later.
   Future<void> logSpoken(
     String mealId, {
     Uint8List? audio,

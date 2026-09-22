@@ -82,6 +82,7 @@ dependencies:
   intl: ^0.20.2
   collection: ^1.18.0
   crypto: ^3.0.6
+  gpt_markdown: ^1.3.0
 
 dev_dependencies:
   flutter_test:

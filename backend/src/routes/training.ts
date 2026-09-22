@@ -486,8 +486,25 @@ app.get('/workouts/:id/insight/:kind', async (c) => {
         ),
       };
 
+  // What the sentence is ABOUT, as opposed to everything it is allowed to
+  // mention. The payload above carries this run's rank on the personal-best
+  // board and the athlete's current race predictions, and both of those move
+  // when some OTHER run is recorded — cache on them and every old run's line is
+  // silently rewritten, ninety seconds of model time at a go. Renaming a run
+  // must cost nothing at all. So the key is this run's own measured numbers.
+  const fingerprint = {
+    distanceM: session.distanceM,
+    movingSeconds: session.movingSeconds,
+    durationSeconds: session.durationSeconds,
+    avgPaceSecPerKm: session.avgPaceSecPerKm,
+    elevationGainM: session.elevationGainM,
+    gapSecPerKm: session.gapSecPerKm,
+    splits: splits.map((sp) => sp.avgPaceSecPerKm),
+    zones: zones.map((z) => z.percentOfSession),
+  };
+
   const locale = await accountLocale(db, user);
-  const insight = await workoutInsight(db, c.env, session.id, kind, locale, data);
+  const insight = await workoutInsight(db, c.env, session.id, kind, locale, data, fingerprint);
   return c.json({ kind, body: insight?.body ?? null });
 });
 
@@ -571,10 +588,11 @@ app.delete('/workouts/:id', async (c) => {
 /**
  * Derives everything queryable from a raw sample stream and writes it back:
  * the stream row (polyline, downsampled series), splits, time-in-zone, the
- * session totals and PRs. Shared by the upload and by crop, which re-runs it
- * on the trimmed samples.
+ * session totals and PRs. Shared by the upload, by crop (which re-runs it on
+ * the trimmed samples) and by the admin re-derive, which replays every stored
+ * stream through whatever the current algorithms are.
  */
-async function applyStream(
+export async function applyStream(
   db: AppEnv['Variables']['db'],
   userId: string,
   session: typeof workoutSessions.$inferSelect,
@@ -659,6 +677,9 @@ async function applyStream(
     distanceM: totals.distanceM || session.distanceM,
     durationSeconds: totals.durationSeconds || session.durationSeconds,
     movingSeconds: totals.movingSeconds || session.movingSeconds,
+    // Zero is a real answer here — a run with no stops — so it is written
+    // unconditionally rather than falling back to what the device sent.
+    stoppedSeconds: totals.stoppedSeconds,
     avgHeartRate: totals.avgHeartRate ?? session.avgHeartRate,
     maxHeartRate: totals.maxHeartRate ?? session.maxHeartRate,
     avgPaceSecPerKm: totals.avgPaceSecPerKm,
@@ -736,6 +757,8 @@ async function streamObject(c: Context<AppEnv>, sessionId: string) {
 
 /** Upper bound on points sent for replay/crop; plenty for a smooth line. */
 const TRACK_MAX_POINTS = 1500;
+/** 60:00/km. Anything slower is standing still and is drawn as such. */
+const TRACK_SLOWEST_PACE = 3600;
 
 /**
  * Timed GPS points (t = seconds from the first sample, d = cumulative metres)
@@ -770,11 +793,16 @@ app.get('/workouts/:id/track', async (c) => {
       const dt = s.t - prev.t;
       if (dd > 1 && dt > 0) {
         const raw = (dt / dd) * 1000;
-        // Same noise floor as the session totals: nothing under 2:00/km is real.
-        if (raw >= 120 && raw <= 3600) {
-          pace = Math.round(raw);
+        // Same noise floor as the session totals: nothing under 2:00/km is
+        // real. The slow end is CLAMPED rather than dropped — a runner standing
+        // at a light has a pace approaching infinity, and the honest way to
+        // draw that is a line pinned to the bottom of the axis, not a gap in
+        // the series that reads as if nothing happened.
+        if (raw >= 120) {
+          const capped = Math.min(raw, TRACK_SLOWEST_PACE);
+          pace = Math.round(capped);
           const grade = s.ele !== null && prev.ele !== null ? (s.ele - prev.ele) / dd : 0;
-          gap = Math.round(gradeAdjustedPace(raw, grade));
+          gap = Math.round(Math.min(gradeAdjustedPace(capped, grade), TRACK_SLOWEST_PACE));
         }
       }
     }
@@ -787,6 +815,8 @@ app.get('/workouts/:id/track', async (c) => {
       hr: s.hr,
       pace,
       gap,
+      // So the charts can shade the stretches that were not run.
+      moving: s.moving,
     };
   });
   // The first point has no predecessor to measure against; it borrows the

@@ -8,7 +8,7 @@ Thêm tool mới => thêm mục ở đây; thiếu mục thì unit test báo l�
 Hồ sơ người dùng: tuổi, giới tính, chiều cao, cân nặng mới nhất, mức vận động, mục tiêu đang theo, bệnh nền, BMR/TDEE hôm nay và mức calo tự đặt (nếu có).
 
 ## get_day_summary
-Tổng quan một ngày: calo nạp, calo đốt khi tập, TDEE, cân bằng calo, macro; danh sách bữa ăn (có meal_id); các buổi tập (có workout_id); giấc ngủ kết thúc vào sáng ngày đó (có sleep_id).
+Tổng quan một ngày: calo nạp, calo đốt khi tập, TDEE, cân bằng calo, macro; danh sách bữa ăn (có meal_id); các buổi tập (có workout_id); các giấc ngủ kết thúc trong ngày đó (`sleep.sessions` có sleep_id, kèm `sleep.session_count` — một ngày có thể có nhiều giấc: đêm và giấc ngủ ngày).
 
 ## get_nutrition_range
 Calo và macro theo từng ngày trong một khoảng (tối đa 62 ngày) — dùng để xem xu hướng, trung bình, ngày vượt/thiếu calo.
@@ -32,7 +32,7 @@ Danh mục môn thể thao (activity_type_id, mã, tên). Cần để tạo ho�
 Các kỷ lục cá nhân hiện tại (pace nhanh nhất, quãng đường dài nhất, mức tạ cao nhất...).
 
 ## list_sleep
-Liệt kê các đêm ngủ trong một khoảng ngày thức dậy (tối đa 62 ngày): sleep_id, giờ đi ngủ, giờ dậy, tổng giờ ngủ, hiệu suất, điểm.
+Liệt kê TẤT CẢ các giấc ngủ trong một khoảng ngày thức dậy (tối đa 62 ngày) — cả đêm lẫn giấc ngủ ngày: sleep_id, ngày thức dậy, giờ đi ngủ, giờ dậy, tổng giờ ngủ, hiệu suất, điểm, nguồn ghi. Trả về `sessions` (danh sách từng giấc) và `days` (mỗi ngày thức dậy kèm `session_count` — một ngày có thể có NHIỀU giấc).
 
 ## get_sleep_debt
 Nợ ngủ tích luỹ 14 ngày so với mục tiêu ngủ mỗi đêm, kèm từng ngày.
@@ -71,10 +71,10 @@ Lịch sử cân nặng, chiều cao, % mỡ, khối cơ, vòng eo trong một k
 ĐỀ XUẤT xoá một buổi tập (chờ xác nhận).
 
 ## log_sleep
-ĐỀ XUẤT ghi một đêm ngủ nhập tay: giờ đi ngủ, giờ thức dậy, số phút nằm chờ ngủ (chờ xác nhận). Mỗi ngày thức dậy chỉ có một đêm — ghi lại sẽ thay đêm cũ.
+ĐỀ XUẤT ghi một giấc ngủ nhập tay — đêm hoặc giấc ngủ ngày: giờ đi ngủ, giờ thức dậy, số phút nằm chờ ngủ (chờ xác nhận). Một ngày thức dậy có thể có NHIỀU giấc; bản ghi mới được THÊM vào, không thay bản cũ. Muốn sửa một giấc đã có thì dùng update_sleep với sleep_id của nó.
 
 ## update_sleep
-ĐỀ XUẤT sửa giờ đi ngủ / giờ thức dậy của một đêm đã ghi (chờ xác nhận).
+ĐỀ XUẤT sửa giờ đi ngủ / giờ thức dậy của một giấc ngủ đã ghi (chờ xác nhận). Cần sleep_id — lấy từ list_sleep hoặc get_day_summary, và nhớ một ngày có thể có nhiều giấc nên phải chọn đúng cái.
 
 ## log_body_metrics
 ĐỀ XUẤT ghi chỉ số cơ thể: cân nặng, chiều cao, % mỡ, khối cơ, vòng eo — cần ít nhất một chỉ số (chờ xác nhận).

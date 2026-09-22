@@ -279,6 +279,37 @@ function sleepBrief(s: SleepRow, tz: string) {
   };
 }
 
+/** Hours actually asleep across several sleeps, null when nothing is known. */
+function totalAsleepHours(rows: SleepRow[]): number | null {
+  const known = rows.filter((s) => s.totalSleepSeconds != null);
+  if (known.length === 0) return null;
+  return r1(known.reduce((sum, s) => sum + (s.totalSleepSeconds ?? 0), 0) / 3600);
+}
+
+/**
+ * A range of sleeps as the model should read it: the flat list it answers from,
+ * plus one row per wake day saying how many sleeps that day held. A day is a
+ * night PLUS any naps (routes/sleep.ts inserts each one, none replaces
+ * another), and nothing in a flat list made that visible.
+ */
+function sleepList(rows: SleepRow[], tz: string) {
+  const byDay = new Map<string, SleepRow[]>();
+  for (const s of rows) {
+    const day = byDay.get(s.localDate);
+    if (day) day.push(s);
+    else byDay.set(s.localDate, [s]);
+  }
+  return {
+    session_count: rows.length,
+    sessions: rows.map((s) => sleepBrief(s, tz)),
+    days: [...byDay.entries()].map(([wake_date, day]) => ({
+      wake_date,
+      session_count: day.length,
+      total_asleep_h: totalAsleepHours(day),
+    })),
+  };
+}
+
 /**
  * Generic trim for rows the model only needs to read: no ids of other tables,
  * no bookkeeping, no blobs, timestamps as local time, seconds as minutes.
@@ -415,7 +446,13 @@ const TOOLS: AgentTool[] = [
         },
         meals: daily.meals.map((m) => mealBrief(m, tz)),
         workouts: workouts.items.map((w) => workoutBrief(w, types, tz)),
-        sleep: sleep.items.map((x) => sleepBrief(x, tz)),
+        // session_count, not just a list: a day with a night and a nap used to
+        // look exactly like a day with one night unless the model counted.
+        sleep: {
+          session_count: sleep.items.length,
+          total_asleep_h: totalAsleepHours(sleep.items),
+          sessions: sleep.items.map((x) => sleepBrief(x, tz)),
+        },
       };
     },
   }),
@@ -545,7 +582,11 @@ const TOOLS: AgentTool[] = [
       checkRange(from, to, 62);
       const res = await api<{ items: SleepRow[] }>(
         ctx, 'GET', `/v1/sleep/sessions?${q({ from, to, limit: 100 })}`);
-      return { nights: res.items.map((s) => sleepBrief(s, ctx.user.timezone)) };
+      // Not "nights": a wake day holds a night AND any naps. The old key made
+      // the model read one row per day and answer "giấc ngủ đêm qua" about
+      // someone who had slept twice, so the day grouping says out loud how
+      // many sessions each wake date carries.
+      return sleepList(res.items, ctx.user.timezone);
     },
   }),
 
@@ -876,10 +917,15 @@ const TOOLS: AgentTool[] = [
       const existing = await api<{ items: SleepRow[] }>(
         ctx, 'GET', `/v1/sleep/sessions?${q({ from: wakeDay, to: wakeDay })}`);
       const hours = r1((end - start) / 3_600_000);
+      // The card used to promise a replacement. execute() sends no id, so the
+      // API always INSERTs (routes/sleep.ts: "a night, or a nap; a day can hold
+      // several and they do not replace each other") — the old line described a
+      // behaviour the backend has never had.
+      const n = existing.items.length;
       return {
         summary: `Ghi giấc ngủ ${human(start, tz)} → ${human(end, tz)} (${hours} giờ trên giường)`,
-        details: existing.items.length > 0
-          ? [`Đêm thức dậy ngày ${humanDate(wakeDay)} đã có dữ liệu — sẽ bị thay bằng bản ghi này.`]
+        details: n > 0
+          ? [`Ngày thức dậy ${humanDate(wakeDay)} đã có ${n} giấc ngủ — bản ghi này được THÊM vào, không thay bản cũ. Muốn sửa bản cũ thì dùng update_sleep.`]
           : undefined,
       };
     },

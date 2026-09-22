@@ -25,6 +25,8 @@ export const workoutSessions = sqliteTable('workout_sessions', {
   localDate: text('local_date').notNull(),
   durationSeconds: integer('duration_seconds'),
   movingSeconds: integer('moving_seconds'),
+  /** Elapsed minus moving: re-derived from the stream, not taken from the device. */
+  stoppedSeconds: integer('stopped_seconds'),
   distanceM: real('distance_m'),
   avgHeartRate: integer('avg_heart_rate'),
   maxHeartRate: integer('max_heart_rate'),

@@ -20,7 +20,10 @@ class MealTimelineState {
     this.error,
   });
 
-  /// Newest first, drafts already filtered out.
+  /// Newest first, exactly what the server returned — nothing is filtered out.
+  /// A meal whose analysis failed stays in the diary with a retry on its row:
+  /// hiding it looked like the meal had never been logged, and the user had no
+  /// way to ask for it to be analysed again.
   final List<MealLog> meals;
 
   /// Where the next page starts. Opaque; the server minted it.
@@ -103,7 +106,7 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
       );
       if (!mounted) return;
       state = MealTimelineState(
-        meals: _visible(page.items),
+        meals: page.items,
         cursor: page.nextCursor,
         loading: false,
         hasMore: page.nextCursor != null,
@@ -129,7 +132,7 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
       );
       if (!mounted) return;
       state = MealTimelineState(
-        meals: [...state.meals, ..._visible(page.items)],
+        meals: [...state.meals, ...page.items],
         cursor: page.nextCursor,
         loading: false,
         hasMore: page.nextCursor != null,
@@ -138,12 +141,6 @@ class MealTimeline extends StateNotifier<MealTimelineState> {
       if (mounted) state = state.copyWith(loadingMore: false, error: err);
     }
   }
-
-  /// A photo meal whose analysis failed stays in the list: the photo is still
-  /// there to run again, and the row is where the user finds the retry. Only a
-  /// failed draft with nothing to re-run — a spoken or typed meal — is hidden.
-  List<MealLog> _visible(List<MealLog> page) =>
-      page.where((m) => !m.isFailedDraft || m.photoAssetId != null).toList();
 
   /// Fetches the rest of the oldest day on [page] when the page cut it short.
   Future<MealPage> _wholeDays(MealPage page) async {

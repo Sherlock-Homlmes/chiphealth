@@ -124,22 +124,96 @@ export function parseCompletion(res: unknown): { content: string; toolCalls: Too
   return { content, toolCalls };
 }
 
+/** Han, Hiragana, Katakana, Hangul — none of them belongs in a vi/en answer. */
+const CJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]/;
+/** Latin including the Vietnamese diacritics, i.e. "this line is an answer". */
+const LATIN = /[A-Za-z\u00c0-\u024f\u1e00-\u1eff]/;
+
 /**
- * Plain text for a chat bubble: no leftover tool-call syntax (some models spill
- * it into content), no markdown the app would print literally.
+ * Drops leading and trailing lines that are pure CJK. The model sometimes opens
+ * a reply with a stray "探" or "好的" — thinking that escaped into content — and
+ * both languages the app supports are Latin-script (lib/language.ts), so a line
+ * with CJK and no Latin letter at all is never part of the answer. Only the
+ * edges, never the middle, and never the whole reply: a line the check is wrong
+ * about is far less bad than an empty bubble.
+ */
+function stripForeignEdges(text: string): string {
+  const lines = text.split('\n');
+  const drop = (line: string) => line.trim() === '' || (CJK.test(line) && !LATIN.test(line));
+  let start = 0;
+  let end = lines.length;
+  while (start < end && drop(lines[start]!)) start++;
+  while (end > start && drop(lines[end - 1]!)) end--;
+  const kept = lines.slice(start, end).join('\n').trim();
+  return kept === '' ? text : kept;
+}
+
+/**
+ * The reply as the chat bubble should render it. Light markdown is wanted now —
+ * the app renders it — so bold, headings and bullets are left alone; what has
+ * to go is everything that is not the answer: tool-call and channel syntax some
+ * models spill into content (closed OR abandoned mid-block), <think> blocks,
+ * and a foreign-script line of leaked reasoning.
  */
 export function cleanReply(text: string): string {
-  return text
+  const stripped = text
     // Gemma-style control blocks: <|tool_call>…<tool_call|>, <|channel>thought…<channel|>
     .replace(/<\|(tool_call|channel)>[\s\S]*?<\1\|>/g, '')
+    // The same blocks with no closer — the model ran out of tokens mid-thought.
+    // Cut to the end of that line only, so an answer below it survives.
+    .replace(/<\|(?:tool_call|channel)>[^\n]*/g, '')
+    // <think>…</think> from a reasoning model, closed…
+    .replace(/<(think|thinking)>[\s\S]*?<\/\1>/gi, '')
+    // …a dangling closer, which means everything before it was the thought…
+    .replace(/[\s\S]*<\/(?:think|thinking)>/i, '')
+    // …and a dangling opener, which means everything after it is.
+    .replace(/<(?:think|thinking)>[\s\S]*/i, '')
     .replace(/<\|[^<>|]*\|>|<\|[a-z_]+\|>|<[a-z_]+\|>/g, '')
-    .replace(/\*\*(.+?)\*\*/g, '$1')
-    .replace(/__(.+?)__/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/^([ \t]*)[*•]\s+/gm, '$1- ')
     .replace(/\n{3,}/g, '\n\n')
-    .trim()
-    .slice(0, REPLY_MAX_CHARS);
+    .trim();
+  return stripForeignEdges(stripped).trim().slice(0, REPLY_MAX_CHARS);
+}
+
+/**
+ * A tool result as the model gets to see it, inside the byte budget.
+ *
+ * Slicing the serialized string used to be the whole of it, which handed the
+ * model invalid JSON the moment a 62-day list_sleep went over: the tail was cut
+ * mid-object and the rows that survived looked like the whole answer. Rows are
+ * dropped instead, from the end of the longest list, and the result says how
+ * many went — a model that knows it is missing 20 nights can ask for a shorter
+ * range, one that was handed broken JSON cannot.
+ */
+export function truncateToolResult(result: unknown, max = TOOL_RESULT_MAX_CHARS): string {
+  const full = JSON.stringify(result) ?? 'null';
+  if (full.length <= max) return full;
+
+  const body: Record<string, unknown> = Array.isArray(result)
+    ? { items: [...result] }
+    : (result !== null && typeof result === 'object' ? { ...(result as Record<string, unknown>) } : {});
+  let omitted = 0;
+  const pack = () => JSON.stringify({
+    ...body, truncated: true, omitted, note: toolMessage('result_truncated', { omitted }),
+  });
+  const longest = (): string | undefined => Object.keys(body)
+    .filter((k) => Array.isArray(body[k]) && (body[k] as unknown[]).length > 0)
+    .sort((a, b) => (body[b] as unknown[]).length - (body[a] as unknown[]).length)[0];
+
+  let json = pack();
+  for (let key = longest(); key !== undefined && json.length > max; key = longest()) {
+    const rows = body[key] as unknown[];
+    // An eighth at a time: a handful of passes on a long list, and a short one
+    // still loses a row per pass rather than all of them at once.
+    const keep = Math.max(0, rows.length - Math.max(1, Math.ceil(rows.length / 8)));
+    omitted += rows.length - keep;
+    body[key] = rows.slice(0, keep);
+    json = pack();
+  }
+  // Nothing left to drop and still too long: one enormous scalar field. A cut
+  // string would be invalid JSON, so say what happened in valid JSON instead.
+  return json.length <= max
+    ? json
+    : JSON.stringify({ truncated: true, omitted, note: toolMessage('result_too_long') });
 }
 
 /**
@@ -150,6 +224,24 @@ export function cleanReply(text: string): string {
  */
 export function promisesConfirmCard(text: string): boolean {
   return /(bấm|nhấn|chạm|ấn)[^\n.!?]{0,60}xác nhận/i.test(text);
+}
+
+/**
+ * "Mình sẽ kiểm tra dữ liệu tuần này…" with no tool call behind it: the model
+ * announced a lookup and ended its turn, leaving the user holding a promise
+ * nobody can keep — they cannot run the read for it, and the next message
+ * starts a fresh turn. Reads are free and instant, so the answer to this is one
+ * corrective round, not a refusal.
+ */
+export function promisesLookup(text: string): boolean {
+  return /(?:mình|tôi|em)\s+(?:sẽ|xin|đang)\s+(?:tiến hành\s+)?(?:đi\s+)?(?:xem|kiểm tra|tra|lấy|truy xuất|rà|xem lại|tổng hợp|phân tích)/i.test(text)
+    || /để\s+(?:mình|tôi|em)\s+(?:xem|kiểm tra|tra|lấy|xem lại)/i.test(text)
+    || /(?:hãy\s+)?(?:cho|để)\s+(?:mình|tôi|em)\s+(?:một chút|chút|ít phút|vài giây)/i.test(text)
+    || /\b(?:mình|tôi|em)\s+cần\s+(?:xem|kiểm tra|xem xét|tra)/i.test(text)
+    || /\bcần\s+(?:xem|kiểm tra|xem xét|tra cứu)\s+(?:lại\s+)?dữ liệu/i.test(text)
+    || /\bi(?:'ll|'m going to| will| am going to| am about to)\s+(?:now\s+)?(?:check|look|review|pull|fetch|retrieve|take a look)/i.test(text)
+    || /\blet me\s+(?:check|look|see|pull|review|take a look)/i.test(text)
+    || /\b(?:i|we) need to (?:check|look|review|see)/i.test(text);
 }
 
 let toolMessages: Map<string, string> | null = null;
@@ -261,6 +353,11 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
   // The card-promise correction runs at most once; a second offence falls
   // through and the leak-checked reply ships as-is.
   let cardFixUsed = false;
+  // Same one-shot rule for the promised-but-never-run lookup below.
+  let readFixUsed = false;
+  // Whether anything was actually looked up this turn: a promise to go and read
+  // is only wrong while the model still has nothing in hand.
+  let readsRun = 0;
 
   const runTool = async (call: ToolCall): Promise<unknown> => {
     const tool = AGENT_TOOLS.get(call.name);
@@ -278,6 +375,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
     try {
       if (tool.kind === 'read') {
         const result = await tool.run(ctx, parsed.data);
+        readsRun++;
         trace.push({ tool: tool.name, args: parsed.data, ok: true, ms: Date.now() - started });
         return result;
       }
@@ -349,6 +447,17 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
           messages.push({ role: 'user', content: renderPrompt(PROMPTS.agentCardFix) });
           continue;
         }
+        // "Mình sẽ tiến hành kiểm tra…" and then the turn ended, with nothing
+        // read: the model treated a read like something it had to ask
+        // permission for (production 2026-09-21, "đánh giá tổng quan ăn ngủ
+        // tập luyện tuần này và tuần trước"). The step budget is still there —
+        // one round telling it reads happen now usually spends it properly.
+        if (!readFixUsed && readsRun === 0 && promisesLookup(cleanReply(content ?? ''))) {
+          readFixUsed = true;
+          messages.push({ role: 'assistant', content: content ?? '' });
+          messages.push({ role: 'user', content: renderPrompt(PROMPTS.agentReadNow) });
+          continue;
+        }
         reply = content;
         break;
       }
@@ -367,7 +476,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
         messages.push({
           role: 'tool',
           tool_call_id: call.id,
-          content: JSON.stringify(result).slice(0, TOOL_RESULT_MAX_CHARS),
+          content: truncateToolResult(result),
         });
       }
     }
@@ -406,7 +515,7 @@ export async function runAgentTurn(input: AgentTurnInput): Promise<AgentTurnResu
             messages.push({
               role: 'tool',
               tool_call_id: call.id,
-              content: JSON.stringify(result).slice(0, TOOL_RESULT_MAX_CHARS),
+              content: truncateToolResult(result),
             });
           }
           // Whatever happened, answer now — no more tool rounds.

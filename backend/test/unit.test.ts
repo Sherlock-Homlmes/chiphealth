@@ -6,12 +6,16 @@
 import { localDate, addDays, dateRange, ageFromDob } from '../src/lib/time';
 import { z } from 'zod';
 import { bmrMifflinStJeor, tdee, activityMultiplier } from '../src/services/nutritionMath';
-import { encodePolyline, decodePolyline, computeZoneRanges, haversineMeters } from '../src/services/workoutStream';
+import {
+  encodePolyline, decodePolyline, computeZoneRanges, haversineMeters,
+  ascentFrom, smoothElevations, applyDerivedMovement, deriveFromSamples,
+  normaliseSamples, type NormalisedSample,
+} from '../src/services/workoutStream';
 import { fastestForDistance, isBetter } from '../src/services/personalRecords';
 import { rollingDebtSeconds } from '../src/services/sleepDebt';
 import {
   extractJson, parseComponents, foodNameFits, effectiveAnalysis, MEAL_ANALYSIS_TIMEOUT_MS, ANALYSIS_TIMEOUT_MESSAGE,
-  MEAL_ANALYSIS_BUDGET_MS, capComponents, parseEstimates, mapPool,
+  MEAL_ANALYSIS_BUDGET_MS, capComponents, parseEstimates, mapPool, retryableInput,
 } from '../src/services/mealAnalysis';
 import { toFtsQuery } from '../src/services/foodSearch';
 import { normaliseLocale, languageName, SUPPORTED_LOCALES } from '../src/lib/language';
@@ -33,7 +37,9 @@ import {
 } from '../src/services/trainingProgress';
 import { PROMPTS, renderPrompt, promptSections } from '../src/prompts';
 import { matchesInjectionPattern, leaksSystemPrompt, normaliseInput } from '../src/services/agent/guard';
-import { cleanReply, parseCompletion, promisesConfirmCard } from '../src/services/agent/agent';
+import {
+  cleanReply, parseCompletion, promisesConfirmCard, promisesLookup, truncateToolResult,
+} from '../src/services/agent/agent';
 import { AGENT_TOOLS, toolDefinitions } from '../src/services/agent/tools';
 import {
   effortCounters, effortsForRun, elevationMax, fastestWindow, gapFromSegments,
@@ -245,7 +251,7 @@ check('an unmentioned filling does not fit', foodNameFits('Bánh mì', 'Bánh m�
 check('diacritics count when written', foodNameFits('trà', 'tra'), null);
 check('unaccented input still matches', foodNameFits('pho bo', 'Phở bò'), 'exact');
 
-console.log('\n# analysis timeout (5 minutes, read-side)');
+console.log('\n# analysis timeout (15 minutes, read-side)');
 const NOW = Date.parse('2026-09-09T12:00:00Z');
 const run = (status: string, ageMs: number, errorMessage: string | null = null) =>
   ({ status, createdAt: NOW - ageMs, errorMessage });
@@ -267,6 +273,23 @@ check('a genuinely failed row keeps its own error',
   { status: 'failed', createdAt: NOW - 10 * MEAL_ANALYSIS_TIMEOUT_MS, errorMessage: 'upstream 5016', timedOut: false });
 check('missing createdAt cannot be judged', effectiveAnalysis(
   { status: 'running', createdAt: null, errorMessage: null }, NOW).status, 'running');
+
+console.log('\n# every failed meal can be tried again');
+// The bug: a failed spoken meal was hidden from the list and deleted hours
+// later, because nothing was left to re-run. The transcript is kept now, so
+// "thử lại" means the same thing whichever way the meal was logged.
+check('a photo meal re-runs its photo',
+  retryableInput('meals/u1/abc.jpg', null), { kind: 'photo', photoR2Key: 'meals/u1/abc.jpg' });
+check('a spoken meal re-runs the words it was given',
+  retryableInput(null, 'trưa nay ăn hai bát cơm với thịt kho'),
+  { kind: 'speech', transcript: 'trưa nay ăn hai bát cơm với thịt kho' });
+check('the photo wins when a meal somehow has both',
+  retryableInput('meals/u1/abc.jpg', 'hai bát cơm')?.kind, 'photo');
+check('an attempt from before input_text cannot be re-run',
+  retryableInput(null, null), null);
+check('blank words are nothing to re-run', retryableInput(null, '   '), null);
+check('a missing photo asset is not an input',
+  retryableInput(undefined, undefined), null);
 
 console.log('\n# a complex meal must not sink the run');
 // The failure this guards: the vision model hits its token ceiling mid-item and
@@ -401,7 +424,16 @@ console.log('\n# prompt files');
   const messages = promptSections(PROMPTS.agentToolMessages);
   check('tool messages cover every key',
     ['pending_confirmation', 'duplicate_proposal', 'too_many_proposals', 'tool_budget',
-      'invalid_args', 'unknown_tool', 'tool_failed'].every((k) => messages.has(k)), true);
+      'invalid_args', 'unknown_tool', 'tool_failed', 'result_truncated', 'result_too_long']
+      .every((k) => messages.has(k)), true);
+  check('the read-now correction says reads need no permission',
+    renderPrompt(PROMPTS.agentReadNow).includes('NGAY'), true);
+  check('the system prompt says a wake day can hold several sleeps',
+    renderPrompt(PROMPTS.agentSystem, agentVars).includes('NHIỀU giấc'), true);
+  check('the system prompt asks for markdown now',
+    renderPrompt(PROMPTS.agentSystem, agentVars).includes('markdown NHẸ'), true);
+  check('log_sleep no longer claims one night per day',
+    promptSections(PROMPTS.agentTools).get('log_sleep')!.includes('THÊM vào'), true);
   check('chat photo vision prompt renders',
     renderPrompt(PROMPTS.coachVision).includes('DỮ LIỆU'), true);
 }
@@ -452,12 +484,57 @@ console.log('\n# assistant loop helpers');
   check('plain answers have no tool calls',
     parseCompletion({ choices: [{ message: { content: 'Chào bạn' } }] }), { content: 'Chào bạn', toolCalls: [] });
 
-  check('markdown is flattened', cleanReply('## Tiêu đề\n**đậm** và\n* mục'), 'Tiêu đề\nđậm và\n- mục');
+  // The app renders markdown now, so bold/headings/bullets ship untouched.
+  check('markdown is kept', cleanReply('## Tiêu đề\n**đậm** và\n- mục'), '## Tiêu đề\n**đậm** và\n- mục');
+  check('asterisk bullets are left alone', cleanReply('* a\n    * b'), '* a\n    * b');
   check('spilled thought channel is removed',
     cleanReply('<|channel>thought<|channel><channel|>Dưới đây'), 'Dưới đây');
-  check('nested bullets keep their indent', cleanReply('* a\n    * b'), '- a\n    - b');
+  check('an unclosed channel block dies at its line',
+    cleanReply('<|channel>phân tích yêu cầu của người dùng\nDưới đây là kết quả'), 'Dưới đây là kết quả');
   check('spilled tool-call syntax is removed',
     cleanReply('<|tool_call>call:list_meals{from:<|"|>x<|"|>}<tool_call|>Xong'), 'Xong');
+  check('think blocks are removed', cleanReply('<think>suy nghĩ</think>Chào bạn'), 'Chào bạn');
+  check('a dangling think closer drops everything before it',
+    cleanReply('the user asks about sleep\n</think>\nChào bạn'), 'Chào bạn');
+  check('an unclosed think block drops the rest',
+    cleanReply('Chào bạn\n<think>còn phải kiểm tra'), 'Chào bạn');
+  // Production leak: a reply that opened with a bare "探".
+  check('a leading CJK line is dropped', cleanReply('探\nHôm nay bạn ăn 1800 kcal'), 'Hôm nay bạn ăn 1800 kcal');
+  check('好的 opener is dropped', cleanReply('好的。\nMình xem rồi nhé'), 'Mình xem rồi nhé');
+  check('CJK inside a Vietnamese line is kept', cleanReply('Món 麻辣 khá cay'), 'Món 麻辣 khá cay');
+  check('an all-CJK reply is never emptied', cleanReply('探索'), '探索');
+}
+
+console.log('\n# tool results stay valid JSON inside the budget');
+{
+  const many = (n: number) => ({ sessions: Array.from({ length: n }, (_, i) => ({
+    sleep_id: `s${i}`, wake_date: '2026-09-22', bedtime: '2026-09-21T23:10', asleep_h: 7.6,
+  })) });
+  check('a small result is untouched',
+    truncateToolResult({ ok: true }), '{"ok":true}');
+  const cut = truncateToolResult(many(400), 1200);
+  check('an oversized result stays within the budget', cut.length <= 1200, true);
+  // The whole point: the old .slice() handed the model a half-object.
+  const parsed = JSON.parse(cut) as { sessions: unknown[]; truncated: boolean; omitted: number };
+  check('an oversized result is still parseable JSON', typeof parsed, 'object');
+  check('what survived is whole rows', parsed.sessions.every((s) => typeof (s as { sleep_id?: string }).sleep_id === 'string'), true);
+  check('the cut is declared', parsed.truncated, true);
+  check('every dropped row is counted',
+    parsed.sessions.length + parsed.omitted, 400);
+}
+
+console.log('\n# promised lookups that never ran');
+{
+  // The production sentence that ended a turn with no tool call behind it.
+  check('announced lookup (production incident)',
+    promisesLookup('Để đánh giá chính xác nhất, mình cần xem xét dữ liệu của cả hai tuần. Mình sẽ tiến hành kiểm tra...'), true);
+  check('let me check', promisesLookup('Để mình xem lại dữ liệu tuần này nhé.'), true);
+  check('english promise', promisesLookup("Let me check your sleep data for this week."), true);
+  check('an answer with numbers promises nothing',
+    promisesLookup('Tuần này bạn ngủ trung bình 6,5 giờ mỗi đêm.'), false);
+  check('advice is not a promise',
+    promisesLookup('Bạn nên kiểm tra lại cân nặng vào buổi sáng.'), false);
+  check('empty reply promises nothing', promisesLookup(''), false);
 }
 
 console.log('\n# phantom confirm-card promises');
@@ -770,6 +847,91 @@ console.log('\n# a run is more than its totals');
     'Strong finish after a slow third km.');
   check('an empty answer is no answer', tidyInsight('   '), null);
   check('an essay is not a one-liner', tidyInsight('x'.repeat(400)), null);
+}
+
+console.log('\n# altitude is not a mountain range');
+{
+  // The bug this replaced, in miniature: a metre of GPS wander at 1 Hz, summed
+  // as every positive step, turns a car park into an alp. Production had a
+  // 7.32 km run report 534.5 m of ascent on a route topping out at 7.9 m.
+  const wander = (i: number) => 5 + Math.sin(i * 1.7) * 1.2 + Math.sin(i * 0.31) * 0.8;
+  const flat: NormalisedSample[] = Array.from({ length: 1800 }, (_, i) => ({
+    t: i, d: i * 2.5, lat: null, lng: null, hr: null, ele: wander(i), moving: true,
+  }));
+  const naive = flat.reduce((sum, s, i) => (
+    i > 0 && s.ele! > flat[i - 1]!.ele! ? sum + (s.ele! - flat[i - 1]!.ele!) : sum
+  ), 0);
+  check('the old sum turned flat ground into a climb', naive > 500, true);
+  check('flat ground climbs nothing',
+    Math.round(ascentFrom(smoothElevations(flat))), 0);
+
+  // A real hill is tens of seconds long and survives both passes. 120 m up over
+  // 600 samples, then back down.
+  const hill: NormalisedSample[] = Array.from({ length: 1200 }, (_, i) => ({
+    t: i,
+    d: i * 2.5,
+    lat: null,
+    lng: null,
+    hr: null,
+    ele: (i < 600 ? i * 0.2 : (1200 - i) * 0.2) + Math.sin(i * 1.7) * 1.2,
+    moving: true,
+  }));
+  near('a real hill is still a hill', ascentFrom(smoothElevations(hill)), 120, 6);
+
+  check('a single bad fix is pulled back to its neighbours',
+    Math.round(smoothElevations([
+      { t: 0, ele: 10 }, { t: 1, ele: 10 }, { t: 2, ele: 900 },
+      { t: 3, ele: 10 }, { t: 4, ele: 10 },
+    ])[2]!), 10);
+  check('no altitude at all stays null', smoothElevations([{ t: 0, ele: null }]), [null]);
+  check('an altitude the fix does not trust is dropped',
+    normaliseSamples([{ t: 0, ele: 5, ea: 80 }, { t: 1, ele: 5, ea: 2 }]).map((x) => x.ele),
+    [5, 5]);
+}
+
+console.log('\n# standing still is not running');
+{
+  // Ninety seconds at 3 m/s, thirty standing, ninety more. The recorder sends
+  // no pause flag at all, which is why this is re-derived rather than trusted.
+  const samples: NormalisedSample[] = [];
+  let d = 0;
+  for (let t = 0; t < 210; t++) {
+    if (t < 90 || t >= 120) d += 3;
+    samples.push({ t, d, lat: null, lng: null, hr: null, ele: 10, moving: true });
+  }
+  applyDerivedMovement(samples);
+  const stoppedCount = samples.filter((s) => !s.moving).length;
+  near('the stop is found, and only the stop', stoppedCount, 30, 6);
+
+  const derived = deriveFromSamples(samples);
+  check('elapsed time keeps the stop', derived.totals.durationSeconds, 209);
+  near('moving time does not', derived.totals.movingSeconds, 180, 6);
+  near('and the difference is reported', derived.totals.stoppedSeconds, 30, 6);
+
+  // A one-second dropout is a bad fix, not a red light.
+  const blip: NormalisedSample[] = Array.from({ length: 60 }, (_, i) => ({
+    t: i, d: i === 30 ? 90 : i * 3, lat: null, lng: null, hr: null, ele: 10, moving: true,
+  }));
+  applyDerivedMovement(blip);
+  check('a momentary dropout is not a stop', blip.every((s) => s.moving), true);
+}
+
+console.log('\n# splits, including the one that is not a kilometre');
+{
+  // 2.4 km at an even 5:00/km: two whole splits and a 400 m remainder.
+  const samples: NormalisedSample[] = Array.from({ length: 721 }, (_, i) => ({
+    t: i, d: i * (1000 / 300), lat: null, lng: null, hr: null, ele: 10, moving: true,
+  }));
+  const splits = deriveFromSamples(samples).splits;
+  check('the remainder is a split of its own', splits.length, 3);
+  check('and it carries its real length', splits[2]!.splitDistanceM, 400);
+  near('a whole split is its own elapsed time', splits[0]!.avgPaceSecPerKm, 300, 1);
+  // The part-kilometre is the test: 120 s over 400 m is 5:00/km, not 2:00/km.
+  near('the part-kilometre is converted, not reported raw',
+    splits[2]!.avgPaceSecPerKm, 300, 2);
+
+  check('the rolling-window nodes are finer than a kilometre',
+    deriveFromSamples(samples).cumulative.length > 50, true);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

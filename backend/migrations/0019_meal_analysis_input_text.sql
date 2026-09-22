@@ -1,0 +1,11 @@
+-- A meal whose analysis failed must stay in the list and stay retryable — and
+-- that was impossible for the spoken and typed ones. Their input was the
+-- transcript, which lived only inside the queue message: once the run failed
+-- there was nothing left to re-run, so the app hid the meal and a cron job
+-- deleted it a few hours later. The user lost the meal they had logged.
+--
+-- So the attempt now keeps what it was given. Null for a photo run (its input
+-- is the photo the meal already points at) and for every attempt made before
+-- this column existed — those are the ones that still cannot be retried, and
+-- the API says so in its own words rather than silently doing nothing.
+ALTER TABLE meal_ai_analyses ADD COLUMN input_text TEXT;

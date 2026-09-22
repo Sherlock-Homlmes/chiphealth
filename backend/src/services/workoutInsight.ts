@@ -45,9 +45,14 @@ export function distanceText(metres: number | null | undefined): string | null {
 }
 
 /**
- * A digest of exactly the numbers the model was shown. A crop or a re-upload
- * changes them and the cached line is regenerated; opening the screen again
- * does not.
+ * A digest of what the line is ABOUT — see `fingerprint` at the call site.
+ *
+ * It used to digest the whole payload the model was shown, which sounded right
+ * and was not: that payload carries the run's rank on the personal-best board
+ * and the current race predictions, both of which move every time an unrelated
+ * run is recorded. Every old run's sentence was then rewritten behind the
+ * athlete's back, at ninety seconds of model time each. A line is regenerated
+ * when the run itself changes — a crop, a re-derive — and at no other time.
  */
 async function hashInput(payload: string): Promise<string> {
   const bytes = new TextEncoder().encode(payload);
@@ -89,9 +94,15 @@ export async function workoutInsight(
   kind: InsightKind,
   locale: SupportedLocale,
   data: unknown,
+  /**
+   * The run's own measured numbers, and nothing else — not its title, not its
+   * notes, not where it ranks against other runs. Changing the title of a run
+   * must not cost a model call.
+   */
+  fingerprint: unknown,
 ): Promise<{ body: string; cached: boolean } | null> {
   const payload = JSON.stringify(data);
-  const inputHash = await hashInput(`${kind}:${locale}:${payload}`);
+  const inputHash = await hashInput(`${kind}:${locale}:${JSON.stringify(fingerprint)}`);
 
   const rows = await db.select().from(workoutInsights).where(and(
     eq(workoutInsights.workoutSessionId, sessionId),

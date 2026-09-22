@@ -375,7 +375,11 @@ app.post('/conversations/:id/messages', async (c) => {
     await db.update(coachActions).set({ messageId: message.id })
       .where(and(eq(coachActions.userId, user.id), inArray(coachActions.id, turn.actionIds)));
     actions = await db.select().from(coachActions)
-      .where(inArray(coachActions.id, turn.actionIds))
+      // Owner predicate on the read too, not just on the UPDATE above: the ids
+      // were minted for this user a few lines ago, but every other query in
+      // this file proves ownership in SQL and this one should not be the
+      // exception a later change has to remember.
+      .where(and(eq(coachActions.userId, user.id), inArray(coachActions.id, turn.actionIds)))
       .orderBy(asc(coachActions.createdAt));
   }
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
@@ -67,9 +68,6 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
   bool _sending = false;
   Object? _error;
 
-  /// Only the newest reply types itself in; history renders instantly.
-  int? _animatingIndex;
-
   /// Action ids with a confirm/cancel request in flight.
   final _busyActions = <String>{};
 
@@ -128,7 +126,6 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       if (!mounted) return;
       setState(() {
         _conversationId = id;
-        _animatingIndex = null;
         _messages
           ..clear()
           ..addAll(history);
@@ -149,7 +146,6 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
     setState(() {
       _conversationId = null;
       _messages.clear();
-      _animatingIndex = null;
       _error = null;
     });
   }
@@ -214,7 +210,6 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       if (!mounted) return;
       setState(() {
         _messages.add(reply);
-        _animatingIndex = _messages.length - 1;
       });
       _scrollToEnd();
     } catch (err) {
@@ -547,30 +542,20 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
       itemBuilder: (_, i) {
         if (i == _messages.length) return const CoachThinkingIndicator();
         final message = _messages[i];
-        final animating = i == _animatingIndex && !message.isUser;
         return Column(
           crossAxisAlignment: message.isUser
               ? CrossAxisAlignment.end
               : CrossAxisAlignment.start,
           children: [
-            _Bubble(
-              message: message,
-              animate: animating,
-              onFinished: () {
-                if (mounted) setState(() => _animatingIndex = null);
-              },
-            ),
-            // Cards wait for the reply to finish typing, so the user reads what
-            // is proposed before being asked to confirm it.
-            if (!animating)
-              for (final action in message.actions)
-                _ActionCard(
-                  action: action,
-                  busy: _busyActions.contains(action.id),
-                  onConfirm: () => _resolve(action, confirm: true),
-                  onCancel: () => _resolve(action, confirm: false),
-                  onOpen: () => _openLink(action),
-                ),
+            _Bubble(message: message),
+            for (final action in message.actions)
+              _ActionCard(
+                action: action,
+                busy: _busyActions.contains(action.id),
+                onConfirm: () => _resolve(action, confirm: true),
+                onCancel: () => _resolve(action, confirm: false),
+                onOpen: () => _openLink(action),
+              ),
           ],
         );
       },
@@ -704,15 +689,9 @@ class _CoachScreenState extends ConsumerState<CoachScreen> {
 }
 
 class _Bubble extends ConsumerWidget {
-  const _Bubble({
-    required this.message,
-    required this.animate,
-    required this.onFinished,
-  });
+  const _Bubble({required this.message});
 
   final CoachMessage message;
-  final bool animate;
-  final VoidCallback onFinished;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -737,10 +716,22 @@ class _Bubble extends ConsumerWidget {
           // Photo-only turns (empty text) must not leave an empty text node.
           if (message.photoAssetId != null)
             _BubblePhoto(assetId: message.photoAssetId!),
+          // The assistant answers in markdown — bold on the numbers that
+          // matter, a list where it is listing things — because a paragraph of
+          // undifferentiated prose is the one thing nobody reads on a phone.
+          // What the user typed is rendered as written: their own asterisks are
+          // punctuation, not formatting.
           if (message.content.isNotEmpty)
-            animate
-                ? TypewriterText(text: message.content, onFinished: onFinished)
-                : SelectableText(message.content),
+            message.isUser
+                ? SelectableText(message.content)
+                : GptMarkdown(
+                    message.content,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.45,
+                      color: RetroTokens.ink,
+                    ),
+                  ),
         ],
       ),
     );

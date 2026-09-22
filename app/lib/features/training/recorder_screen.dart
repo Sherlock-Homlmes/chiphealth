@@ -35,6 +35,16 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   /// the moving time or the pace.
   static const _autoPauseSpeedMs = 0.5;
 
+  /// A climb only counts once it stands this far above the last low point.
+  ///
+  /// GPS altitude wanders by metres, and adding up every positive step between
+  /// two fixes a second apart turns that wander into a mountain — a flat 7 km
+  /// run once read 535 m of climb. The server re-derives the real figure from
+  /// the uploaded stream with a smoothing pass this screen cannot afford to run
+  /// live; the same threshold here keeps the number on the watch face from
+  /// disagreeing with the one on the finished run.
+  static const _elevationMinRiseM = 3.0;
+
   final _samples = <Map<String, dynamic>>[];
   StreamSubscription<Position>? _gps;
   Timer? _ticker;
@@ -49,6 +59,9 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
   int _movingMs = 0;
   double _distanceM = 0;
   double _elevationGainM = 0;
+
+  /// The altitude the climb was last banked at; see [_accumulateClimb].
+  double? _climbRef;
   Position? _last;
   bool _running = false;
   bool _paused = false;
@@ -157,6 +170,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       _samples.clear();
       _distanceM = 0;
       _elevationGainM = 0;
+      _climbRef = null;
       _movingMs = 0;
       _last = null;
       _route.clear();
@@ -244,8 +258,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
         position.latitude,
         position.longitude,
       );
-      final climb = position.altitude - previous.altitude;
-      if (climb > 0) _elevationGainM += climb;
+      _accumulateClimb(position);
     }
 
     _samples.add({
@@ -253,6 +266,12 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       'lat': position.latitude,
       'lng': position.longitude,
       'ele': position.altitude,
+      // Vertical accuracy and the auto-pause verdict both travel with the
+      // sample: the server re-derives ascent and moving time from the stream,
+      // and without these it is guessing at exactly the things this screen
+      // already knows.
+      'ea': position.altitudeAccuracy,
+      'paused': movingNow ? 0 : 1,
       'speed': speed,
     });
 
@@ -262,6 +281,31 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen> {
       _here = here;
       if (movingNow || _route.isEmpty) _route.add(here);
     });
+  }
+
+  /// Hysteresis, the same rule the server applies to the finished stream:
+  /// `_climbRef` follows the altitude down freely and only moves up — banking
+  /// the difference — once the track stands [_elevationMinRiseM] above it. A
+  /// metre of wander on flat ground never crosses the threshold and the total
+  /// stays where it belongs, at zero.
+  void _accumulateClimb(Position position) {
+    final ele = position.altitude;
+    if (!ele.isFinite) return;
+    // A fix that admits it does not know its altitude is not evidence of one.
+    final accuracy = position.altitudeAccuracy;
+    if (accuracy.isFinite && accuracy > 30) return;
+
+    final ref = _climbRef;
+    if (ref == null) {
+      _climbRef = ele;
+      return;
+    }
+    if (ele >= ref + _elevationMinRiseM) {
+      _elevationGainM += ele - ref;
+      _climbRef = ele;
+    } else if (ele < ref) {
+      _climbRef = ele;
+    }
   }
 
   void _pause() => setState(() {

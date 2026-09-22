@@ -674,7 +674,7 @@
   "phanBiCatSeBiXoa": "The trimmed part is deleted for good; distance, time and splits are recalculated.",
   "phanGiacNguGiaiDoanVa": "Sleep, stages and clips outside the new times are cut away.",
   "phanTich": "Analyse",
-  "phanTichKeoDaiQua5": "The analysis took longer than 5 minutes. Please try again.",
+  "phanTichKeoDaiQua5": "The analysis took longer than 15 minutes. Please try again.",
   "phanTichNhipDo": "Pace analysis",
   "phanTramOVung": "{percent}% in Z{zone}",
   "@phanTramOVung": {
@@ -866,6 +866,7 @@
   "thoiGianNgu": "time asleep",
   "thoiGianNhieuNhat": "Most time",
   "thoiGianThucTe": "Elapsed time",
+  "thoiGianDung": "Stopped time",
   "thongBaoGiuChoViecGhi": "This notification keeps snoring and sleep-talk recording running all night.",
   "thongTinCaNhan": "About you",
   "thongTinChiTietVeNhipTim": "Heart-rate insights",

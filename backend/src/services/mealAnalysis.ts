@@ -84,6 +84,24 @@ export function effectiveAnalysis<T extends AnalysisLike>(
 }
 
 /**
+ * What a re-run of a meal would be given, or null when there is nothing to run.
+ *
+ * A photo meal re-runs its photo, which is still in R2. A spoken or typed one
+ * re-runs the words it was given: the clip was thrown away after ASR, but the
+ * transcript is kept on the attempt (meal_ai_analyses.input_text), so a failed
+ * voice meal is as retryable as a photo one. Null is the leftover case — no
+ * photo, and every attempt on this meal predates that column — and it is the
+ * only one the retry endpoint refuses.
+ */
+export function retryableInput(
+  photoR2Key: string | null | undefined, lastInputText: string | null | undefined,
+): { kind: 'photo'; photoR2Key: string } | { kind: 'speech'; transcript: string } | null {
+  if (photoR2Key) return { kind: 'photo', photoR2Key };
+  const transcript = lastInputText?.trim();
+  return transcript ? { kind: 'speech', transcript } : null;
+}
+
+/**
  * Models wrap JSON in prose or fences no matter how firm the instruction is, so
  * pull out the first balanced JSON value instead of trusting the whole response.
  *

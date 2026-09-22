@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { and, desc, eq, gte, lte, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, isNotNull, lte, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   foods, userFoods, userFoodIngredients, mealLogs, mealItems, mealAiAnalyses,
@@ -10,7 +10,9 @@ import { ApiError, notFound } from '../lib/errors';
 import { newId } from '../lib/ids';
 import { localDate } from '../lib/time';
 import { hybridFoodSearch } from '../services/foodSearch';
-import { effectiveAnalysis, recomputeMealTotals } from '../services/mealAnalysis';
+import {
+  effectiveAnalysis, recomputeMealTotals, retryableInput,
+} from '../services/mealAnalysis';
 import { accountLocale } from '../lib/language';
 import { transcribeAudio } from '../services/speech';
 import type { MealAnalysisJob } from '../queue';
@@ -134,13 +136,22 @@ async function summariseMeals(
 
   const countByMeal = new Map(counts.map((r) => [r.mealLogId, r.n]));
   // Ordered newest first, so the first row seen for a meal is its latest run.
-  // The effective status folds the 5-minute timeout in, so a meal whose model
+  // The effective status folds the 15-minute timeout in, so a meal whose model
   // hung reads as failed here too, not just on the detail endpoint.
-  const statusByMeal = new Map<string, { status: string; timedOut: boolean }>();
+  //
+  // `createdAt` rides along because the client runs the same clock as a
+  // backstop: without it every meal in the list looked like a run that had
+  // only just started, and a row stuck `running` because the verdict never
+  // arrived would have spun there forever instead of offering its retry.
+  const statusByMeal = new Map<
+    string, { status: string; timedOut: boolean; createdAt: number | null }
+  >();
   for (const a of analyses) {
     if (statusByMeal.has(a.mealLogId)) continue;
     const eff = effectiveAnalysis({ status: a.status, createdAt: a.createdAt, errorMessage: null });
-    statusByMeal.set(a.mealLogId, { status: eff.status, timedOut: eff.timedOut });
+    statusByMeal.set(a.mealLogId, {
+      status: eff.status, timedOut: eff.timedOut, createdAt: a.createdAt,
+    });
   }
 
   return meals.map((m) => ({
@@ -299,36 +310,68 @@ app.delete('/meals/:id', async (c) => {
 });
 
 /**
+ * Re-running the analysis, for every kind of meal.
+ *
  * Analysis is slow (vision model + retrieval, 30-60 s), so the row is created
  * synchronously and the work runs on the meal-analysis queue — not waitUntil,
  * which is cut off 30 s after the response. The client polls GET /meals/:id.
+ *
+ * A photo meal re-runs its photo. A spoken or typed one re-runs the transcript
+ * its last attempt recorded: the clip was never stored, but the words were, so
+ * "thử lại" means the same thing on every row of the list. Only a meal that has
+ * neither — no photo, and no attempt old enough to have kept its input — is
+ * refused, and it is refused in words the app can put on screen.
  */
 app.post('/meals/:id/analyze', async (c) => {
   const db = c.get('db');
   const meal = await ownedMeal(db, c.get('user').id, c.req.param('id'));
-  if (!meal.photoAssetId) throw new ApiError('VALIDATION_ERROR', 'Meal has no photo');
 
-  const assetRows = await db.select().from(mediaAssets)
-    .where(eq(mediaAssets.id, meal.photoAssetId)).limit(1);
-  const asset = assetRows[0];
-  if (!asset) throw notFound('Photo asset');
+  const asset = meal.photoAssetId
+    ? (await db.select().from(mediaAssets)
+        .where(eq(mediaAssets.id, meal.photoAssetId)).limit(1))[0]
+    : undefined;
+  if (meal.photoAssetId && !asset) throw notFound('Photo asset');
 
-  const { vision, promptVersion } = modelConfig(c.env);
+  // The newest attempt that kept its words; older ones are superseded by it, and
+  // a photo meal never reaches this query.
+  const priorInput = meal.photoAssetId ? [] : await db
+    .select({ inputText: mealAiAnalyses.inputText }).from(mealAiAnalyses)
+    .where(and(
+      eq(mealAiAnalyses.mealLogId, meal.id),
+      isNotNull(mealAiAnalyses.inputText),
+    ))
+    .orderBy(desc(mealAiAnalyses.id)).limit(1);
+
+  const input = retryableInput(asset?.r2Key, priorInput[0]?.inputText);
+  if (!input) {
+    // Distinct on purpose: this is not "your request was malformed", it is
+    // "this particular meal has nothing left to analyse", and the app answers
+    // it by offering to type the meal again rather than by retrying.
+    throw new ApiError(
+      'VALIDATION_ERROR',
+      'Bữa ăn này không còn gì để phân tích lại',
+      { reason: 'NOTHING_TO_ANALYZE' },
+    );
+  }
+
+  const { vision, chat, promptVersion } = modelConfig(c.env);
   const analysisId = newId();
   await db.insert(mealAiAnalyses).values({
     id: analysisId,
     mealLogId: meal.id,
     status: 'running',
-    model: vision,
+    model: input.kind === 'photo' ? vision : chat,
     promptVersion,
+    // Carried onto the new attempt as well: each retry is its own row, and a
+    // retry of a retry has to find the words on the latest one too.
+    inputText: input.kind === 'speech' ? input.transcript : null,
     createdAt: Date.now(),
   });
 
   await enqueueAnalysis(db, c.env, {
-    kind: 'photo',
+    ...input,
     mealLogId: meal.id,
     userId: meal.userId,
-    photoR2Key: asset.r2Key,
     analysisId,
   });
 
@@ -341,6 +384,10 @@ app.post('/meals/:id/analyze', async (c) => {
  * it has been transcribed, and keeping it would mean a new media kind, a new
  * folder and another orphan to sweep. Send `{"transcript": "..."}` as JSON
  * instead to skip ASR — that is what the typed "nhập tay" flow uses.
+ *
+ * The transcript, on the other hand, is kept on the attempt: it is the whole
+ * input of the run, and it is what POST /meals/:id/analyze needs to offer this
+ * meal the same "thử lại" a photo meal gets.
  *
  * Extraction is slow, so it goes through the same queue and polling contract as
  * the photo path: the client polls GET /meals/:id. ASR runs here in the request
@@ -377,6 +424,8 @@ app.post('/meals/:id/voice', async (c) => {
     status: 'running',
     model: transcript ? chat : `${asr} + ${chat}`,
     promptVersion,
+    // Typed meals know their words here; a spoken one only after ASR, below.
+    inputText: transcript,
     createdAt: Date.now(),
   });
 
@@ -391,6 +440,15 @@ app.post('/meals/:id/voice', async (c) => {
     // ever reached, so that case is closed out here.
     await failAnalysis(db, analysisId, err);
     throw err;
+  }
+
+  // The one mutation this otherwise-immutable row allows, and it only fills in
+  // what the attempt was given — nothing about how it went. Written before the
+  // job is enqueued so that a run which fails a second later is already
+  // retryable: the clip is gone by now, these words are all that is left of it.
+  if (transcript === null) {
+    await db.update(mealAiAnalyses).set({ inputText: text })
+      .where(eq(mealAiAnalyses.id, analysisId));
   }
 
   await enqueueAnalysis(db, c.env, {

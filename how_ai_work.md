@@ -24,7 +24,8 @@ dữ liệu nào và gọi tool nào.
    │                            (allow / off_topic / injection). Chặn → trả câu từ chối cố định.
    │
    ├─ LỚP 2  context            buildCoachContext(): hồ sơ, mục tiêu, bệnh nền, hôm nay,
-   │                            7 ngày tập, nợ ngủ + dữ liệu chỉ có trên máy (nước uống)
+   │                            7 ngày tập, nợ ngủ + TỪNG giấc ngủ hôm nay/hôm qua
+   │                            + dữ liệu chỉ có trên máy (nước uống)
    │
    ├─ LỚP 3  vòng lặp agent     ┌──────────────────────────────────────────────┐
    │                            │ model (gemma-4, native tool calling)          │
@@ -36,8 +37,8 @@ dữ liệu nào và gọi tool nào.
    │        tools.ts   ── tool ĐỌC  → chạy ngay qua API nội bộ (token của chính user)
    │                   └─ tool GHI  → KHÔNG ghi; tạo đề xuất (bảng coach_actions, status=pending)
    │
-   └─ LỚP 4  kiểm tra đầu ra    lọc token rác/markdown, chặn nếu lộ system prompt (canary),
-                                huỷ các đề xuất của lượt bị chặn
+   └─ LỚP 4  kiểm tra đầu ra    lọc token rác + chuỗi suy nghĩ rò ra (giữ nguyên markdown),
+                                chặn nếu lộ system prompt (canary), huỷ các đề xuất của lượt bị chặn
    ▼
  Lưu câu trả lời + trace (guard, tool đã gọi, thời gian từng lớp) vào coach_messages.context_json
    ▼
@@ -75,7 +76,10 @@ thứ tự, số vòng; code chỉ thực thi và trả kết quả.
      model nào được "nói" thêm.
    - **Fail-open**: guard lỗi hoặc quá `AI_GUARD_TIMEOUT_MS` (8 s) → cho qua. Lý do: system prompt của agent
      mang cùng luật phạm vi + chống injection; khoá người dùng mỗi khi Workers AI chậm là tệ hơn.
-3. **Lớp 2 – Context**: `buildCoachContext` (tóm tắt nhanh) + `device` (nước uống hôm nay, chỉ có trên máy).
+3. **Lớp 2 – Context**: `buildCoachContext` (tóm tắt nhanh — hồ sơ, bữa ăn hôm nay, 7 ngày tập, nợ ngủ và
+   `sleep.recent`: TỪNG giấc ngủ có ngày thức dậy là hôm nay hoặc hôm qua, kèm giờ đi ngủ/dậy, số giờ và nguồn —
+   một ngày có thể có nhiều giấc nên đây là danh sách, không phải một đêm) + `device` (nước uống hôm nay, chỉ có
+   trên máy).
    Nếu tin nhắn có ảnh: model vision (`coach/vision.md`) mô tả ảnh trước (fail-soft — lỗi thì agent được báo
    "chưa xem được ảnh"); mô tả chèn vào tin nhắn user trong thẻ `<photo_description>` và lưu vào `context_json`
    của tin user, nên các lượt sau trong lịch sử vẫn "thấy" ảnh mà không phải chạy vision lại — chi tiết ở §4.
@@ -83,8 +87,12 @@ thứ tự, số vòng; code chỉ thực thi và trả kết quả.
    **canary** ngẫu nhiên mỗi lượt, và dữ liệu đặt trong `<user_data>` / `<device_data>`.
 4. **Lớp 3 – Vòng lặp agent**: xem §3.
 5. **Lớp 4 – Kiểm tra đầu ra** (`cleanReply`, `leaksSystemPrompt`):
-   - bỏ token điều khiển rò ra từ model (`<|tool_call>…<tool_call|>`, `<|channel>thought…<channel|>`), bỏ
-     markdown (app hiển thị text thuần);
+   - bỏ token điều khiển rò ra từ model (`<|tool_call>…<tool_call|>`, `<|channel>thought…<channel|>`) — kể cả
+     khối **chưa đóng** (cắt hết dòng đó) — và khối `<think>…</think>` (cả dạng thiếu thẻ mở hoặc thẻ đóng);
+   - bỏ dòng đầu/cuối toàn chữ Hán–Nhật–Hàn (suy nghĩ rò ra, vd một chữ "探"); app chỉ có tiếng Việt và tiếng
+     Anh nên dòng không có một chữ Latin nào không thể là câu trả lời — nhưng không bao giờ xoá sạch câu trả lời;
+   - **giữ nguyên markdown**: app render `**đậm**`, danh sách `- `, tiêu đề `##` trong bong bóng chat (bảng,
+     khối code, link, ảnh thì system prompt cấm dùng);
    - nếu câu trả lời chứa canary hoặc tiêu đề đặc trưng của system prompt → thay bằng câu từ chối injection **và
      huỷ mọi đề xuất** tạo trong lượt đó;
    - rỗng → `proposal_only.md` (nếu có đề xuất) hoặc `fallback.md`.
@@ -104,12 +112,22 @@ for step in 0..AI_AGENT_MAX_STEPS-1:
     messages += assistant(tool_calls)
     với mỗi tool_call (tuần tự):
         validate tham số bằng zod → sai: trả lỗi cho model để nó tự sửa
-        tool ĐỌC → chạy, trả JSON (cắt 8 000 ký tự)
+        tool ĐỌC → chạy, trả JSON (ngân sách 8 000 ký tự: bớt DÒNG trong danh sách dài nhất
+                   và thêm {truncated, omitted, note} — không bao giờ cắt giữa chuỗi JSON)
         tool GHI → propose(): kiểm tra với dữ liệu thật, viết mô tả → INSERT coach_actions(pending)
                    trả {status:"pending_confirmation", action_id, summary}
         messages += tool(result)
 nếu hết vòng mà vẫn gọi tool → thêm prompts/agent/finalize.md, gọi thêm 1 lần để buộc trả lời
 ```
+
+Hai lần "sửa" một lần duy nhất mỗi lượt, khi model trả lời mà không gọi tool nào:
+
+| Phát hiện | Sửa bằng | Vì sao |
+|---|---|---|
+| Hứa có thẻ xác nhận (`promisesConfirmCard`) mà lượt đó chưa tạo đề xuất nào | `prompts/agent/card_fix.md` | thẻ chỉ tồn tại khi tool ghi thật sự chạy; nếu không người dùng chờ một cái nút không có |
+| Hứa đi tra dữ liệu (`promisesLookup`) mà lượt đó chưa chạy tool đọc nào | `prompts/agent/read_now.md` | tool đọc chạy ngay, không cần xin phép; "mình sẽ kiểm tra..." rồi kết thúc lượt là để người dùng ôm một lời hứa (sự cố 2026-09-21) |
+
+Mỗi loại chỉ chạy tối đa một vòng sửa (`cardFixUsed` / `readFixUsed`), nên không thể lặp vô hạn.
 
 Ngân sách mỗi lượt (chống loop vô hạn / tốn tiền):
 
@@ -200,7 +218,7 @@ trong code, được chuyển sang JSON Schema tự động. Tham số `null` đ
 | Tool | Gọi API | Trả về cho model |
 |---|---|---|
 | `get_profile` | `GET /v1/me`, `/v1/me/tdee` | tuổi, giới tính, cao, nặng, mức vận động, BMR/TDEE, mục tiêu, bệnh nền |
-| `get_day_summary(date)` | `/nutrition/daily`, `/workouts`, `/sleep/sessions` | calo nạp/đốt/TDEE/cân bằng, macro, bữa (meal_id), buổi tập, giấc ngủ |
+| `get_day_summary(date)` | `/nutrition/daily`, `/workouts`, `/sleep/sessions` | calo nạp/đốt/TDEE/cân bằng, macro, bữa (meal_id), buổi tập, `sleep {session_count, total_asleep_h, sessions[]}` |
 | `get_nutrition_range(from,to)` ≤62 ngày | `/nutrition/range` | calo & macro theo ngày |
 | `list_meals(from,to)` ≤31 ngày | `/meals` | danh sách bữa, calo, trạng thái phân tích |
 | `get_meal(meal_id)` | `/meals/:id` | từng thành phần (item_id, gram, calo, macro) |
@@ -208,7 +226,7 @@ trong code, được chuyển sang JSON Schema tự động. Tham số `null` đ
 | `list_workouts(from,to)` ≤62 ngày | `/workouts` | buổi tập (workout_id, môn, phút, km, kcal) |
 | `list_activity_types` | `/catalog/activity-types` | id + tên môn (cần cho create_workout) |
 | `get_training_records` | `/training/records` | kỷ lục cá nhân |
-| `list_sleep(from,to)` ≤62 ngày | `/sleep/sessions` | các đêm (sleep_id, giờ ngủ/dậy, số giờ, điểm) |
+| `list_sleep(from,to)` ≤62 ngày | `/sleep/sessions` | `sessions[]` — MỌI giấc ngủ, đêm lẫn giấc ngủ ngày (sleep_id, ngày thức dậy, giờ ngủ/dậy, số giờ, điểm, nguồn) + `days[]` với `session_count` mỗi ngày |
 | `get_sleep_debt` | `/sleep/debt` | nợ ngủ 14 ngày |
 | `list_body_metrics(from,to)` | `/me/body-metrics` | lịch sử cân nặng, % mỡ, vòng eo… |
 
@@ -226,7 +244,7 @@ trong code, được chuyển sang JSON Schema tự động. Tham số `null` đ
 | `create_workout(activity_type_id, started_at, duration_min, distance_km?, calories_kcal?, title?, notes?)` | `POST /v1/workouts` (`source=manual_entry`) | không có calo → server ước tính theo MET × cân nặng |
 | `update_workout(workout_id, …)` | `PATCH /v1/workouts/:id` | |
 | `delete_workout(workout_id)` | `PATCH /v1/workouts/:id {isDeleted:true}` | xoá mềm |
-| `log_sleep(bedtime, wake_time, latency_min?)` | `POST /v1/sleep/sessions` (`source=manual`) | mỗi ngày thức dậy 1 đêm — thẻ cảnh báo nếu sẽ ghi đè |
+| `log_sleep(bedtime, wake_time, latency_min?)` | `POST /v1/sleep/sessions` (`source=manual`) | luôn THÊM một giấc mới (không gửi id nên API insert); một ngày thức dậy có thể có nhiều giấc — thẻ nói rõ ngày đó đã có mấy giấc |
 | `update_sleep(sleep_id, bedtime?, wake_time?)` | `PATCH /v1/sleep/sessions/:id` | |
 | `log_body_metrics(weight_kg?, height_cm?, body_fat_percent?, muscle_mass_kg?, waist_cm?, measured_at?)` | `POST /v1/me/body-metrics` | cần ít nhất 1 chỉ số |
 
