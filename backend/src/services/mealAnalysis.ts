@@ -38,16 +38,16 @@ export interface DetectedComponent {
  * leaves the row `running` forever, so every reader applies the same clock:
  * past this point a still-active attempt is reported as failed (timed out).
  */
-export const MEAL_ANALYSIS_TIMEOUT_MS = 5 * 60_000;
+export const MEAL_ANALYSIS_TIMEOUT_MS = 10 * 60_000;
 
-export const ANALYSIS_TIMEOUT_MESSAGE = 'Phân tích kéo dài quá 5 phút';
+export const ANALYSIS_TIMEOUT_MESSAGE = 'Phân tích kéo dài quá 10 phút';
 
 /**
  * What one attempt actually gives itself. The run has to be *written* before
  * [MEAL_ANALYSIS_TIMEOUT_MS], not merely still going at it, so the pipeline
  * works to an earlier deadline and spends the difference closing the row out.
  * Past this point the remaining model calls are skipped rather than started:
- * a meal with a few unpriced components beats "phân tích kéo dài quá 5 phút".
+ * a meal with a few unpriced components beats "phân tích kéo dài quá 10 phút".
  */
 export const MEAL_ANALYSIS_BUDGET_MS = MEAL_ANALYSIS_TIMEOUT_MS - 45_000;
 
@@ -333,7 +333,7 @@ async function lookupComponent(
  * result. A photo of a tray can come back with twenty components, and firing
  * twenty lookups at once puts twenty concurrent subrequests and twenty model
  * calls in flight: Workers AI queues them behind each other and the whole
- * analysis walks into the five-minute wall. A small pool finishes sooner than
+ * analysis walks into the ten-minute wall. A small pool finishes sooner than
  * an unbounded fan-out that is being rate-limited.
  */
 export async function mapPool<T, R>(

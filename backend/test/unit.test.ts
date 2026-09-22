@@ -251,11 +251,11 @@ check('an unmentioned filling does not fit', foodNameFits('Bánh mì', 'Bánh m�
 check('diacritics count when written', foodNameFits('trà', 'tra'), null);
 check('unaccented input still matches', foodNameFits('pho bo', 'Phở bò'), 'exact');
 
-console.log('\n# analysis timeout (15 minutes, read-side)');
+console.log('\n# analysis timeout (10 minutes, read-side)');
 const NOW = Date.parse('2026-09-09T12:00:00Z');
 const run = (status: string, ageMs: number, errorMessage: string | null = null) =>
   ({ status, createdAt: NOW - ageMs, errorMessage });
-check('timeout is five minutes', MEAL_ANALYSIS_TIMEOUT_MS, 300_000);
+check('timeout is ten minutes', MEAL_ANALYSIS_TIMEOUT_MS, 600_000);
 check('fresh run stays running', effectiveAnalysis(run('running', 60_000), NOW),
   { status: 'running', createdAt: NOW - 60_000, errorMessage: null, timedOut: false });
 check('run past the deadline reads as failed',

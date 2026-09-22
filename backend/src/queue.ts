@@ -12,7 +12,7 @@ import type { Bindings } from './env';
  *
  * Why a queue and not waitUntil: waitUntil lives at most 30 s past the response,
  * and the vision model alone takes 30-60 s — the run was cut off mid-flight and
- * sat `running` until the 15-minute timeout called it failed. A queue consumer
+ * sat `running` until the 10-minute timeout called it failed. A queue consumer
  * gets minutes, and a consumer that dies (deploy, dev hot-reload) leaves the
  * message unacked, so it is delivered again instead of lost.
  */
@@ -60,7 +60,7 @@ const bootedAt = Date.now();
  * Local dev only. `wrangler dev` keeps its queue in memory and reloads the
  * Worker whenever a source file changes, so a reload in the middle of an
  * analysis drops the job for good and the meal sits "analysing" until the
- * 15-minute timeout. In production the queue is durable and redelivers on its
+ * 10-minute timeout. In production the queue is durable and redelivers on its
  * own; here there is a single isolate, so the first request a fresh one serves
  * knows every run still marked `running` lost its job, and puts it back.
  *
@@ -101,7 +101,7 @@ export async function requeueOrphanedAnalyses(env: Bindings, db: Db): Promise<vo
       });
     } else {
       // Nothing left to run: an attempt from before input_text existed. Failed
-      // now rather than left to the 15-minute clock — and the meal stays put, so
+      // now rather than left to the 10-minute clock — and the meal stays put, so
       // the user still has the row and can log it again from there.
       await db.update(mealAiAnalyses).set({
         status: 'failed',

@@ -136,7 +136,7 @@ async function summariseMeals(
 
   const countByMeal = new Map(counts.map((r) => [r.mealLogId, r.n]));
   // Ordered newest first, so the first row seen for a meal is its latest run.
-  // The effective status folds the 15-minute timeout in, so a meal whose model
+  // The effective status folds the 10-minute timeout in, so a meal whose model
   // hung reads as failed here too, not just on the detail endpoint.
   //
   // `createdAt` rides along because the client runs the same clock as a

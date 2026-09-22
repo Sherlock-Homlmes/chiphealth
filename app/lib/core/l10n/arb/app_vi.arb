@@ -674,7 +674,7 @@
   "phanBiCatSeBiXoa": "Phần bị cắt sẽ bị xoá vĩnh viễn, quãng đường, thời gian và chia chặng được tính lại.",
   "phanGiacNguGiaiDoanVa": "Phần giấc ngủ, giai đoạn và clip nằm ngoài khoảng giờ mới sẽ bị cắt bỏ.",
   "phanTich": "Phân tích",
-  "phanTichKeoDaiQua5": "Phân tích kéo dài quá 15 phút. Hãy thử lại nhé.",
+  "phanTichKeoDaiQua5": "Phân tích kéo dài quá 10 phút. Hãy thử lại nhé.",
   "phanTichNhipDo": "Phân tích nhịp độ",
   "phanTramOVung": "{percent}% ở Z{zone}",
   "@phanTramOVung": {

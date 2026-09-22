@@ -65,7 +65,7 @@ export function modelConfig(env: Bindings) {
     guardTimeoutMs: num(env.AI_GUARD_TIMEOUT_MS, 8000),
     agentCallTimeoutMs: num(env.AI_AGENT_CALL_TIMEOUT_MS, 45000),
     /**
-     * Meal analysis, whose whole run is on a five-minute clock (see
+     * Meal analysis, whose whole run is on a ten-minute clock (see
      * services/mealAnalysis.ts). Detection is the long pole; the estimate call
      * is short and there can be several. The last three bound how much work a
      * busy plate can create: without them a forty-component photo fires forty
