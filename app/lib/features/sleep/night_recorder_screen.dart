@@ -143,36 +143,51 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
         );
         final recorder = AudioRecorder();
         await _startKeepAlive();
+        // Echo cancellation keeps the phone's own night sounds — white
+        // noise, a podcast, a radio alarm — out of the classifier, but the
+        // two platforms pay for it very differently.
+        //
+        // Android's AcousticEchoCanceler attaches to the voice-communication
+        // capture path and only touches what the mic records, so it stays on
+        // there — with the voice-communication source, which that canceler
+        // needs to have something to cancel against.
+        //
+        // On iOS the same flag switches the input to Apple's voice-processing
+        // I/O, which takes over the output path as well and drags everything
+        // the phone plays down to call volume for the whole night. Audible
+        // beats a marginally cleaner spectrogram, so iOS records the room
+        // as it is and the classifier lives with the speaker in the mix.
+        final isAndroid = defaultTargetPlatform == TargetPlatform.android;
         final stream = await recorder.startStream(
-          const RecordConfig(
+          RecordConfig(
             encoder: AudioEncoder.pcm16bits,
             sampleRate: 16000, // YAMNet's expected input rate
             numChannels: 1,
-            // The phone is usually playing something itself all night — white
-            // noise, a podcast, an alarm's radio — and the mic hears its own
-            // speaker, which the classifier then scores as a room full of
-            // noise. Echo cancellation subtracts what the device is playing
-            // from what the mic picks up, so only the room is left.
-            //
-            // On Android that means the voice-communication source as well:
-            // AcousticEchoCanceler attaches to that capture path, and on the
-            // plain mic source it has nothing to cancel against.
-            //
+            echoCancel: isAndroid,
             // Noise suppression and auto-gain stay off on purpose — they are
             // tuned for speech and would file a snore away as noise, or ride
             // the gain until a quiet room sounds like a loud one.
-            echoCancel: true,
             noiseSuppress: false,
             autoGain: false,
-            androidConfig: AndroidRecordConfig(
+            androidConfig: const AndroidRecordConfig(
               audioSource: AndroidAudioSource.voiceCommunication,
             ),
             // Resume after interruptions (a call, Siri) instead of pausing for
             // the rest of the night — the record plugin's own background
             // recipe, which requires mixWithOthers for the resume to stick.
             audioInterruption: AudioInterruptionMode.pauseResume,
-            iosConfig: IosRecordConfig(
-              categoryOptions: [IosAudioCategoryOption.mixWithOthers],
+            // playAndRecord sends playback to the earpiece unless the session
+            // asks for the speaker, which is the other half of the "why is
+            // everything so quiet" problem. allowBluetooth (HFP/SCO) is left
+            // out deliberately: it would drop a paired headset to narrowband
+            // call audio. A2DP and AirPlay keep the playback route intact.
+            iosConfig: const IosRecordConfig(
+              categoryOptions: [
+                IosAudioCategoryOption.mixWithOthers,
+                IosAudioCategoryOption.defaultToSpeaker,
+                IosAudioCategoryOption.allowBluetoothA2DP,
+                IosAudioCategoryOption.allowAirPlay,
+              ],
             ),
           ),
         );
