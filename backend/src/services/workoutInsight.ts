@@ -115,8 +115,10 @@ export async function workoutInsight(
   const focus = promptSections(PROMPTS.workoutInsightFocus).get(kind);
   if (focus === undefined) throw new Error(`prompts/workout/insight_focus.md has no section ${kind}`);
 
-  const { chat, chatTemperature, workoutInsightTimeoutMs, workoutInsightMaxTokens } =
-    modelConfig(env);
+  const {
+    chat, chatTemperature, workoutInsightTimeoutMs, workoutInsightMaxTokens,
+    workoutInsightReasoningEffort,
+  } = modelConfig(env);
 
   let body: string | null = null;
   try {
@@ -134,6 +136,7 @@ export async function workoutInsight(
         ],
         max_tokens: workoutInsightMaxTokens,
         temperature: chatTemperature,
+        reasoning_effort: workoutInsightReasoningEffort,
       } as never),
       workoutInsightTimeoutMs,
       'workout insight',

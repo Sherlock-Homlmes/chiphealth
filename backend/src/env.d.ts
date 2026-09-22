@@ -45,6 +45,7 @@ export interface Bindings {
   AI_MEAL_ESTIMATE_BATCH?: string;
   AI_WORKOUT_INSIGHT_TIMEOUT_MS?: string;
   AI_WORKOUT_INSIGHT_MAX_TOKENS?: string;
+  AI_WORKOUT_INSIGHT_REASONING_EFFORT?: string;
   AI_AGENT_RATE_PER_MINUTE?: string;
   AI_AGENT_RATE_PER_DAY?: string;
 

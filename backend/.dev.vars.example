@@ -123,6 +123,7 @@ AI_MEAL_ESTIMATE_BATCH=12
 # Athlete Intelligence: one sentence about a finished run, hidden if it is late.
 AI_WORKOUT_INSIGHT_TIMEOUT_MS=90000
 AI_WORKOUT_INSIGHT_MAX_TOKENS=4096
+AI_WORKOUT_INSIGHT_REASONING_EFFORT=low
 
 # ---------------------------------------------------------------------------
 # Hybrid food retrieval (BM25 via FTS5  +  ANN via Vectorize  ->  RRF)

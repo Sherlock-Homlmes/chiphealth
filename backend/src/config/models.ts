@@ -91,6 +91,13 @@ export function modelConfig(env: Bindings) {
      */
     workoutInsightTimeoutMs: num(env.AI_WORKOUT_INSIGHT_TIMEOUT_MS, 90000),
     workoutInsightMaxTokens: num(env.AI_WORKOUT_INSIGHT_MAX_TOKENS, 4096),
+    /**
+     * And it thinks far more than one sentence is worth: most of the budget
+     * above went on deliberation, which is what made the leash long in the
+     * first place. `low` keeps the reasoning short so the line arrives while
+     * the screen is still open. Models without the switch ignore it.
+     */
+    workoutInsightReasoningEffort: env.AI_WORKOUT_INSIGHT_REASONING_EFFORT ?? 'low',
     /** Assistant messages a user may send per rolling minute / per rolling day. */
     agentRatePerMinute: num(env.AI_AGENT_RATE_PER_MINUTE, 6),
     agentRatePerDay: num(env.AI_AGENT_RATE_PER_DAY, 150),
