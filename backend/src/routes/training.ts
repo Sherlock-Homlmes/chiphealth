@@ -1,10 +1,10 @@
 import { Hono, type Context } from 'hono';
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   workoutSessions, workoutStreams, workoutSplits, workoutStrengthSets,
   workoutZoneSummaries, heartRateZones, personalRecords, mediaAssets, activityTypes,
-  workoutPhotos, userProfiles,
+  workoutPhotos, userProfiles, workoutBestEfforts, racePredictions,
 } from '../db/schema';
 import { parseBody, parseQuery, paginationSchema, page, isoDateSchema } from '../lib/http';
 import { ApiError, notFound } from '../lib/errors';
@@ -15,6 +15,9 @@ import {
   insertZoneSet, zoneSetEffectiveAt, currentZoneSet,
 } from '../services/workoutStream';
 import { detectPersonalRecords, dropRecordsForSession } from '../services/personalRecords';
+import {
+  effortCounters, gradeAdjustedPace, paceZoneRanges, persistRunAnalysis,
+} from '../services/runAnalysis';
 import { loadTdeeInputs, recomputeDailyNutritionSummary } from '../services/nutritionMath';
 import { insertMany } from '../db/client';
 import {
@@ -22,6 +25,10 @@ import {
   predictionSeries, zoneBreakdown, monthOf, previousMonth, monthSeries, suggestWorkout,
   type ProgressSession,
 } from '../services/trainingProgress';
+import {
+  distanceText, durationText, isInsightKind, paceText, workoutInsight,
+} from '../services/workoutInsight';
+import { accountLocale } from '../lib/language';
 import type { AppEnv } from '../env';
 
 const app = new Hono<AppEnv>();
@@ -42,6 +49,8 @@ const workoutSchema = z.object({
   distanceM: z.number().nonnegative().nullish(),
   avgHeartRate: z.number().int().nullish(),
   maxHeartRate: z.number().int().nullish(),
+  /** Steps per minute. The only thing the step count on the detail screen has. */
+  avgCadence: z.number().int().positive().max(300).nullish(),
   elevationGainM: z.number().nullish(),
   caloriesBurnedKcal: z.number().nonnegative().nullish(),
   caloriesAreEstimated: z.boolean().default(true),
@@ -165,6 +174,7 @@ app.post('/workouts', async (c) => {
     distanceM: body.distanceM ?? null,
     avgHeartRate: body.avgHeartRate ?? null,
     maxHeartRate: body.maxHeartRate ?? null,
+    avgCadence: body.avgCadence ?? null,
     elevationGainM: body.elevationGainM ?? null,
     caloriesBurnedKcal: body.caloriesBurnedKcal
       ?? await estimateCalories(db, user.id, body.activityTypeId, body.movingSeconds || duration, body.distanceM),
@@ -309,9 +319,10 @@ async function photosBySession(
 
 app.get('/workouts/:id', async (c) => {
   const db = c.get('db');
-  const session = await ownedWorkout(db, c.get('user').id, c.req.param('id'));
+  const userId = c.get('user').id;
+  const session = await ownedWorkout(db, userId, c.req.param('id'));
 
-  const [stream, splits, zones, sets, photos] = await Promise.all([
+  const [stream, splits, zones, sets, photos, efforts, predictions] = await Promise.all([
     db.select().from(workoutStreams)
       .where(eq(workoutStreams.workoutSessionId, session.id)).limit(1),
     db.select().from(workoutSplits)
@@ -324,16 +335,169 @@ app.get('/workouts/:id', async (c) => {
       .where(eq(workoutStrengthSets.workoutSessionId, session.id))
       .orderBy(asc(workoutStrengthSets.exerciseId), asc(workoutStrengthSets.setIndex)),
     photosBySession(db, [session.id]),
+    db.select().from(workoutBestEfforts)
+      .where(eq(workoutBestEfforts.workoutSessionId, session.id))
+      .orderBy(asc(workoutBestEfforts.distanceM)),
+    // The board as it stands, plus whatever this run moved — the screen needs
+    // both: the standing 5 km time captions the pace zones, and the rows this
+    // session wrote are what the "prediction improved" card is about.
+    db.select().from(racePredictions).where(and(
+      eq(racePredictions.userId, userId),
+      eq(racePredictions.activityTypeId, session.activityTypeId),
+      or(
+        eq(racePredictions.isCurrent, true),
+        eq(racePredictions.workoutSessionId, session.id),
+      ),
+    )),
   ]);
+
+  const currentPredictions = predictions.filter((p) => p.isCurrent);
+  const fiveK = currentPredictions.find((p) => p.distanceM === 5000)?.predictedSeconds ?? null;
 
   return c.json({
     ...session,
     stream: stream[0] ?? null,
     splits,
-    zones,
+    zones: zones.filter((z) => z.kind === 'hr'),
+    paceZones: zones.filter((z) => z.kind === 'pace'),
+    // Recomputed rather than stored: the ranges are a pure function of the
+    // 5 km prediction, and the screen prints them next to the times.
+    paceZoneRanges: fiveK === null ? [] : paceZoneRanges(fiveK),
+    paceZoneBasisSeconds: fiveK,
     sets,
     photoAssetIds: photos.get(session.id) ?? [],
+    bestEfforts: efforts,
+    effortCounters: effortCounters(efforts),
+    predictions: currentPredictions.map((p) => ({
+      distanceM: p.distanceM,
+      seconds: Math.round(p.predictedSeconds),
+    })),
+    predictionImproved: predictions
+      .filter((p) => p.workoutSessionId === session.id && p.previousSeconds !== null)
+      .map((p) => ({
+        distanceM: p.distanceM,
+        seconds: Math.round(p.predictedSeconds),
+        improvedBySeconds: Math.round(p.previousSeconds! - p.predictedSeconds),
+      }))
+      .filter((p) => p.improvedBySeconds > 0)
+      .sort((a, b) => b.improvedBySeconds - a.improvedBySeconds),
   });
+});
+
+/**
+ * Athlete Intelligence: one coached sentence about the run, in the athlete's
+ * language. Its own endpoint rather than a field on the detail response
+ * because it is the one part of the screen that waits on a model — the sheet
+ * renders its numbers immediately and each card fills in when its line lands,
+ * or stays hidden when it does not.
+ */
+app.get('/workouts/:id/insight/:kind', async (c) => {
+  const kind = c.req.param('kind');
+  if (!isInsightKind(kind)) {
+    throw new ApiError('VALIDATION_ERROR', `Unknown insight kind: ${kind}`);
+  }
+  const db = c.get('db');
+  const user = c.get('user');
+  const session = await ownedWorkout(db, user.id, c.req.param('id'));
+
+  const [splits, efforts, zones, predictions] = await Promise.all([
+    db.select().from(workoutSplits)
+      .where(eq(workoutSplits.workoutSessionId, session.id))
+      .orderBy(asc(workoutSplits.splitIndex)),
+    db.select().from(workoutBestEfforts)
+      .where(eq(workoutBestEfforts.workoutSessionId, session.id))
+      .orderBy(asc(workoutBestEfforts.distanceM)),
+    db.select().from(workoutZoneSummaries).where(and(
+      eq(workoutZoneSummaries.workoutSessionId, session.id),
+      eq(workoutZoneSummaries.kind, 'pace'),
+    )).orderBy(asc(workoutZoneSummaries.zoneNumber)),
+    db.select().from(racePredictions).where(and(
+      eq(racePredictions.userId, user.id),
+      eq(racePredictions.activityTypeId, session.activityTypeId),
+      eq(racePredictions.isCurrent, true),
+    )),
+  ]);
+
+  // Only what the sentence is allowed to talk about, and in the units a reader
+  // uses: a model handed the whole session row invents a narrative out of the
+  // fields it recognises, and one handed raw seconds spends its answer working
+  // out what they mean.
+  const shared = {
+    quang_duong: distanceText(session.distanceM),
+    thoi_gian_di_chuyen: durationText(session.movingSeconds),
+    nhip_do_tb: paceText(session.avgPaceSecPerKm),
+  };
+  const data = kind === 'overview'
+    ? {
+      ...shared,
+      do_cao_tang: session.elevationGainM === null ? null : `${Math.round(session.elevationGainM)} m`,
+      nhip_do_dieu_chinh_doc: paceText(session.gapSecPerKm),
+      thanh_tich: efforts.map((e) => ({
+        cu_ly: distanceText(e.distanceM),
+        thoi_gian: durationText(e.elapsedSeconds),
+        hang: e.rank,
+      })),
+      du_doan: predictions.map((p) => ({
+        cu_ly: distanceText(p.distanceM),
+        thoi_gian: durationText(p.predictedSeconds),
+      })),
+    }
+    : kind === 'pace'
+      ? (() => {
+        // The shape of the run rather than the whole split table: handed all
+        // eleven kilometres the model narrates each one in its scratchpad and
+        // runs out of budget before it writes a sentence.
+        const paces = splits
+          .map((sp) => sp.avgPaceSecPerKm)
+          .filter((p): p is number => p !== null);
+        return {
+          ...shared,
+          thoi_gian_thuc_te: durationText(session.durationSeconds),
+          so_chang: splits.length,
+          chang_dau: paceText(paces[0] ?? null),
+          chang_cuoi: paceText(paces[paces.length - 1] ?? null),
+          chang_nhanh_nhat: paces.length ? paceText(Math.min(...paces)) : null,
+          chang_cham_nhat: paces.length ? paceText(Math.max(...paces)) : null,
+          nua_dau_so_voi_nua_sau: paces.length >= 4
+            ? (() => {
+              const half = Math.floor(paces.length / 2);
+              const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+              const delta = Math.round(mean(paces.slice(half)) - mean(paces.slice(0, half)));
+              return delta === 0 ? 'đều nhau'
+                : delta > 0 ? `nửa sau chậm hơn ${delta} giây mỗi km`
+                  : `nửa sau nhanh hơn ${-delta} giây mỗi km`;
+            })()
+            : null,
+        };
+      })()
+      : {
+        ...shared,
+        phan_tram_thoi_gian_moi_vung: Object.fromEntries(
+          zones.map((z) => [`Z${z.zoneNumber}`, `${z.percentOfSession ?? 0}%`]),
+        ),
+        du_doan_5km: durationText(
+          predictions.find((p) => p.distanceM === 5000)?.predictedSeconds ?? null,
+        ),
+      };
+
+  const locale = await accountLocale(db, user);
+  const insight = await workoutInsight(db, c.env, session.id, kind, locale, data);
+  return c.json({ kind, body: insight?.body ?? null });
+});
+
+/**
+ * Saving a run. It is a flag on the session rather than a table of its own —
+ * only the owner ever sees their workouts, so there is no second party whose
+ * bookmark would need a row.
+ */
+app.post('/workouts/:id/bookmark', async (c) => {
+  const body = await parseBody(c, z.object({ bookmarked: z.boolean() }));
+  const db = c.get('db');
+  const session = await ownedWorkout(db, c.get('user').id, c.req.param('id'));
+  await db.update(workoutSessions)
+    .set({ isBookmarked: body.bookmarked, updatedAt: Date.now() })
+    .where(eq(workoutSessions.id, session.id));
+  return c.json({ bookmarked: body.bookmarked });
 });
 
 app.patch('/workouts/:id', async (c) => {
@@ -412,7 +576,8 @@ async function applyStream(
   text: string,
   sampleIntervalS?: number | null,
 ) {
-  const derivation = deriveFromSamples(normaliseSamples(parseSampleStream(text)));
+  const samples = normaliseSamples(parseSampleStream(text));
+  const derivation = deriveFromSamples(samples);
   const zoneSet = await zoneSetEffectiveAt(db, userId, session.startedAt)
     ?? await insertZoneSet(db, userId, session.startedAt);
 
@@ -475,6 +640,7 @@ async function applyStream(
       (chunk) => db.insert(workoutZoneSummaries).values(chunk),
       zoneTimes.map((z) => ({
         workoutSessionId: session.id,
+        kind: 'hr' as const,
         zoneNumber: z.zoneNumber,
         secondsInZone: z.seconds,
         percentOfSession: z.percent,
@@ -498,7 +664,19 @@ async function applyStream(
   await refreshEstimatedCalories(db, userId, session.id);
 
   const records = await detectPersonalRecords(db, userId, session.id);
-  return { derivation, zoneTimes, records };
+  // Best efforts, predictions, pace zones and GAP. It reads the session row
+  // back for the cadence and moving time the update above just wrote.
+  const analysis = await persistRunAnalysis(
+    db, userId,
+    {
+      id: session.id,
+      activityTypeId: session.activityTypeId,
+      avgCadence: session.avgCadence,
+      movingSeconds: totals.movingSeconds || session.movingSeconds,
+    },
+    samples, derivation.cumulative, now,
+  );
+  return { derivation, zoneTimes, records, analysis };
 }
 
 /**
@@ -555,26 +733,63 @@ const TRACK_MAX_POINTS = 1500;
 
 /**
  * Timed GPS points (t = seconds from the first sample, d = cumulative metres)
- * for replaying the route and picking crop bounds. The stored polyline has no
- * timestamps, so this reads the raw stream.
+ * for replaying the route, picking crop bounds and drawing the detail screen's
+ * charts. The stored polyline has no timestamps, so this reads the raw stream.
+ *
+ * One endpoint serves all three because they want the same series at different
+ * resolutions: `points` trades detail for payload, and the charts ask for a few
+ * hundred while crop asks for everything it can get.
+ *
+ * `pace` and `gap` are measured across the gap to the PREVIOUS returned point,
+ * not between raw samples — at a one-second sample rate a runner covers about
+ * three metres, and a pace computed over three metres is GPS noise.
  */
 app.get('/workouts/:id/track', async (c) => {
+  const query = parseQuery(c, z.object({
+    points: z.coerce.number().int().min(50).max(TRACK_MAX_POINTS).default(TRACK_MAX_POINTS),
+  }));
   const session = await ownedWorkout(c.get('db'), c.get('user').id, c.req.param('id'));
   const { text } = await streamObject(c, session.id);
   const gps = normaliseSamples(parseSampleStream(text))
     .filter((s) => s.lat !== null && s.lng !== null);
-  const stride = Math.max(1, Math.ceil(gps.length / TRACK_MAX_POINTS));
-  const points = gps
-    .filter((_, i) => i % stride === 0 || i === gps.length - 1)
-    .map((s) => ({
+  const stride = Math.max(1, Math.ceil(gps.length / query.points));
+  const kept = gps.filter((_, i) => i % stride === 0 || i === gps.length - 1);
+
+  const items = kept.map((s, i) => {
+    const prev = i > 0 ? kept[i - 1]! : null;
+    let pace: number | null = null;
+    let gap: number | null = null;
+    if (prev) {
+      const dd = s.d - prev.d;
+      const dt = s.t - prev.t;
+      if (dd > 1 && dt > 0) {
+        const raw = (dt / dd) * 1000;
+        // Same noise floor as the session totals: nothing under 2:00/km is real.
+        if (raw >= 120 && raw <= 3600) {
+          pace = Math.round(raw);
+          const grade = s.ele !== null && prev.ele !== null ? (s.ele - prev.ele) / dd : 0;
+          gap = Math.round(gradeAdjustedPace(raw, grade));
+        }
+      }
+    }
+    return {
       t: Math.round(s.t * 10) / 10,
       lat: s.lat,
       lng: s.lng,
       d: Math.round(s.d),
       ele: s.ele,
       hr: s.hr,
-    }));
-  return c.json({ items: points });
+      pace,
+      gap,
+    };
+  });
+  // The first point has no predecessor to measure against; it borrows the
+  // second's pace so the chart starts on the line rather than at zero.
+  if (items.length > 1) {
+    items[0]!.pace = items[1]!.pace;
+    items[0]!.gap = items[1]!.gap;
+  }
+  return c.json({ items });
 });
 
 /**

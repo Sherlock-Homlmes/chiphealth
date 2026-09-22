@@ -80,6 +80,15 @@ export function modelConfig(env: Bindings) {
      * one four-item extraction took 131 s end to end.
      */
     mealEstimateBatchSize: num(env.AI_MEAL_ESTIMATE_BATCH, 12),
+    /**
+     * Athlete Intelligence: one sentence about a finished run. The answer is
+     * one line, but the model thinks out loud first and the reasoning comes out
+     * of the same budget — at 256 tokens it spent the lot deliberating and
+     * returned an empty message. The card is hidden if the line is late, so the
+     * leash stays short relative to the rest of the AI work in the app.
+     */
+    workoutInsightTimeoutMs: num(env.AI_WORKOUT_INSIGHT_TIMEOUT_MS, 90000),
+    workoutInsightMaxTokens: num(env.AI_WORKOUT_INSIGHT_MAX_TOKENS, 4096),
     /** Assistant messages a user may send per rolling minute / per rolling day. */
     agentRatePerMinute: num(env.AI_AGENT_RATE_PER_MINUTE, 6),
     agentRatePerDay: num(env.AI_AGENT_RATE_PER_DAY, 150),

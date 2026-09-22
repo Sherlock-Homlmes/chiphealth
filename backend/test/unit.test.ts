@@ -35,6 +35,12 @@ import { PROMPTS, renderPrompt, promptSections } from '../src/prompts';
 import { matchesInjectionPattern, leaksSystemPrompt, normaliseInput } from '../src/services/agent/guard';
 import { cleanReply, parseCompletion, promisesConfirmCard } from '../src/services/agent/agent';
 import { AGENT_TOOLS, toolDefinitions } from '../src/services/agent/tools';
+import {
+  effortCounters, effortsForRun, elevationMax, fastestWindow, gapFromSegments,
+  gradeAdjustedPace, gradeFactor, paceZoneRanges, paceZoneTimes, predictFromEfforts,
+  riegel, segmentsFromSamples, stepsFromCadence,
+} from '../src/services/runAnalysis';
+import { tidyInsight } from '../src/services/workoutInsight';
 
 let passed = 0;
 let failed = 0;
@@ -660,6 +666,105 @@ console.log('\n# training progress');
   check('a sport chip matches only itself', matchesSport('running', 'walking'), false);
   check('a treadmill session is running', sportOf('treadmill'), 'run');
   check('a hike is a walk', sportOf('hiking'), 'walk');
+}
+
+console.log('\n# a run is more than its totals');
+{
+  check('flat ground costs exactly what it costs', Math.round(gradeFactor(0) * 1000), 1000);
+  check('a 10% climb costs about 70% more than the flat',
+    Math.round(gradeFactor(0.1) * 10) / 10, 1.7);
+  // Uphill work buys a faster flat-equivalent pace; a gentle descent buys a
+  // little too, which is why the factor dips below 1 before rising again.
+  check('GAP is faster than the pace actually run uphill',
+    gradeAdjustedPace(480, 0.06) < 480, true);
+  check('GAP is slower than the pace actually run on a steep descent',
+    gradeAdjustedPace(480, -0.3) > 480, true);
+  check('an absurd gradient is clamped rather than extrapolated',
+    gradeFactor(5) === gradeFactor(0.45), true);
+
+  // 4 km at an even 5:00/km, with the third kilometre run in 4:00.
+  const points = [
+    { d: 0, t: 0 }, { d: 1000, t: 300 }, { d: 2000, t: 600 },
+    { d: 3000, t: 840 }, { d: 4000, t: 1140 },
+  ];
+  const km = fastestWindow(points, 1000);
+  check('the fastest kilometre is the fast one, and it says where it was',
+    [km?.seconds, km?.startDistanceM, km?.endDistanceM], [240, 2000, 3000]);
+  check('a distance the run never covered has no window',
+    fastestWindow(points, 5000), null);
+  const efforts = effortsForRun(points);
+  check('only the distances the run covered are scored',
+    efforts.map((e) => e.distanceM), [400, 805, 1000, 1609, 3219]);
+
+  check('Riegel doubles a 5 km into a 10 km with a penalty',
+    Math.round(riegel(1200, 5000, 10000)), 2502);
+  check('the prediction extrapolates from the closest distance, not the flattering one',
+    predictFromEfforts([
+      { distanceM: 5000, seconds: 1500 }, { distanceM: 10000, seconds: 3200 },
+    ], 10000), 3200);
+  check('with nothing at the distance it falls back to what there is',
+    predictFromEfforts([{ distanceM: 5000, seconds: 1500 }], 10000), 3127);
+  check('a sprint is not evidence about a marathon',
+    predictFromEfforts([{ distanceM: 400, seconds: 70 }], 42195), null);
+  check('nothing to go on predicts nothing', predictFromEfforts([], 10000), null);
+
+  // 5 km predicted in 35:10 -> a threshold pace of 7:02/km.
+  const ranges = paceZoneRanges(2110);
+  check('six zones, fastest first', ranges.map((r) => r.zoneNumber), [6, 5, 4, 3, 2, 1]);
+  check('the top zone has no floor and the bottom no ceiling',
+    [ranges[0]!.minSecPerKm, ranges[5]!.maxSecPerKm], [null, null]);
+  check('the threshold pace itself is the Z3/Z4 boundary',
+    ranges[2]!.maxSecPerKm, 422);
+  check('the boundaries run from fast to slow',
+    ranges.slice(1).every((r, i) => r.minSecPerKm! >= ranges[i]!.maxSecPerKm!), true);
+
+  const segments = [
+    { d: 1000, dt: 300, dd: 1000, dEle: 0 },   // 5:00/km, Z6 against a 7:02 threshold
+    { d: 2000, dt: 480, dd: 1000, dEle: 0 },   // 8:00/km
+    { d: 2100, dt: 900, dd: 100, dEle: 0 },    // standing at a crossing: not a pace
+  ];
+  const zones = paceZoneTimes(segments, ranges);
+  check('a stop is not a pace zone',
+    zones.reduce((sum, z) => sum + z.seconds, 0), 780);
+  check('time lands in the zone the pace belongs to',
+    zones.filter((z) => z.seconds > 0).map((z) => z.zoneNumber), [2, 6]);
+  check('the percentages are of the running, not of the clock',
+    zones.find((z) => z.zoneNumber === 6)?.percent, 38.5);
+
+  const gap = gapFromSegments([
+    { d: 1000, dt: 300, dd: 1000, dEle: 60 },
+    { d: 2000, dt: 300, dd: 1000, dEle: -60 },
+  ]);
+  check('the climb is worth more than the pace showed',
+    gap.series[0]!.gap < 300, true);
+  check('the descent is worth less', gap.series[1]!.gap > 300, true);
+  check('the GAP series has one point per segment', gap.series.length, 2);
+  check('a segment with no elevation is its own flat equivalent',
+    gapFromSegments([{ d: 1000, dt: 300, dd: 1000, dEle: null }]).avgGapSecPerKm, 300);
+
+  // Elevation noise between two one-second samples reads as a cliff, so
+  // segments are only cut once they are long enough to mean something.
+  const samples = Array.from({ length: 21 }, (_, i) => ({
+    t: i, d: i * 10, lat: null, lng: null, hr: null, ele: 5 + (i % 2), moving: true,
+  }));
+  check('short samples are merged up to the segment floor',
+    segmentsFromSamples(samples).map((s) => s.dd), [100, 100]);
+  check('the highest point on the route, not the last one',
+    elevationMax(samples), 6);
+  check('no elevation recorded is null, not zero', elevationMax([]), null);
+
+  check('steps are cadence over the moving time', stepsFromCadence(168, 3600), 10080);
+  check('no cadence means no step count', stepsFromCadence(null, 3600), null);
+
+  check('first place is a personal best, top ten is an achievement',
+    effortCounters([{ rank: 1 }, { rank: 1 }, { rank: 4 }, { rank: 22 }]),
+    { bestEver: 2, achievements: 3 });
+
+  check('a quoted, emphasised answer is unwrapped',
+    tidyInsight('  "**Strong finish** after a slow third km."  '),
+    'Strong finish after a slow third km.');
+  check('an empty answer is no answer', tidyInsight('   '), null);
+  check('an essay is not a one-liner', tidyInsight('x'.repeat(400)), null);
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -37,6 +37,14 @@ export const workoutSessions = sqliteTable('workout_sessions', {
   /** 0 when the number came from the wearable. */
   caloriesAreEstimated: bool('calories_are_estimated', true),
   perceivedExertion: integer('perceived_exertion'),
+  /** Highest point on the route, in metres — the stat grid's "độ cao tối đa". */
+  elevationMaxM: real('elevation_max_m'),
+  /** Average pace with the hills taken out of it (see services/runAnalysis.ts). */
+  gapSecPerKm: real('gap_sec_per_km'),
+  /** Cadence x moving minutes; null when the recorder gave no cadence. */
+  steps: integer('steps'),
+  /** The athlete saved this one from the detail screen's bookmark button. */
+  isBookmarked: bool('is_bookmarked', false),
   notes: text('notes'),
   isDeleted: bool('is_deleted', false),
   createdAt: tsNow('created_at'),
@@ -150,16 +158,23 @@ export const heartRateZones = sqliteTable('heart_rate_zones', {
   uniqueIndex('hr_zones_uq').on(t.userId, t.effectiveFrom, t.zoneNumber),
 ]);
 
-/** Time-in-zone, computed once from the stream at ingest. */
+export const ZONE_KINDS = ['hr', 'pace'] as const;
+
+/**
+ * Time-in-zone, computed once from the stream at ingest. Two kinds share the
+ * table because they are the same shape: heart-rate zones scored against the
+ * athlete's max HR, and pace zones scored against their predicted 5 km time.
+ */
 export const workoutZoneSummaries = sqliteTable('workout_zone_summaries', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   workoutSessionId: text('workout_session_id').notNull()
     .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: ZONE_KINDS }).notNull().default('hr'),
   zoneNumber: integer('zone_number').notNull(),
   secondsInZone: integer('seconds_in_zone').notNull(),
   percentOfSession: real('percent_of_session'),
 }, (t) => [
-  uniqueIndex('workout_zone_uq').on(t.workoutSessionId, t.zoneNumber),
+  uniqueIndex('workout_zone_uq').on(t.workoutSessionId, t.kind, t.zoneNumber),
 ]);
 
 /** Auto-detected after each session. Exactly one of the two source ids is set. */
@@ -185,4 +200,81 @@ export const personalRecords = sqliteTable('personal_records', {
   // Deleting a workout has to find what it set; nothing cascades from here.
   index('personal_records_session_idx').on(t.workoutSessionId),
   index('personal_records_set_idx').on(t.strengthSetId),
+]);
+
+/** Standard distances a run is scored over, in metres. */
+export const BEST_EFFORT_DISTANCES_M = [
+  400, 805, 1000, 1609, 3219, 5000, 10000, 15000, 21097, 42195,
+] as const;
+
+/**
+ * What one run did over a standard distance, and the place it took on the
+ * all-time board the day it was run. Unlike `personal_records` — which keeps
+ * one standing best per metric — every run that covers the distance gets a row,
+ * which is what lets the detail screen say "second fastest 2 miles ever" and
+ * what lets the map pin a medal at the stretch of road that earned it.
+ */
+export const workoutBestEfforts = sqliteTable('workout_best_efforts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  workoutSessionId: text('workout_session_id').notNull()
+    .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  activityTypeId: integer('activity_type_id').notNull().references(() => activityTypes.id),
+  distanceM: real('distance_m').notNull(),
+  elapsedSeconds: real('elapsed_seconds').notNull(),
+  /** Where along the route the effort started and ended, in cumulative metres. */
+  startDistanceM: real('start_distance_m').notNull(),
+  endDistanceM: real('end_distance_m').notNull(),
+  /** 1 = fastest ever at this distance. Frozen at ingest, never rewritten. */
+  rank: integer('rank').notNull(),
+  createdAt: tsNow('created_at'),
+}, (t) => [
+  uniqueIndex('workout_best_efforts_uq').on(t.workoutSessionId, t.distanceM),
+  index('workout_best_efforts_board_idx')
+    .on(t.userId, t.activityTypeId, t.distanceM, t.elapsedSeconds),
+]);
+
+/** Distances the athlete gets a predicted finishing time for. */
+export const PREDICTED_DISTANCES_M = [5000, 10000, 21097, 42195] as const;
+
+/**
+ * Riegel predictions, kept as history rather than one row per distance, so a
+ * run can show how much it moved the number. The session link is nullable:
+ * deleting a run must not delete the prediction line it was part of.
+ */
+export const racePredictions = sqliteTable('race_predictions', {
+  id: pkUuid(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  activityTypeId: integer('activity_type_id').notNull().references(() => activityTypes.id),
+  distanceM: real('distance_m').notNull(),
+  predictedSeconds: real('predicted_seconds').notNull(),
+  /** What the prediction was before this run; null for the first one. */
+  previousSeconds: real('previous_seconds'),
+  workoutSessionId: text('workout_session_id')
+    .references(() => workoutSessions.id, { onDelete: 'set null' }),
+  isCurrent: bool('is_current', true),
+  computedAt: tsNow('computed_at'),
+}, (t) => [
+  index('race_predictions_current_idx')
+    .on(t.userId, t.activityTypeId, t.distanceM, t.isCurrent),
+  index('race_predictions_session_idx').on(t.workoutSessionId),
+]);
+
+export const INSIGHT_KINDS = ['overview', 'pace', 'zones'] as const;
+
+/**
+ * The coach's one-liner about a run. Written once and read back: `input_hash`
+ * digests the numbers the model was shown, so re-deriving the stream (a crop, a
+ * re-upload) invalidates the line while opening the screen again does not.
+ */
+export const workoutInsights = sqliteTable('workout_insights', {
+  workoutSessionId: text('workout_session_id').notNull()
+    .references(() => workoutSessions.id, { onDelete: 'cascade' }),
+  kind: text('kind', { enum: INSIGHT_KINDS }).notNull(),
+  language: text('language').notNull(),
+  body: text('body').notNull(),
+  inputHash: text('input_hash').notNull(),
+  createdAt: tsNow('created_at'),
+}, (t) => [
+  primaryKey({ columns: [t.workoutSessionId, t.kind, t.language] }),
 ]);

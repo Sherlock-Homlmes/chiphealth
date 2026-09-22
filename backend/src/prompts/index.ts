@@ -26,6 +26,9 @@ import mealSpeech from './meal/speech.md';
 import mealEstimateSystem from './meal/estimate_system.md';
 import mealEstimateUser from './meal/estimate_user.md';
 import nutritionMealPlan from './nutrition/meal_plan.md';
+import workoutInsightSystem from './workout/insight_system.md';
+import workoutInsightUser from './workout/insight_user.md';
+import workoutInsightFocus from './workout/insight_focus.md';
 
 export const PROMPTS = {
   agentSystem,
@@ -49,6 +52,9 @@ export const PROMPTS = {
   mealEstimateSystem,
   mealEstimateUser,
   nutritionMealPlan,
+  workoutInsightSystem,
+  workoutInsightUser,
+  workoutInsightFocus,
 } as const;
 
 export type PromptVars = Record<string, string | number>;
