@@ -916,30 +916,34 @@ class _MealRow extends StatelessWidget {
       };
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              meal.dishName ??
-                  _typeLabel(context, meal.mealType) ??
-                  meal.mealType,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+  Widget build(BuildContext context) {
+    // "Bữa sáng - Phở bò": the meal type leads and the dish name follows.
+    // Hand-typed meals carry no dish name, so they keep the plain type label.
+    final type = _typeLabel(context, meal.mealType) ?? meal.mealType;
+    final dish = meal.dishName?.isNotEmpty == true ? meal.dishName : null;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                dish == null ? type : '$type - $dish',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
-          Text(
-            Units.kcal(meal.totalCaloriesKcal),
-            style: const TextStyle(fontSize: 13, color: RetroTokens.inkSoft),
-          ),
-        ],
+            Text(
+              Units.kcal(meal.totalCaloriesKcal),
+              style: const TextStyle(fontSize: 13, color: RetroTokens.inkSoft),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Activity mirrors the meals card: the day's sessions themselves, with the
