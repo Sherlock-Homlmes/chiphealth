@@ -217,6 +217,11 @@ check('vietnamese is routed to whisper',
   asrFamily(asrModelFor({} as never, 'vi')), 'whisper');
 check('english keeps the configured default',
   asrFamily(asrModelFor({ AI_ASR_MODEL: '@cf/deepgram/nova-3' } as never, 'en')), 'deepgram');
+// Nothing configured is Whisper, in every language: Nova-3 is opt-in now.
+check('the default is whisper', asrModelFor({} as never, 'en'),
+  '@cf/openai/whisper-large-v3-turbo');
+check('vietnamese default is whisper too', asrModelFor({} as never, 'vi'),
+  '@cf/openai/whisper-large-v3-turbo');
 check('an unknown language is treated as vietnamese',
   asrFamily(asrModelFor({ AI_ASR_MODEL: '@cf/deepgram/nova-3' } as never, 'fr')), 'whisper');
 // Whisper only reads the primary subtag, so a BCP-47 tag has to be trimmed.

@@ -5,9 +5,9 @@ import type { TranscribeOptions, TranscribeResult } from './types';
 /**
  * OpenAI Whisper on Workers AI (`@cf/openai/whisper-large-v3-turbo`).
  *
- * Kept beside the Deepgram path rather than replaced: switching back is an
- * `AI_ASR_MODEL` change and nothing else, so a regression on one model is an
- * env var away from being undone.
+ * The default on every language. The Deepgram path is kept beside it rather
+ * than deleted: switching back is an `AI_ASR_MODEL` change and nothing else,
+ * so a regression on one model is an env var away from being undone.
  *
  * Whisper takes the clip base64-encoded in `audio` and ignores the content
  * type — it sniffs the container itself.

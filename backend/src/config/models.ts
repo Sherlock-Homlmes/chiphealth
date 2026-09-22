@@ -32,10 +32,12 @@ export function modelConfig(env: Bindings) {
     embeddingDimensions: num(env.AI_EMBEDDING_DIMENSIONS, 1024),
     /**
      * Speech-to-text. Deepgram ids take the Nova-3 request shape, everything
-     * else takes Whisper's — see services/speech/index.ts. Setting this back
-     * to `@cf/openai/whisper-large-v3-turbo` is all it takes to switch models.
+     * else takes Whisper's — see services/speech/index.ts. Whisper is the
+     * default on every language: Nova-3 mishears enough of what people say
+     * that the better English word error rate never arrives in practice.
+     * Setting this to `@cf/deepgram/nova-3` is all it takes to switch back.
      */
-    asr: env.AI_ASR_MODEL ?? '@cf/deepgram/nova-3',
+    asr: env.AI_ASR_MODEL ?? '@cf/openai/whisper-large-v3-turbo',
     rerank: env.AI_RERANK_MODEL ?? '@cf/baai/bge-reranker-base',
     rerankEnabled: env.RERANK_ENABLED === 'true',
     promptVersion: env.PROMPT_VERSION ?? 'meal-v1',
