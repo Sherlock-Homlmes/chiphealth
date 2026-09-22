@@ -10,6 +10,13 @@ const _snoreWin = SleepWindowScores(snore: 0.6, sleepTalk: 0.05, cough: 0.05);
 const _talkWin = SleepWindowScores(snore: 0.05, sleepTalk: 0.55, cough: 0.05);
 const _coughWin = SleepWindowScores(snore: 0.05, sleepTalk: 0.05, cough: 0.6);
 const _noneWin = SleepWindowScores(snore: 0.05, sleepTalk: 0.05, cough: 0.05);
+// A podcast: the speech group fires exactly as it would for sleep-talking.
+const _mediaWin = SleepWindowScores(
+  snore: 0.05,
+  sleepTalk: 0.55,
+  cough: 0.05,
+  media: 0.70,
+);
 
 /// Scripted classifier: answers in order and counts calls so tests can assert
 /// what the silence gate skipped. Only windows above the silence floor ever
@@ -69,6 +76,34 @@ void main() {
       expect(String.fromCharCodes(wav.sublist(36, 40)), 'data');
       expect(d.getUint32(40, Endian.little), 4);
       expect(wav.length, 48);
+    });
+  });
+
+  group('media veto', () {
+    test('a podcast is not sleep-talking', () {
+      expect(_talkWin.strongest(), isNotNull);
+      expect(_mediaWin.strongest(), isNull);
+      expect(_mediaWin.isMedia, isTrue);
+    });
+
+    test('snoring still counts with the radio on', () {
+      const overMedia = SleepWindowScores(
+        snore: 0.6,
+        sleepTalk: 0.55,
+        cough: 0.05,
+        media: 0.70,
+      );
+      expect(overMedia.strongest(), ('snore', 0.6));
+    });
+
+    test('quiet media does not veto a real cough', () {
+      const faintMusic = SleepWindowScores(
+        snore: 0.05,
+        sleepTalk: 0.05,
+        cough: 0.6,
+        media: 0.20,
+      );
+      expect(faintMusic.strongest(), ('cough', 0.6));
     });
   });
 
@@ -350,6 +385,58 @@ void main() {
       expect(rems.first.startedAt, greaterThanOrEqualTo(70 * 60000));
       // The two interleave: deep is not all before every REM.
       expect(deeps.last.startedAt, greaterThan(rems.first.startedAt));
+    });
+
+    test('a loud room is not a sleepless night', () async {
+      // The bug: gates were absolute, so a night under a fan / an air
+      // conditioner / a white-noise track sat above the -20 awake line from
+      // lights-out to morning and came back as 40 minutes of pure awake with
+      // no deep sleep in it. The floor here is ~-18 dBFS for the whole night;
+      // nothing ever rises above it, so nothing is awake.
+      const nightMinutes = 40;
+      final windows = (nightMinutes * 60 / 0.975).floor();
+
+      final analyzer = NightAnalyzer(
+        startedAt: 0,
+        classifier: _FakeClassifier(const [_noneWin]),
+      );
+      for (var i = 0; i < windows; i++) {
+        analyzer.pushBytes(_pcm(_awakeAmp));
+      }
+      await analyzer.idle;
+
+      final stages = analyzer.finish(endedAt: nightMinutes * 60000).stages;
+      expect(stages, isNotNull);
+      expect(stages!.where((s) => s.stage == 'awake'), isEmpty);
+      expect(stages.where((s) => s.stage == 'deep'), isNotEmpty);
+    });
+
+    test('a loud stretch of media is not an awake stretch', () async {
+      // Same six loud minutes as the three-hour night's awake stretch, but
+      // scored as media: the phone is playing, its owner is not up.
+      const nightMinutes = 60;
+      final windows = (nightMinutes * 60 / 0.975).floor();
+      bool isMediaMinute(int m) => m >= 30 && m < 36;
+
+      final script = <SleepWindowScores?>[
+        for (var i = 0; i < windows; i++)
+          if (isMediaMinute((i * 975) ~/ 60000)) _mediaWin,
+      ];
+      final fake = _FakeClassifier(script);
+      final analyzer = NightAnalyzer(startedAt: 0, classifier: fake);
+
+      for (var i = 0; i < windows; i++) {
+        final minute = (i * 975) ~/ 60000;
+        analyzer.pushBytes(_pcm(isMediaMinute(minute) ? _awakeAmp : _quietAmp));
+      }
+      await analyzer.idle;
+
+      final result = analyzer.finish(endedAt: nightMinutes * 60000);
+      expect(fake.calls, script.length);
+      // Vetoed: those windows scored 0.55 on the speech group.
+      expect(result.events, isEmpty);
+      expect(result.stages, isNotNull);
+      expect(result.stages!.where((s) => s.stage == 'awake'), isEmpty);
     });
 
     test('a half-hour nap gets no REM', () async {

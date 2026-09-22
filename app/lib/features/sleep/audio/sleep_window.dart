@@ -1,7 +1,8 @@
 import 'dart:typed_data';
 
 /// Scores for one 0.975 s analysis window, already reduced from YAMNet's 521
-/// AudioSet classes to the three event vocabularies the sleep API accepts.
+/// AudioSet classes to the three event vocabularies the sleep API accepts —
+/// plus [media], which is not an event but a veto.
 ///
 /// YAMNet emits independent sigmoids (not a softmax), so several groups can be
 /// high at once; the analyzer, not the classifier, decides which one wins.
@@ -10,20 +11,39 @@ class SleepWindowScores {
     required this.snore,
     required this.sleepTalk,
     required this.cough,
+    this.media = 0,
   });
 
   final double snore;
   final double sleepTalk;
   final double cough;
 
+  /// Music, a podcast, a TV left on, a white-noise track. Nobody's sleep is
+  /// in here, but a mic cannot tell a singer from a sleeper and the speech
+  /// group fires all night on a podcast. The score exists to cancel the
+  /// others, never to produce an event of its own.
+  final double media;
+
+  /// Is this window mostly the room's background playback? The analyzer uses
+  /// it at minute granularity: a loud minute that is all media is not an
+  /// awake minute, it is a minute with the radio on.
+  bool get isMedia => media >= 0.50;
+
   /// Highest group score and its event type, or null when nothing clears its
   /// own threshold. Ties resolve towards the rarer event (talk > cough >
   /// snore) so a mixed window is not swallowed by the usually-loudest snore.
+  ///
+  /// [media] vetoes before any of that. Sung and spoken media land squarely
+  /// in the speech group, so a podcast at 2 a.m. would otherwise be written
+  /// down as an hour of sleep-talking; a laugh track does the same to cough.
+  /// Snoring is not vetoed — no music scores as a snore, and a night with the
+  /// radio on is exactly when the snore count still has to be right.
   (String, double)? strongest() {
     const order = ['sleep_talk', 'cough', 'snore'];
+    final mediaOverSpeech = media >= 0.30 && media >= sleepTalk;
     final candidates = {
-      'sleep_talk': (sleepTalk, 0.30),
-      'cough': (cough, 0.30),
+      'sleep_talk': (mediaOverSpeech ? 0.0 : sleepTalk, 0.30),
+      'cough': (isMedia ? 0.0 : cough, 0.30),
       'snore': (snore, 0.25),
     };
     String? bestType;

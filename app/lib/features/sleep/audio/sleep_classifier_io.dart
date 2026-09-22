@@ -29,9 +29,32 @@ class _YamnetClassifier implements SleepAudioClassifier {
   //    0 Speech          2 Conversation     3 Narration      4 Babbling
   //   12 Whispering     13 Laughter        33 Groan         34 Grunt
   //   42 Cough          43 Throat clearing
+  //
+  // The media group is the veto (see SleepWindowScores.media): everything a
+  // speaker in the room produces all night long, rather than a sleeper.
+  // Generic "Noise" (507) is deliberately left out — it fires on a person
+  // moving around too, and vetoing that would hide real awake minutes.
+  //
+  //    5 Speech synthesizer   24 Singing        132 Music
+  //  133 Musical instrument  262 Background music  263 Theme music
+  //  264 Jingle (music)      265 Soundtrack music  514 White noise
+  //  518 Television          519 Radio
   static const _snoreClasses = {38, 41};
   static const _talkClasses = {0, 2, 3, 4, 12, 13, 33, 34};
   static const _coughClasses = {42, 43};
+  static const _mediaClasses = {
+    5,
+    24,
+    132,
+    133,
+    262,
+    263,
+    264,
+    265,
+    514,
+    518,
+    519,
+  };
 
   @override
   Future<SleepWindowScores?> classify(Float32List samples) async {
@@ -55,6 +78,7 @@ class _YamnetClassifier implements SleepAudioClassifier {
       snore: maxOf(_snoreClasses),
       sleepTalk: maxOf(_talkClasses),
       cough: maxOf(_coughClasses),
+      media: maxOf(_mediaClasses),
     );
   }
 }

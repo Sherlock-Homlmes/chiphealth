@@ -54,15 +54,31 @@ class _MinuteStat {
   int talkWindows = 0;
   int eventWindows = 0;
 
+  /// Windows this minute that were the room's own playback (music, a
+  /// podcast, a white-noise track) rather than the sleeper.
+  int mediaWindows = 0;
+
+  /// The adaptive gates as they stood while this minute was recorded — the
+  /// hypnogram is built after the fact, when the floor has moved on. Null
+  /// until the minute has seen a window.
+  double? awakeGateDb;
+  double? quietGateDb;
+
   double get meanDb => windows == 0 ? -96 : dbSum / windows;
 }
 
 /// Turns a night of streamed mic PCM into events + an estimated hypnogram.
 ///
 /// Pipeline per 0.975 s window (exactly one YAMNet input):
-///   bytes -> RMS dBFS -> below the silence floor? -> quiet, no inference
+///   bytes -> RMS dBFS -> below the silence gate? -> quiet, no inference
 ///   (this is the battery saver: most of a night is silence) -> else YAMNet
-///   -> group scores -> event coalescing / minute stats.
+///   -> group scores -> media veto -> event coalescing / minute stats.
+///
+/// Every loudness gate is relative to a rolling floor (a low percentile of
+/// the last ~10 minutes), not to a fixed dBFS constant: a fan, a road, or a
+/// white-noise track raises the whole night by 20 dB, and fixed gates then
+/// read that as one long awake with no deep sleep in it. The constants
+/// survive as lower bounds for a genuinely silent room.
 ///
 /// Events coalesce while the same type keeps firing; ~3 s of quiet closes one.
 /// Clips come from a rolling byte ring: pre-roll before onset, a couple of
@@ -88,6 +104,14 @@ class NightAnalyzer {
     this.silenceFloorDb = -45,
     this.awakeDb = -20,
     this.quietDb = -35,
+    this.gateOverFloorDb = 6,
+    this.awakeOverFloorDb = 12,
+    this.quietOverFloorDb = 5,
+    this.maxSilenceGateDb = -25,
+    this.floorWindows = 600,
+    this.floorWarmupWindows = 120,
+    this.floorRefreshWindows = 30,
+    this.floorPercentile = 0.2,
     this.maxEvents = 80,
     this.maxSnoreClips = 12,
     this.maxClipSeconds = 15,
@@ -98,9 +122,38 @@ class NightAnalyzer {
   final int startedAt; // ms epoch
   final SleepAudioClassifier? classifier;
   final int sampleRate;
+
+  /// Absolute gates. Each one is a lower bound now: the effective gate is
+  /// whichever is higher, the constant or the room's own floor plus the
+  /// matching offset below.
   final double silenceFloorDb;
   final double awakeDb;
   final double quietDb;
+
+  /// How far above the measured floor each gate sits. A room is never
+  /// silent — a fan, a road, the phone's own white-noise track — and with
+  /// fixed gates a background at -30 dBFS made every minute of the night
+  /// read as awake and none of it as deep, because both gates were written
+  /// for a floor at -80. Everything is relative to what the room actually
+  /// sounds like when nothing is happening.
+  final double gateOverFloorDb;
+  final double awakeOverFloorDb;
+  final double quietOverFloorDb;
+
+  /// Ceiling on the adaptive silence gate. A heavy snorer can push the floor
+  /// itself up to snore level; without this the gate would climb past the
+  /// snores and the night would record nothing at all.
+  final double maxSilenceGateDb;
+
+  /// Floor tracking: a rolling [floorWindows] (~10 min) of window loudness,
+  /// recomputed every [floorRefreshWindows] (~30 s) because sorting on every
+  /// window is pointless at this time scale. Below [floorWarmupWindows] the
+  /// night has not heard enough to have an opinion and the absolute gates
+  /// stand alone.
+  final int floorWindows;
+  final int floorWarmupWindows;
+  final int floorRefreshWindows;
+  final double floorPercentile;
   final int maxEvents;
   final int maxSnoreClips;
   final int maxClipSeconds;
@@ -130,6 +183,11 @@ class NightAnalyzer {
   int _carry = -1; // stray byte of an int16 split across chunks
   int _samplesSeen = 0;
   int _classifiedWindows = 0;
+
+  // Rolling loudness floor: the room with nothing happening in it.
+  final _recentDb = ListQueue<double>();
+  double _floorDb = -96;
+  int _floorCountdown = 1;
 
   // Rolling PCM ring for clip extraction.
   final _chunks = ListQueue<Uint8List>();
@@ -194,24 +252,52 @@ class NightAnalyzer {
     final startMs = startedAt + (firstSample * 1000 / sampleRate).round();
     final endMs = startMs + _windowMs;
 
+    _trackFloor(db);
+
     final minute = _minutes.putIfAbsent(
       (startMs - startedAt) ~/ 60000,
       _MinuteStat.new,
     );
     minute.dbSum += db;
     minute.windows++;
+    minute.awakeGateDb = _awakeGateDb;
+    minute.quietGateDb = _quietGateDb;
+
+    // The gate is read here, not inside the chain: by the time an inference
+    // is dequeued the floor has moved, and a window must be judged against
+    // the room it was recorded in.
+    final gate = _silenceGateDb;
 
     // Everything the state machine sees goes through the same queue — a quiet
     // window's bookkeeping must not overtake an in-flight classification of
     // an earlier window, or event boundaries scramble. Minute stats above are
     // order-independent, so they stay synchronous.
+    //
+    // The quiet path is queued from here and the classified path from its own
+    // method on purpose: a closure keeps everything its scope captured alive
+    // until it runs, and most of a night is quiet. With one shared closure a
+    // seven-hour night held every 62 kB window it ever heard in the queue —
+    // over a gigabyte — for a decision that never looked at the samples.
+    if (db < gate || classifier == null) {
+      _queue = _queue.then((_) => _advanceEvent(null, startMs, endMs, db));
+      return;
+    }
+    _enqueueClassify(samples, minute, startMs, endMs, db);
+  }
+
+  /// Queues one window for inference. Separate scope, so the samples it holds
+  /// are reachable only while this window is waiting its turn.
+  void _enqueueClassify(
+    Float32List samples,
+    _MinuteStat minute,
+    int startMs,
+    int endMs,
+    double db,
+  ) {
     _queue = _queue.then((_) async {
-      if (db < silenceFloorDb || classifier == null) {
-        _advanceEvent(null, startMs, endMs, db);
-        return;
-      }
       final scores = await classifier!.classify(samples);
       _classifiedWindows++;
+      if (scores != null && scores.isMedia) minute.mediaWindows++;
       final best = scores?.strongest();
       if (best != null) {
         final (type, confidence) = best;
@@ -223,6 +309,37 @@ class NightAnalyzer {
       }
     });
   }
+
+  /// Keeps the rolling loudness floor: a low percentile of the last
+  /// [floorWindows] windows, which is the room between events. A mean would
+  /// be dragged up by every snore; a minimum would sit on the one freak
+  /// silent window. The percentile is both robust and cheap, and it follows
+  /// a background that starts or stops mid-night within a couple of minutes.
+  void _trackFloor(double db) {
+    _recentDb.addLast(db);
+    if (_recentDb.length > floorWindows) _recentDb.removeFirst();
+    if (_recentDb.length < floorWarmupWindows) return; // gates stay absolute
+    if (--_floorCountdown > 0) return;
+    _floorCountdown = floorRefreshWindows;
+
+    final sorted = List.of(_recentDb)..sort();
+    final i = (sorted.length * floorPercentile).floor().clamp(
+      0,
+      sorted.length - 1,
+    );
+    _floorDb = sorted[i];
+  }
+
+  /// Below this a window is not worth an inference. Capped so a loud night
+  /// cannot gate itself into recording nothing.
+  double get _silenceGateDb => math.min(
+    maxSilenceGateDb,
+    math.max(silenceFloorDb, _floorDb + gateOverFloorDb),
+  );
+
+  double get _awakeGateDb => math.max(awakeDb, _floorDb + awakeOverFloorDb);
+
+  double get _quietGateDb => math.max(quietDb, _floorDb + quietOverFloorDb);
 
   /// Feeds the event state machine — synchronously for quiet windows, from
   /// the async chain for classified ones.
@@ -367,11 +484,17 @@ class NightAnalyzer {
 
     // 1) Awake: sustained loud minutes without sleep-event windows (a snoring
     //    minute is asleep even when loud). A lone loud minute is a turn-over.
+    //    Media windows count as "explained" the same way events do: a minute
+    //    loud because the podcast is still playing says nothing about whether
+    //    its owner is awake, and before this it said "awake" every time.
     var awakeRun = 0;
     for (var m = 0; m < nightMinutes; m++) {
       final s = stats[m];
+      final explained = s.eventWindows + s.mediaWindows;
       final loud =
-          s.meanDb > awakeDb && s.windows > 0 && s.eventWindows * 2 < s.windows;
+          s.meanDb > (s.awakeGateDb ?? awakeDb) &&
+          s.windows > 0 &&
+          explained * 2 < s.windows;
       if (loud) {
         if (++awakeRun >= 2) {
           labels[m] = 'awake';
@@ -416,7 +539,9 @@ class NightAnalyzer {
 
       // Quiet minutes can be deep; a loud one is light at best. Talking is the
       // one REM tell a microphone has.
-      final quiet = stats[m].meanDb < quietDb ? 1.0 : 0.2;
+      final quiet = stats[m].meanDb < (stats[m].quietGateDb ?? quietDb)
+          ? 1.0
+          : 0.2;
       final talk = (stats[m].talkWindows / 3).clamp(0.0, 1.0);
 
       deepScore[m] = t < _deepLatencyMinutes
