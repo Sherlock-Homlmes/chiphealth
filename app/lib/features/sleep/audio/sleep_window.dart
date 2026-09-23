@@ -38,12 +38,21 @@ class SleepWindowScores {
   /// down as an hour of sleep-talking; a laugh track does the same to cough.
   /// Snoring is not vetoed — no music scores as a snore, and a night with the
   /// radio on is exactly when the snore count still has to be right.
-  (String, double)? strongest() {
+  ///
+  /// [roomPlayback] is the same veto arrived at from outside: the OS saying
+  /// this phone is playing something. It exists because [media] only knows
+  /// the sounds AudioSet calls media — music, a jingle, a TV, white noise —
+  /// and a spoken podcast or audiobook is none of them. To the model it is
+  /// speech in a bedroom at 3 a.m., which is the definition of sleep-talking,
+  /// and no threshold on [media] can separate the two. What the phone is
+  /// playing can.
+  (String, double)? strongest({bool roomPlayback = false}) {
     const order = ['sleep_talk', 'cough', 'snore'];
-    final mediaOverSpeech = media >= 0.30 && media >= sleepTalk;
+    final mediaOverSpeech =
+        roomPlayback || (media >= 0.30 && media >= sleepTalk);
     final candidates = {
       'sleep_talk': (mediaOverSpeech ? 0.0 : sleepTalk, 0.30),
-      'cough': (isMedia ? 0.0 : cough, 0.30),
+      'cough': (roomPlayback || isMedia ? 0.0 : cough, 0.30),
       'snore': (snore, 0.25),
     };
     String? bestType;

@@ -66,6 +66,12 @@ dependencies:
                              # repo's Docker build image does not ship; 0.11 ships the
                              # prebuilt .so and needs no native toolchain.
   just_audio: ^0.9.42         # per-event clip playback
+  audio_session: ^0.1.25      # already resolved under just_audio; promoted to a
+                             # direct dep for one question the night recorder
+                             # asks the OS — AndroidAudioManager.isMusicActive /
+                             # AVAudioSession.isOtherAudioPlaying — so a podcast
+                             # the user fell asleep to is not filed as
+                             # sleep-talking. No new native build requirements.
   flutter_foreground_task: ^11.0.3  # Android mic foreground service for the
                              # night recorder. v11 needs Kotlin 2.2.20+ /
                              # Gradle 8.11.1+ (bumped in android/), and is

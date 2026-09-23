@@ -15,6 +15,8 @@ import '../../widgets/retro_widgets.dart';
 import 'audio/night_analyzer.dart';
 import 'sleep_review_screen.dart';
 import 'sleep_screen.dart';
+import 'audio/room_playback.dart';
+import 'audio/room_playback_factory.dart';
 import 'audio/sleep_classifier_factory.dart';
 import '../../core/l10n/gen/app_localizations.dart';
 
@@ -53,9 +55,19 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
   StreamSubscription<Uint8List>? _streamSub;
   NightAnalyzer? _analyzer;
 
+  /// Whether the phone is playing something, refreshed on a timer and read
+  /// synchronously by the analyzer. A platform call per window would be
+  /// thousands of round trips a night for a fact that changes when somebody
+  /// starts or stops a track; every five seconds is finer than the shortest
+  /// event the pipeline can emit.
+  RoomPlaybackProbe? _playbackProbe;
+  Timer? _playbackPoll;
+  bool _roomPlayback = false;
+
   @override
   void dispose() {
     _ticker?.cancel();
+    _playbackPoll?.cancel();
     _streamSub?.cancel();
     _recorder?.stop();
     _recorder?.dispose();
@@ -109,6 +121,41 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
     );
   }
 
+  /// A podcast, an audiobook or a sleep playlist is speech to the mic, and
+  /// speech in a dark bedroom is what sleep-talking looks like — the
+  /// classifier's media classes only recognise music, a TV and white noise,
+  /// so spoken playback sailed through them and was written down as talking
+  /// all night. Echo cancellation does not close this either: it cancels
+  /// this phone's own speaker, not a Bluetooth box across the room.
+  ///
+  /// So the recorder asks the OS instead. While something is playing, the
+  /// analyzer drops sleep_talk and cough — snore survives, because nothing
+  /// on a playlist scores as snoring and a night with the radio on is
+  /// exactly when the snore count still has to be right — and the minute is
+  /// booked as media, which already stops the hypnogram calling it awake.
+  void _startPlaybackPoll() {
+    final probe = createRoomPlaybackProbe();
+    _playbackProbe = probe;
+    if (probe == null) return;
+
+    Future<void> sample() async {
+      final playing = await probe.isPlaying();
+      // Ignore an answer that arrived after the night ended.
+      if (_playbackProbe == null) return;
+      _roomPlayback = playing;
+    }
+
+    sample();
+    _playbackPoll = Timer.periodic(const Duration(seconds: 5), (_) => sample());
+  }
+
+  void _stopPlaybackPoll() {
+    _playbackPoll?.cancel();
+    _playbackPoll = null;
+    _playbackProbe = null;
+    _roomPlayback = false;
+  }
+
   Future<void> _stopKeepAlive() async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
     try {
@@ -140,7 +187,9 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
         final analyzer = NightAnalyzer(
           startedAt: started.millisecondsSinceEpoch,
           classifier: classifier,
+          roomPlayback: () => _roomPlayback,
         );
+        _startPlaybackPoll();
         final recorder = AudioRecorder();
         await _startKeepAlive();
         // Echo cancellation keeps the phone's own night sounds — white
@@ -212,6 +261,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
         await _streamSub?.cancel();
         await _recorder?.dispose();
         await _stopKeepAlive();
+        _stopPlaybackPoll();
         _streamSub = null;
         _recorder = null;
         _analyzer = null;
@@ -243,6 +293,7 @@ class _NightRecorderScreenState extends ConsumerState<NightRecorderScreen> {
       await _recorder?.stop();
       await _recorder?.dispose();
       await _stopKeepAlive();
+      _stopPlaybackPoll();
       _streamSub = null;
       _recorder = null;
 

@@ -74,6 +74,11 @@ class _MinuteStat {
 ///   (this is the battery saver: most of a night is silence) -> else YAMNet
 ///   -> group scores -> media veto -> event coalescing / minute stats.
 ///
+/// The media veto has two independent inputs: YAMNet's own media classes, and
+/// [roomPlayback] — the OS saying this phone is playing something. The second
+/// one exists because the first cannot hear the difference between a podcast
+/// and a sleeper; see SleepWindowScores.strongest.
+///
 /// Every loudness gate is relative to a rolling floor (a low percentile of
 /// the last ~10 minutes), not to a fixed dBFS constant: a fan, a road, or a
 /// white-noise track raises the whole night by 20 dB, and fixed gates then
@@ -100,6 +105,7 @@ class NightAnalyzer {
   NightAnalyzer({
     required this.startedAt,
     required this.classifier,
+    this.roomPlayback,
     this.sampleRate = 16000,
     this.silenceFloorDb = -45,
     this.awakeDb = -20,
@@ -121,6 +127,13 @@ class NightAnalyzer {
 
   final int startedAt; // ms epoch
   final SleepAudioClassifier? classifier;
+
+  /// Is the phone itself playing something right now? Read synchronously,
+  /// once per window, because by the time an inference comes back the track
+  /// may have stopped and the window has to be judged against the room it
+  /// was recorded in. Null on platforms that cannot answer.
+  final bool Function()? roomPlayback;
+
   final int sampleRate;
 
   /// Absolute gates. Each one is a lower bound now: the effective gate is
@@ -282,7 +295,14 @@ class NightAnalyzer {
       _queue = _queue.then((_) => _advanceEvent(null, startMs, endMs, db));
       return;
     }
-    _enqueueClassify(samples, minute, startMs, endMs, db);
+    _enqueueClassify(
+      samples,
+      minute,
+      startMs,
+      endMs,
+      db,
+      roomPlayback?.call() ?? false,
+    );
   }
 
   /// Queues one window for inference. Separate scope, so the samples it holds
@@ -293,12 +313,13 @@ class NightAnalyzer {
     int startMs,
     int endMs,
     double db,
+    bool playing,
   ) {
     _queue = _queue.then((_) async {
       final scores = await classifier!.classify(samples);
       _classifiedWindows++;
-      if (scores != null && scores.isMedia) minute.mediaWindows++;
-      final best = scores?.strongest();
+      if (playing || (scores?.isMedia ?? false)) minute.mediaWindows++;
+      final best = scores?.strongest(roomPlayback: playing);
       if (best != null) {
         final (type, confidence) = best;
         minute.eventWindows++;

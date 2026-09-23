@@ -131,8 +131,10 @@ void main() {
       'analysis': {'status': 'running', 'createdAt': startedAt},
     });
 
-    test('the deadline is five minutes', () {
-      expect(MealLog.analysisTimeout, const Duration(minutes: 5));
+    test('the deadline is ten minutes', () {
+      // Must match the server's own clock on `meal_ai_analyses`; it was
+      // raised from five in 96cb333 and this side was left behind.
+      expect(MealLog.analysisTimeout, const Duration(minutes: 10));
     });
 
     test('the server verdict is parsed and marks a failed draft', () {

@@ -105,6 +105,38 @@ void main() {
       );
       expect(faintMusic.strongest(), ('cough', 0.6));
     });
+
+    test('a spoken audiobook is only caught by the OS', () {
+      // No music, no jingle, no TV: an audiobook scores as speech and
+      // nothing else, so the media group stays at the floor and the veto
+      // that reads it cannot fire. This is the window that filed a whole
+      // night of listening as sleep-talking.
+      const audiobook = SleepWindowScores(
+        snore: 0.05,
+        sleepTalk: 0.55,
+        cough: 0.05,
+        media: 0.04,
+      );
+      expect(audiobook.strongest(), ('sleep_talk', 0.55));
+      expect(audiobook.isMedia, isFalse);
+      expect(audiobook.strongest(roomPlayback: true), isNull);
+    });
+
+    test('a cough is not reported over the phone\'s own audio', () {
+      const coughOverPlayback = SleepWindowScores(
+        snore: 0.05,
+        sleepTalk: 0.05,
+        cough: 0.6,
+      );
+      expect(coughOverPlayback.strongest(roomPlayback: true), isNull);
+    });
+
+    test('snoring still counts while the phone plays', () {
+      // The reason snore is never vetoed: nothing on a playlist scores as
+      // one, and a night spent listening is exactly when the count has to
+      // stay right.
+      expect(_snoreWin.strongest(roomPlayback: true), ('snore', 0.6));
+    });
   });
 
   group('windowing + silence gate', () {
@@ -437,6 +469,53 @@ void main() {
       expect(result.events, isEmpty);
       expect(result.stages, isNotNull);
       expect(result.stages!.where((s) => s.stage == 'awake'), isEmpty);
+    });
+
+    test('a night spent listening is neither talking nor awake', () async {
+      // The whole night is a podcast at conversation volume: loud windows,
+      // speech scores, and NOT a single media class — the shape the mic
+      // cannot tell from a sleeper who never shuts up. The OS says the phone
+      // is playing, and that is the only thing standing between the user and
+      // sixty minutes of invented sleep-talk.
+      const nightMinutes = 60;
+      final windows = (nightMinutes * 60 / 0.975).floor();
+      const podcast = SleepWindowScores(
+        snore: 0.05,
+        sleepTalk: 0.55,
+        cough: 0.05,
+        media: 0.04,
+      );
+
+      var playing = true;
+      final analyzer = NightAnalyzer(
+        startedAt: 0,
+        classifier: _FakeClassifier(List.filled(windows, podcast)),
+        roomPlayback: () => playing,
+      );
+      for (var i = 0; i < windows; i++) {
+        analyzer.pushBytes(_pcm(_awakeAmp));
+      }
+      await analyzer.idle;
+
+      final result = analyzer.finish(endedAt: nightMinutes * 60000);
+      expect(result.events, isEmpty);
+      expect(result.stages, isNotNull);
+      // Loud all night, but explained: the phone was playing, not the user
+      // lying awake.
+      expect(result.stages!.where((s) => s.stage == 'awake'), isEmpty);
+
+      // And when the sleep timer cuts the audio, talking is heard again.
+      playing = false;
+      final after = NightAnalyzer(
+        startedAt: 0,
+        classifier: _FakeClassifier(List.filled(8, podcast)),
+        roomPlayback: () => playing,
+      );
+      for (var i = 0; i < 8; i++) {
+        after.pushBytes(_pcm(_loudAmp));
+      }
+      await after.idle;
+      expect(after.finish().events.single.eventType, 'sleep_talk');
     });
 
     test('a half-hour nap gets no REM', () async {
